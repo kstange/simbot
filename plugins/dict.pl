@@ -28,9 +28,10 @@ use Net::Dict;
 sub look_up {
     my ($kernel, $nick, $channel, $command) = @_;
 	my $line = join(' ', @_[ 4 .. $#_ ]);
-	$line =~ /^\"?(.+?)\"?( in (\w+))?$/i;
+	$line =~ /^\"?(.+?)\"?( in (\w+))?( (privately|publicly))?$/i;
 	my $term = $1;
 	my $dictionary = $3;
+	my $destination = (defined $5 ? $5 : "default");
 
 	my $dict = Net::Dict->new("pan.alephnull.com",
 							  Client => SimBot::PROJECT . " " . SimBot::VERSION,
@@ -73,13 +74,17 @@ sub look_up {
 			my $definition = ${${$def}[0]}[1];
 			$dictionary = ${${$def}[0]}[0];
 			$definition =~ s/\s+/ /g;
+			$definition = &SimBot::parse_style("%uline%From the $dbs{$dictionary}:%uline% $definition");
 
-			if (length($definition) > 400 && $command !~ /_private$/) {
-				&SimBot::send_message($channel, "$nick: I found a definition in the $dbs{$dictionary}, but it is " . length($definition) . " bytes long. Type \"" . $command . "_private $term in $dictionary\" to see it privately.");
-			} elsif ($command =~ /_private$/) {
-				&SimBot::send_pieces($nick, undef, "From the $dbs{$dictionary}: $definition");
+			if ((length($definition) > 440 && $destination eq "default") ||
+				(length($definition) > 1320 && $destination eq "publicly")) {
+				&SimBot::send_message($channel, &SimBot::parse_style("$nick: I found a definition in the $dbs{$dictionary}, but it is too long to display in the channel. Type %bold%" . $command . " \"$term\" in $dictionary privately%bold% to see it privately."));
+			} elsif ($destination eq "publicly") {
+				&SimBot::send_pieces($channel, "$nick:", $definition);
+			} elsif ($destination eq "privately") {
+				&SimBot::send_pieces($nick, undef, $definition);
 			} else {
-				&SimBot::send_message($channel, "$nick: From the $dbs{$dictionary}: $definition");
+				&SimBot::send_message($channel, "$nick: $definition");
 			}
 		} else {
 			&SimBot::send_message($channel, "$nick: I could not find a definition for $term in " . (defined $dictionary ? "the $dbs{$dictionary}" : "any available dictionaries") . ".");
@@ -92,12 +97,6 @@ sub look_up {
 # Register Plugin
 &SimBot::plugin_register(plugin_id   => "define",
 						 plugin_desc => "Defines the term. Follow a term by 'in' and a dictionary name to search an alternate dictionary.",
-
-						 event_plugin_call => \&look_up,
-						 );
-
-&SimBot::plugin_register(plugin_id   => "define_private",
-						 plugin_desc => "Defines the term privately to you.",
 
 						 event_plugin_call => \&look_up,
 						 );

@@ -1,3 +1,11 @@
+Version 6.0 alpha: (13 Jul 2004)
+	* plugins/dict.pl:
+	  - %define_private command is gone, replaced with a parameter to the
+	    normal command.
+	  - Relatively short definitions can now be forced to display in the
+	    channel with "%define word publicly", but long definitions will
+	    still insist upon appearing privately.
+
 Version 6.0 alpha: (11 Jul 2004)
 	* plugins/rss.pl:
 	  - The RSS plugin no longer downloads feeds that aren't being
