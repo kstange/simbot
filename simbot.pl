@@ -421,11 +421,42 @@ sub get_seen {
             my ($kicked,$reason) = split(/!/, $seenData, 2);
             $doing = "kicking $kicked ($reason)";
         }
-        my $response = "I last saw $person at " . localtime($when) . " ${doing}.";
+        my $response = "I last saw $person " . timeago($when) . " ago ${doing}.";
         $kernel->post(bot => privmsg => $channel, "$nick: $response");
     } else {
         $kernel->post(bot => privmsg => $channel, "$nick: I have not seen $person.");
     }
+}
+
+# TIMEAGO: Returns a string of how long ago something happened
+sub timeago {
+    my ($seconds, $minutes, $hours, $days, $weeks, $years);
+    $seconds = time - $_[0];
+    if($seconds > 60) {
+        $minutes = int $seconds / 60;
+        $seconds %= 60;
+        if($minutes > 60) {
+            $hours = int $minutes / 60;
+            $minutes %= 60;
+            if($hours > 24) {
+                $days = int $hours / 24;
+                $hours %= 24;
+                if($days > 365) {
+                    $years = int $days/365;
+                    $days %= 365;
+                }
+            }
+        }
+    }
+    
+    my $reply;
+    $reply = "$years year" . (($years == 1) ? ' ' : 's ') if $years;
+    $reply .= "$days day" . (($days == 1) ? ' ' : 's ') if $days;
+    $reply .= "$hours hour" . (($hours == 1) ? ' ' : 's ') if $hours;
+    $reply .= "$minutes minute" . (($minutes == 1) ? ' ' : 's ') if $minutes;
+    $reply .= "$seconds second" . (($seconds == 1) ? ' ' : 's ') if $seconds;
+    chop($reply);
+    return $reply;
 }
  
 # SET_SEEN: Updates seen data
