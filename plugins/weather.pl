@@ -240,6 +240,8 @@ sub got_wx {
         return;
     }
 
+    my $wind_mph;
+            
     my $remarks;
     ($raw_metar, undef, $remarks) = $raw_metar =~ m/^(.*?)( RMK (.*))?$/;
     $raw_metar =~ s|/////KT|00000KT|;
@@ -286,11 +288,21 @@ sub got_wx {
             my $temp = $temp_f . '°F (' . int($temp_c) . '°C)';
             push(@reply_with, $temp);
 
-            if($temp_f <= 40 && $m->WIND_MPH > 5) {
+            # this nonsense checks for the odd wind declaration NZSP
+            # gives. I dunno what to make of the first part, I
+            # suspect it is a direction. Compass directions don't make
+            # much sense where every direction is north ;-)
+            if($raw_metar =~ m|(GRID\d{2}(\d{3}))|) {
+                $wind_mph = $2 * 1.1507771555;
+            } else {
+                $wind_mph = $m->WIND_MPH;
+            }
+
+            if($temp_f <= 40 && $wind_mph > 5) {
                 # Do we have a wind chill?
                 my $windchill = 35.74 + (0.6215 * $temp_f)
-                                - 35.75 * ($m->WIND_MPH ** 0.16)
-                                + 0.4275 * $temp_f * ($m->WIND_MPH ** 0.16);
+                                - 35.75 * ($wind_mph ** 0.16)
+                                + 0.4275 * $temp_f * ($wind_mph ** 0.16);
                 my $windchill_c = ($windchill - 32) * (5/9);
                 push(@reply_with,
                     sprintf('a wind chill of %.1f°F (%.1f°C)',
@@ -328,8 +340,8 @@ sub got_wx {
             $reply .= ' there are ';
         }
 
-        if($m->WIND_MPH) {
-            my $tmp = int($m->WIND_MPH) . ' mph';
+        if($wind_mph) {
+            my $tmp = int($wind_mph) . ' mph';
             if ($m->WIND_DIR_ENG) {
                 $tmp .= ' winds from the ' . $m->WIND_DIR_ENG;
             } else {
