@@ -182,6 +182,7 @@ sub do_wx {
     $query->execute($station);
     my ($station_name, $url);
     if((($station_name, $url) = $query->fetchrow_array)
+        && !$metar_only
         && (defined $url)) {
         my $request = HTTP::Request->new(GET=>$url);
         $kernel->post('wxua' => 'request', 'got_xml',
