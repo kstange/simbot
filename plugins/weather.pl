@@ -35,6 +35,8 @@
 #     station
 #   * KILL Geo::METAR DAMN IT
 #   * Forecasts would be nice. http://www.nws.noaa.gov/forecasts/xml/
+#   * Fix crash if simbot quits before station name cache is updated
+#       (don't try to update DB if it's closed)
 
 package SimBot::plugin::weather;
 
