@@ -148,7 +148,7 @@ sub do_rss {
 # to disk and ask and post an event to parse it later.
 sub got_response {
     my ($request_packet, $response_packet) = @_[ ARG0, ARG1 ];
-    my (@newPosts, $title);
+    my (@newPosts, $title, $link);
     my $curFeed = $request_packet->[1];
     my $response = $response_packet->[0];
     my $rss = new XML::RSS;
@@ -168,10 +168,14 @@ sub got_response {
                     last;
                 } else {
                     $title = $item->{'title'};
+                    $link = $item->{'link'};
                     $title =~ s/&quot;/\"/;
                     $title =~ s/&amp;/&/;
                     $title =~ s/\t/  /;
-                    push(@newPosts, "$title <$item->{'link'}>");
+                    
+                    $link =~ s{^http://go\.fark\.com/cgi/fark/go.pl?\w*&location=(\w*)$}{$1};
+                    
+                    push(@newPosts, "$title <$link>");
                 }
             }
             $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
@@ -203,12 +207,16 @@ sub latest_headlines {
             $i++)
           {
             $item = ${$rss->{'items'}}[$i];
+            $link = $item->{'link'};
             $title = $item->{'title'};
             $title =~ s/&quot;/\"/;
             $title =~ s/&amp;/&/;
             $title =~ s/\t/  /;
+            
+            $link =~ s{^http://go\.fark\.com/cgi/fark/go.pl?\w*&location=(\w*)$}{$1};
+            
             &SimBot::send_message($channel,
-                                  "$title <$item->{'link'}>");
+                                  "$title <$link>");
 #            push(@newPosts, "$title <$item->{'link'}>");
         }
     } else {
