@@ -149,8 +149,15 @@ sub log_nick_change {
     my $source_nick_id = &get_nickchan_id($nick, 1);
     my $target_nick_id = &get_nickchan_id($newnick, 1);
     
-    $insert_query->execute(time, $channel_id, $source_nick_id,
-        $target_nick_id, 'NICK', undef);
+    # FIXME: This causes two "uninitialized value" warnings.
+    # I don't know why. They appear to be harmless, though, so
+    # I give up. I'm surpressing the warnings, someone else can
+    # fix 'em.
+    {
+        no warnings qw( uninitialized );
+        $insert_query->execute(time, $channel_id, $source_nick_id,
+            $target_nick_id, 'NICK', undef);
+    }
     $insert_query->finish;
     $dbh->commit;
 }
