@@ -1,0 +1,34 @@
+================================================
+SimBot ToDo List
+================================================
+
+Targets for 6.0 Beta
+======================
+
+- Implement automatic database backups.
+- Implement learning ignore by hostmask/nickname.
+- Implement autokick plugin.
+
+Targets for 6.0 Final
+======================
+
+- Test dalnet and chanserv style services plugins.
+- Polish the documentation (what documentation?).
+- Standardize and clean up the debug output.
+- Crush evil bugs!
+
+Targets for 7.0 Final
+======================
+
+- Redefine Plugin API using POE or related Perl 6 functionality.
+- Allow the user to specify a custom data directory.
+
+General Targets
+======================
+- use POE better, blocking less and using more events.
+- Eventually recognize the possibility for joining 2+ channels.
+- Allow for media other than IRC (connection plugins) (maybe).
+- Implement authentication for bot administration.
+- Reduce memory footprint.
+- Improve data storage format.
+- Implement a logger plugin.

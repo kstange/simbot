@@ -21,39 +21,49 @@ package SimBot::plugin::todo;
 use strict;
 use warnings;
 
-our @todo = (
-			 "1) implement automatic database backups",
-			 "2) implement learning ignore by hostmask/nickname",
-			 "3) implement autokick plugin",
-			 "--- Increment version to 6.0 beta here ---",
-			 "4) test dalnet and chanserv style services plugins",
-			 "5) Polish the documentation (what documentation?)",
-			 "6) Standardize and clean up the debug output",
-			 "7) Crush evil bugs!",
-			 "--- Increment version to 6.0 final here ---",
-			 "- allow the user to specify a custom data directory",
-			 "- use POE better, blocking less and using more events",
-			 "- eventually recognize the possibility for joining 2+ channels",
-			 "- implement authentication for bot administration",
-			 "- allow for media other than IRC (connection plugins) (maybe)",
-			 );
+our %vers = (
+	     "6.0 Beta"   =>  1,
+	     "6.0 Final"  =>  1,
+	     "General"    =>  1,
+	     );
 
 # PRINT_TODO: Prints todo list privately to the user.
 sub print_todo {
     my ($kernel, $nick) = @_;
     &SimBot::debug(3, "todo: Received request from " . $nick . ".\n");
-    if (@todo) {
-		&SimBot::send_pieces($nick, undef, join("\n", @todo));
-    } else {
-		&SimBot::send_message($nick, "Request some features!  My todo list is empty!");
+
+    if(open(TODO, "TODO")) {
+	my $version = "";
+	my $todo = "";
+	foreach my $line (<TODO>) {
+	    next if !defined $line;
+	    chomp $line;
+	    if ($line =~ /^Targets for (.*)/) {
+		$version = $1;
+		if (defined $vers{$version}) {
+		    $todo .= "For Version $version:\n";
+		}
+	    } elsif ($line =~ /(.*) Targets$/) {
+		$version = $1;
+		if (defined $vers{$version}) {
+		    $todo .= "$version Items:\n";
+		}
+	    } elsif (defined $vers{$version} && $line =~ /^- (.*)/) {
+		$todo .= "- $1\n";
+	    }
+	}
+	
+	if ($todo ne "") {
+	    chomp $todo;
+	    &SimBot::send_pieces($nick, undef, $todo);
+	}
     }
 }
 
 # Register Plugin
 &SimBot::plugin_register(plugin_id   => "todo",
-						 plugin_desc => "The ever changing development todo list",
-
-						 event_plugin_call => \&print_todo,
-						 );
+			 plugin_desc => "The ever changing development todo list",
+			 event_plugin_call => \&print_todo,
+			 );
 
 
