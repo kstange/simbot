@@ -232,9 +232,10 @@ sub real_latest_headlines {
     my ($item, $title, $link);
     my $rss = new XML::RSS;
     
-    &SimBot::debug(3, "Got RSS command from $nick for $feed: ");
+    &SimBot::debug(3, "Got RSS command from $nick" .
+				   (defined $feed ? " for $feed: " : ": "));
     
-    if(defined $feeds{$feed}) {
+    if(defined $feed && defined $feeds{$feed}) {
         my $file = "caches/${feed}.xml";
         if(!-e $file || -M $file > 0.042) {
             &SimBot::debug(3, "Old/missing, fetching...\n");
@@ -252,7 +253,7 @@ sub real_latest_headlines {
             $kernel->post($session => 'announce_top', $feed, $nick, $channel);
         }
     } else {
-        &SimBot::debug(3, "unknown\n");
+        &SimBot::debug(3, "feed not recognized\n");
         my $message = "$nick: "
             . ($feed ? "I have no feed $feed."
                      : "What feed do you want latest posts from?")
@@ -310,8 +311,8 @@ sub get_link_and_title {
         $link =~ s{%3f}{?};
         $link =~ s{%26}{&}g;
     }
-    
-    $title = $item->{'title'};
+
+    $title = ($item->{'title'} ? $item->{'title'} : "");
 	$title = HTML::Entities::decode($title);
 	$title = Encode::decode('utf8', $title);
     $title =~ s/\t/  /g;
