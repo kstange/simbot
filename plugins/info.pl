@@ -1,4 +1,4 @@
-# SimBot Recap Plugin
+# SimBot Info Plugin
 #
 # Copyright (C) 2004, Pete Pearson
 #
@@ -36,7 +36,7 @@ sub learn_info {
     if($content =~ m/^.info/) { return; }
     
     # Is someone being referenced?
-    if($content =~ s{, (\S*)$}{}) { # whatever, JohnDoe
+    if($content =~ s{, (\S*)[.\!\?]?$}{}) { # whatever, JohnDoe
         $person_being_referenced = $1;
     }
     if($content =~ s{^(\S*)[:,] }{}) { # JohnDoe: whatever
@@ -47,10 +47,11 @@ sub learn_info {
     }
     
     $content = &munge_pronouns($content, $nick, $person_being_referenced);
+    $content = &normalize_urls($content);
     
-    if($content =~ m{(.*(but|and|however|;|:|,|\.) *)?(.*) is.*((http|ftp|mailto|news|nntp)s?://\S*)}ig) {
+    if($content =~ m{([\w\s]+) is[\s\w]* (\w+://\S+)}g) {
         # looks like a URL to me!
-        my ($key, $factoid) = (lc($3), $4);
+        my ($key, $factoid) = (lc($1), $2);
         $factoid = 'at ' . $factoid;
         unless($isDB{$key}) {
             $isDB{$key} = $factoid;
@@ -147,6 +148,34 @@ sub munge_pronouns {
     }
     
     return $content;
+}
+
+sub normalize_urls {
+    my @words = split(/\s+/, $_[0]);
+    my ($proto, $path, $curWordTemp);
+    
+    foreach $curWord (@words) {
+        # map some common host names to protocols
+        $curWord =~ s{^(www|web)\.}{http://$1\.};
+        $curWord =~ s{^ftp\.}{ftp://ftp\.};
+        
+        if($curWord =~ m{^((http|ftp|news|nntp|mailto|aim)s?:[\w.?/]+)}) {
+            $curWord = $1;
+            next;
+        }
+        
+        if($curWord =~ m{/}) {
+            my ($host, $path) = split(m{/}, $curWord, 2);
+            
+            # does the first segment have a TLD?
+            if($host =~ m{\.(com|org|net|biz|info|aero|museum|\w\w)$}) {
+                # Yup. Let's assume it's a web site...
+                $host = 'http://' . $host;
+            }
+            $curWord = $host . '/' . $path;
+        }
+    }
+    return join(' ', @words);
 }
 
 &SimBot::plugin_register(
