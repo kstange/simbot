@@ -201,24 +201,27 @@ our %commands = (
 # defined description, it is "hidden" and will not appear in help.
 &debug(4, "Registering internal plugins... \n");
 
-&plugin_register(plugin_id   => "snooze",
-				 plugin_desc => "Toggles snooze mode which prevents recording"
-				 . "and responding to chat. Commands are still processed.",
-
-				 event_plugin_call     => \&set_snooze,
-				 );
-
-&plugin_register(plugin_id   => "stats",
-				 plugin_desc => "Shows useless stats about the database.",
-
-				 event_plugin_call     => \&print_stats,
-				 );
-
-&plugin_register(plugin_id   => "help",
-				 plugin_desc => "Shows this information.",
-
-				 event_plugin_call     => \&print_help,
-				 );
+# register the snooze plugin only if snooze is allowed
+if(option('chat','snooze') !~ m/always|never/) {
+    &plugin_register(plugin_id   => "snooze",
+		     plugin_desc => "Toggles snooze mode which prevents recording"
+		     . "and responding to chat. Commands are still processed.",
+		     
+		     event_plugin_call     => \&set_snooze,
+		     );
+    
+    &plugin_register(plugin_id   => "stats",
+		     plugin_desc => "Shows useless stats about the database.",
+		     
+		     event_plugin_call     => \&print_stats,
+		     );
+    
+    &plugin_register(plugin_id   => "help",
+		     plugin_desc => "Shows this information.",
+		     
+		     event_plugin_call     => \&print_help,
+		     );
+}
 
 # Register the delete plugin only if the option is enabled
 if(option('chat', 'delete_usage_max') != -1) {
@@ -262,7 +265,9 @@ closedir(DIR);
 our $loaded      = 0; # The rules are not loaded yet.
 our $items       = 0; # We haven't seen any lines yet.
 our $terminating = 0; # We are not terminating in the default case.
-our $snooze      = 0; # We are going to always start up with snooze mode off.
+
+# set the snooze variable to the proper default
+our $snooze = (option('chat','snooze') =~ m/on|always/) ? 1 : 0;
 
 # Load the massive table of rules simbot will need.
 &load;
