@@ -439,6 +439,7 @@ sub munge_pronouns {
     $content =~ s{\bmy\b}   {${nick}'s}ig;  # my   -> $nick's
     $content =~ s{\bmine\b} {${nick}'s}ig;  # mine -> $nick's
     $content =~ s{\bme\b}   {$nick}ig;      # me   -> $nick
+    $content =~ s{\bam i\b} {is $nick}ig;   # am I -> is $nick
     if($person_being_referenced) {
         # you're, you are   -> $person_being_referenced is
         $content =~ s/\b(you\'re|you are)/${person_being_referenced} is/ig;
