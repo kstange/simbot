@@ -2,17 +2,19 @@
 SimBot Installation
 ================================================
 
-SimBot itself requires no compilation of software.  The perl script
-comes ready to run with only minor changes to the config.ini file.
+SimBot itself requires no compilation of software.  The perl script comes
+ready to run with only minor changes to the config.ini file.
 
-You should copy the config.default.ini file to config.ini and customize
-the copy.  Keep the file in the same directory where you have the
-simbot.pl script installed.  The installation directory is completely
-up to you and is mostly irrelevant.
+You should copy the config.default.ini file to config.ini and customize the
+copy.  Keep the file in the same directory where you have the simbot.pl
+script installed.  The installation directory is completely up to you and
+is mostly irrelevant.
 
-You need the POE::Component::IRC Perl module installed before SimBot
-will function correctly.  You may also install these additional
-modules for extra features in SimBot:
+You need the POE::Component::IRC and Encode Perl modules installed before
+SimBot will function correctly.  If you have Perl 5.8.0 or higher installed
+you should already have a working Encode.  If you do not, you will need to
+install it.  You may also install these additional modules for extra
+features in SimBot:
 
 	LWP								for google.pl, weather.pl, currency.pl
 	POE::Component::Client::HTTP	for rss.pl (RSS Plugin)
@@ -23,29 +25,27 @@ modules for extra features in SimBot:
 
 This all, of course, requires that you have Perl installed.
 
-All of these modules are available in the CPAN repository, so you
-can install them in most Perl installations by running:
+All of these modules are available in the CPAN repository, so you can
+install them in most Perl installations by running:
 
 	perl -MCPAN -e shell;
 
-This will take you into the Perl module installation tool.  To
-install the most recent version of each module, type:
+This will take you into the Perl module installation tool.  To install the
+most recent version of each module, type:
 
 	install <module names>
 
 For example:
 
-    install Geo::METAR HTML::Entities LWP
+    install POE::Compontent::IRC Encode Geo::METAR LWP
 
-CPAN will do what it needs to install the necessary package and
-you'll be on your way.  If you are unsure how to answer the
-questions it asks, it is generally safe to accept the defaults,
-which are indicated in square brackets after the question, and
-can be accepted by pressing Enter.
+CPAN will do what it needs to install the necessary package and you'll be
+on your way.  If you are unsure how to answer the questions it asks, it is
+generally safe to accept the defaults, which are indicated in square
+brackets after the question, and can be accepted by pressing Enter.
 
-Once you have installed the script and customized the configuration
-to your liking, cd to the proper directory and start the bot using
-the command:
+Once you have installed the script and customized the configuration to your
+liking, cd to the proper directory and start the bot using the command:
 
 	perl ./simbot.pl
 
@@ -57,12 +57,11 @@ Or set the script executable and run it:
 Plugin Installation
 ================================================
 
-SimBot's plugins are simply perl scripts with special function
-calls.  There are a bunch of stock plugins you can use with
-SimBot.  If you want to create or install a plugin that isn't
-included with SimBot, place it in the "plugins" subdirectory
-of SimBot's script directory.
+SimBot's plugins are simply perl scripts with special function calls.
+There are a bunch of stock plugins you can use with SimBot.  If you want
+to create or install a plugin that isn't included with SimBot, place it in
+the "plugins" subdirectory of SimBot's script directory.
 
-To disable a plugin that is included with SimBot, just change
-the plugin's file extension to something other than ".pl" and
-it will no longer be loaded.
+To disable a plugin that is included with SimBot, just change the plugin's
+file extension to something other than ".pl" and it will no longer be
+loaded.
