@@ -419,7 +419,7 @@ sub parse_style {
     return $_;
 }
 
-# NUMBERIZE: Find all the word-based numbers in a string and replacement
+# NUMBERIZE: Find all the word-based numbers in a string and replace them
 #            with digit-based numbers.
 sub numberize {
 	my $string = $_[0];
@@ -1492,10 +1492,16 @@ sub process_version {
 				  VERSION . " ($reply)");
 }
 
-# PROCESS_NICK_CHANGE: Handle nickname changes for users we can see.
+# SERVER_NICK_CHANGE: Handle nickname changes for users we can see.
 sub server_nick_change {
-	my ($nick) = split(/!/, $_[ARG0]);
+	my ($nick, $userhost) = split(/!/, $_[ARG0]);
 	my $newnick = $_[ ARG1 ];
+
+	&debug(4, "Uncaching hostmask for $nick (" . &get_hostmask($nick) . ")\n");
+	&set_hostmask($nick, undef);
+	&set_hostmask($newnick, $newnick . "!" . $userhost);
+	&debug(4, "Caching hostmask for $newnick (" . &get_hostmask($newnick) . ")\n");
+
     foreach(keys(%event_server_nick)) {
 		&plugin_callback($_, $event_server_nick{$_}, ($chosen_server, $nick, $newnick));
     }
