@@ -628,19 +628,23 @@ sub process_action {
 sub process_priv {
     my ($usermask, undef, $text) = @_[ ARG0, ARG1, ARG2 ];
     my ($nick) = split(/!/, $usermask);
-    if ($text eq "restart") {
-	&debug(2, "Received restart command from " . $nick . ".\n");
-	$kernel->post(bot => privmsg => $nick, "Okay, brb!");
-	&restart();
-    } elsif ($text eq "newrules") {
-	&debug(2, "Received reload command from " . $nick . ".\n");
-	$kernel->post(bot => privmsg => $nick, "reloading rules");
-	&debug(3, "Reloading rules... ");
-	&load;
-	&debug(3, "Done!\n");
-    } else {
-	$kernel->post(bot => notice => $nick, "Please don't send me private messsages.");
-    }
+
+# These were never supposed to remain active for this long without any
+# kind of authorization verification... oops! :)
+#
+#    if ($text eq "restart") {
+#	&debug(2, "Received restart command from " . $nick . ".\n");
+#	$kernel->post(bot => privmsg => $nick, "Okay, brb!");
+#	&restart();
+#    } elsif ($text eq "newrules") {
+#	&debug(2, "Received reload command from " . $nick . ".\n");
+#	$kernel->post(bot => privmsg => $nick, "reloading rules");
+#	&debug(3, "Reloading rules... ");
+#	&load;
+#	&debug(3, "Done!\n");
+#    } else {
+    $kernel->post(bot => notice => $nick, "Please don't send me private messsages.");
+#    }
 
 }
 
