@@ -1,3 +1,11 @@
+Version 1.0 alpha: (31 Dec 2004)
+	* Happy new years!
+	* plugins/sqlite-logger.pl:
+	  - Added a %log last <event> command, which will tell you when
+	    something last happened. Useful for figuring out what the topic
+	    used to be when someone changes it. Or will be once
+	    'before that' works.
+
 Version 1.0 alpha: (17 Dec 2004)
 	* plugins/dict.pl:
 	  - Added a feature that lists the dictionaries containing a specific

@@ -7,7 +7,7 @@
 #   more.
 #
 # COPYRIGHT:
-#   Copyright (C) 2004, Pete Pearson
+#   Copyright (C) 2004-05, Pete Pearson
 #
 #   This program is free software; you can redistribute it and/or modify
 #   under the terms of the GNU General Public License as published by
@@ -24,7 +24,7 @@
 #   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 # TODO:
-#   *
+#   * make 'before that' work with %log last
 #
 
 
