@@ -32,6 +32,10 @@ package SimBot;
 use Encode;
 use constant TARGET_ENCODING => 'iso-8859-1';
 
+# to make our own character substitutions easier to read, let's
+# be able to use character names
+use charnames ':full';
+
 # We hold our code up to some standards.
 # For some well-meaning reason, strict does not allow the use of strings
 # for literal references to functions and objects so we'll just tell Perl
@@ -1293,6 +1297,10 @@ sub delete_word {
 # into for logging what the bot says for plugins and whatnot.
 sub send_message {
 	my ($dest, $text) = @_;
+	
+	$text =~ s/\N{HORIZONTAL ELLIPSIS}/.../g;
+	$text =~ s/\N{TWO DOT LEADER}/../g;
+	
 	$text = &Encode::encode(TARGET_ENCODING, $text);
 	$kernel->post(bot => privmsg => $dest, $text);
     my $public = 0;
