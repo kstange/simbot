@@ -32,6 +32,8 @@
 #   * Figure out how the heck we should handle deletions when there are
 #     multiple factoids
 #   * Don't learn something we already know with 'is also'
+#   * Find all the cases where the info plugin fails to respond, and
+#     fix them
 #
 
 package SimBot::plugin::info;
