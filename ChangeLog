@@ -248,7 +248,6 @@ Version 6.0 alpha: (12 Feb 2004)
 	     and two currency abbreviations.
 
 Version 6.0 alpha: (11 Feb 2004)
-
 	* simbot.pl:
 	   - Context is now detected and a sentence is generated from the
 	     middle outward to (possibly) end up on-topic. An interesting
@@ -262,7 +261,6 @@ Version 6.0 alpha: (11 Feb 2004)
 	   - We now see topic changes and channel notices.
 
 Version 6.0 alpha: (22 Dec 2003)
-
 	* simbot.pl:
 	   - A lot of code has been cleaned up and many core functions were
 	     renamed for consistency.  A lot more debug information has been
@@ -296,13 +294,11 @@ Version 6.0 alpha: (22 Dec 2003)
 	     invitation.
 
 Version 6.0 alpha: (21 Dec 2003)
-
 	* plugins/weather.pl:
 	   - Added: metar command allows user request a raw METAR report
 	     if they are so inclined.
 
 Version 6.0 alpha: (17 Dec 2003)
-
 	* simbot.pl:
 	   - Added: send_pieces() method that will automatically break up
 	     given text into pieces that fit into the standard IRC message
@@ -316,7 +312,6 @@ Version 6.0 alpha: (17 Dec 2003)
 	     string into plain text.
 
 Version 6.0 alpha: (15 Dec 2003)
-
 	* plugins/weather.pl:
 	   - Added support for fetching station names, if available.
 	   - We also now work around the fact that Geo::METAR is unable to
@@ -329,7 +324,6 @@ Version 6.0 alpha: (15 Dec 2003)
 	     because Geo:METAR assumes that to be a windspeed.
 
 Version 6.0 alpha: (14 Dec 2003)
-
 	* plugins/google.pl: google plugin now supports define: queries
 
 Version 6.0 alpha: (12 Dec 2003)
@@ -409,8 +403,8 @@ Version 5.99.10:
 
 Version 5.99.9:
 	* added: automatic rejoin on kick from channel
-	* added: %find searches Google with \"I'm Feeling Lucky\"
-	* removed: autokick on \@find was not necessary and kinda boring
+	* added: %find searches Google with "I'm Feeling Lucky"
+	* removed: autokick on @find was not necessary and kinda boring
 	* cleaned up the script, fixed warnings and added comments
 	* notify the user that % is the proper command prefix on use of ! or \@
 	* on use of %list, print out a silly message; suggestions welcome
