@@ -40,9 +40,7 @@ sub print_todo {
     my ($kernel, $nick) = @_;
     &SimBot::debug(3, "Received todo command from " . $nick . ".\n");
     if (@todo) {
-		foreach(@todo) {
-			&SimBot::send_message($nick, $_);
-		}
+		&SimBot::send_pieces($nick, undef, join("\n", @todo));
     } else {
 		&SimBot::send_message($nick, "Request some features!  My todo list is empty!");
     }
