@@ -29,15 +29,10 @@
 # TODO:
 #   * We need a far more intelligent way to figure out where exactly the
 #     factoid ends or the key begins.
-#   * Ditch the stupid separate is and are databases.
 #   * Support for multiple factoids on a key.
 #      - format will probably be flags|factoid||flags|factoid...
-#      - flags will remember if it is IS or ARE, and if it is a URL or not
-#        and perhaps other statuses like locked.
 #   * Figure out how the heck we should handle deletions when there are
 #     multiple factoids
-#   * see other factoids, that cause simbot to return the factoid the
-#     factoid points to.
 #
 
 package SimBot::plugin::info;
