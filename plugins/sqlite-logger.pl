@@ -323,7 +323,7 @@ sub access_log {
             }
         
             while(my $cur_arg = shift(@args)) {
-                if($cur_arg =~ /(say|join|part|quit|nick|kick|notice|action)/i) {
+                if($cur_arg =~ /(say|join|part|quit|nick|kick|notice|action|topic)/i) {
                     my $cur_event = $1;
                     if($cur_event =~ /^(join|part|quit|kick)$/i) 
                         { $cur_event .= 'ed'; }
