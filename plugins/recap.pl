@@ -21,14 +21,26 @@ package SimBot::plugin::recap;
 use strict;
 use warnings;
 
+use constant MAX_BACKLOG => 30;
+use constant STD_BACKLOG => 10;
+
 our @backlog = ();
-our $max_backlog = 30;
-our $std_backlog = 10;
+our %departs = ();
 
 # SEND_RECAP: Sends a backlog of chat to the inquiring user.
 sub send_recap {
     my ($kernel, $nick, $channel, undef, $lines) = @_;
-    &SimBot::debug(3, "Received recap command from $nick... backlog is " . $#backlog . " lines, user wants " . (defined $lines ? $lines : $std_backlog) ." lines.\n");
+	if (!defined $lines) {
+		if (defined $departs{$nick}) {
+			$lines = $departs{$nick};
+			&SimBot::debug(4, "recap: $nick recently departed, recapping from departure point ($lines lines)...\n");
+		} else {
+			$lines = STD_BACKLOG;
+			&SimBot::debug(4, "recap: $nick did not specify number of lines; using default ($lines lines)...\n");
+		}
+	}
+
+    &SimBot::debug(3, "recap: requested by $nick... backlog is " . $#backlog . " lines, user wants $lines lines.\n");
     if (defined $lines && $lines =~ /^[^0-9]+$/) {
 		&SimBot::send_message($channel, "Try using numbers.  I can't count to $lines!");
 	} elsif ($#backlog + 1 < 1) {
@@ -37,12 +49,9 @@ sub send_recap {
 		&SimBot::send_message($channel, "$nick: Sorry, I haven't figured out how to precap yet.");
 	} elsif (defined $lines && $lines == 0) {
 		&SimBot::send_message($channel, "$nick: Nothing has happened since the last time something happened.");
-	} elsif (defined $lines && ($lines > $max_backlog)) {
-		&SimBot::send_notice($nick, "I can only display between 1 and $max_backlog lines of recap.");
+	} elsif (defined $lines && ($lines > MAX_BACKLOG)) {
+		&SimBot::send_notice($nick, "I can only display between 1 and " . MAX_BACKLOG . " lines of recap.");
 	} else {
-		if (!defined $lines) {
-			$lines = $std_backlog;
-		}
 		if ($#backlog < $lines) {
 			&SimBot::send_notice($nick, "Note: I have not seen as many lines of chat as you requested.  I'll show you everything I've got.");
 			$lines = $#backlog;
@@ -56,6 +65,14 @@ sub record_recap {
     my($kernel, $nick, $channel, $doing, $content, $target) = @_;
 	my(@args) = @_[ 4 .. $#_ ];
     my ($sec, $min, $hour) = localtime(time);
+	foreach my $departed (keys %departs) {
+		if ($departs{$departed} == MAX_BACKLOG) {
+			&SimBot::debug(4, "recap: $departed is no longer recently departed.\n");
+			delete $departs{$departed};
+		} else {
+			$departs{$departed}++;
+		}
+	}
     my $line = sprintf("[%02d:%02d:%02d] ", $hour, $min, $sec);
     if ($doing eq 'SAY') {
 		$line .= "<$nick> $content";
@@ -63,6 +80,7 @@ sub record_recap {
 		$line .= "* $nick $content";
     } elsif ($doing eq 'KICKED') {
 		$line .= "$target kicked $nick from $channel" . ($content ? " ($content)" : "");
+		$departs{$nick} = 0;
     } elsif ($doing eq 'TOPIC') {
 		if ($content) {
 			$line .= "$nick changed the topic of $channel to: $content";
@@ -75,13 +93,15 @@ sub record_recap {
 		$line .= "$nick has joined $channel";
 	} elsif ($doing eq 'PARTED') {
 		$line .= "$nick has left $channel" . ($content ? " ($content)" : "");
+		$departs{$nick} = 0;
 	} elsif ($doing eq 'QUIT') {
 		$line .= "$nick has quit IRC" . ($content ? " ($content)" : "");
+		$departs{$nick} = 0;
 	} elsif ($doing eq 'NICK') {
 		$line .= "$nick is now known as $target";
 	}
     push(@backlog, $line);
-    while ($#backlog > $max_backlog) {
+    while ($#backlog > MAX_BACKLOG) {
 		shift(@backlog);
     }
     &SimBot::debug(4, "Recorded a line for recap... backlog is " . $#backlog . " lines.\n");
@@ -94,7 +114,10 @@ sub nick_change {
 
 # Register Plugin
 &SimBot::plugin_register(plugin_id   => "recap",
-						 plugin_desc => "Privately recaps up to $max_backlog lines of chat backlog. The default is to recap $std_backlog lines.",
+						 plugin_desc => "Privately recaps up to " . MAX_BACKLOG
+						 . " lines of chat backlog. The default is to recap " .
+						 STD_BACKLOG . " lines or from the point the user " .
+						 "last departed.",
 						 event_plugin_call         => \&send_recap,
 						 event_channel_kick        => \&record_recap,
 						 event_channel_message     => \&record_recap,
