@@ -384,7 +384,7 @@ sub access_log {
             &SimBot::send_message($channel, "$nick: You need to specify an event, such as join, part, quit, kick, join, topic");
             return;
         }
-        my $event = $args[0];
+        my $event = uc($args[0]);
         my $last_query = $dbh->prepare(
             'SELECT id, time, source_nick_id, event, target_nick_id,'
             . ' content'
@@ -396,12 +396,12 @@ sub access_log {
         );
         $last_query->execute($event, &get_nickchan_id(&SimBot::option('network', 'channel')));
         my $row;
-        if($row = $seen_query->fetchrow_hashref) {
-            $seen_query->finish;
+        if($row = $last_query->fetchrow_hashref) {
+            $last_query->finish;
             &SimBot::send_message($channel,
                 "$nick: " . &row_hashref_to_text($row));
         } else {
-            $seen_query->finish;
+            $last_query->finish;
             &SimBot::send_message($channel,
                 "$nick: Nothing matched your query.");
             return;
