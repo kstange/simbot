@@ -32,6 +32,7 @@
 #   * Make rss feed IDs case insensitive
 #   * clean up old posts from the cache
 #   * Atom feeds
+#   * if the feed provides a polling interval, honor it
 #
 
 package SimBot::plugin::rss;
