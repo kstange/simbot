@@ -505,7 +505,7 @@ sub access_log {
             &SimBot::send_message($channel, $response);
         }
     } else {
-        &SimBot::send_message($channel, "$nick: Sorry, I do not understand that.");
+        &SimBot::send_message($channel, "$nick: Sorry, I do not understand that. Try 'recap', 'seen <nick>', 'stats' for channel stats, or 'stats <nick>' for someone's stats.");
     }
 }
 
