@@ -892,8 +892,7 @@ sub find_interesting_word {
 	foreach my $curWord (@_) {
         $curWord = lc($curWord);
         $curWord =~ s/[,\.\?\!\:]*$//;
-        if(length($curWord) <= 3
-		   || !defined $chat_words{$curWord}
+        if(!defined $chat_words{$curWord}
            || $curWord =~ /$nickmatch/i) {
             next;
         }
