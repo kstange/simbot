@@ -1518,8 +1518,7 @@ sub process_time {
 # PROCESS_VERSION: Handle version requests to the bot.
 sub process_version {
     my ($nick) = split(/!/, $_[ARG0]);
-    my $reply = `uname -s -r -m`;
-    chomp($reply);
+    my $reply = join(" ", (POSIX::uname())[0, 2, 4]);
     &debug(3, "[ctcp] VERSION requested by " . $nick . ".\n");
     $kernel->post(bot => ctcpreply => $nick, "VERSION " . PROJECT . " " .
 				  VERSION . " ($reply)");
