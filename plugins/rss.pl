@@ -29,6 +29,7 @@
 #
 # TODO:
 #   * Switch to PoCo::Client::HTTP for the startup RSS fetch
+#   * Move feed option to config.ini file
 #
 
 package SimBot::plugin::rss;
