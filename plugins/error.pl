@@ -23,7 +23,7 @@ sub random_error {
     open(FILE, "errors.db");
     my @lines = <FILE>;
     close(FILE);
-    my $error = &pick(@lines);
+    my $error = &SimBot::pick(@lines);
     chomp($error);
     $error =~ s/\$nick/$nick/g;
     $kernel->post(bot => privmsg => $channel, $error);

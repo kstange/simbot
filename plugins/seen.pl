@@ -29,8 +29,8 @@ sub get_seen {
     my ($kernel, $nick, $channel, undef, $person) = @_;
     if(!$person) {
         $kernel->post(bot => privmsg => $channel, "$nick: There are many things I have seen. Perhaps you should ask for someone in particular?");
-    } elsif(lc($person) eq lc($chosen_nick)) {
-        $kernel->post(bot => ctcp => $channel, 'ACTION', "waves $hisher hand in front of $hisher face. \"Yup, I can see myself!\"");
+    } elsif(lc($person) eq lc($SimBot::chosen_nick)) {
+        $kernel->post(bot => ctcp => $channel, 'ACTION', "waves $SimBot::hisher hand in front of $SimBot::hisher face. \"Yup, I can see myself!\"");
     } elsif($seenData{lc($person)}) {
         my ($when, $doing, $seenData) = split(/!/, $seenData{lc($person)}, 3);
         $doing = "saying \"$seenData\"" if($doing eq 'SAY');
@@ -56,12 +56,12 @@ sub set_seen {
     my($kernel, $nick, $channel, $doing, $content, $target) = @_;
     SimBot::debug(4, "Seeing $nick ($doing $content)\n");
     my $time = time;
-    $seenData{lc($nick)} = "$time!$doing!" . ($target ? "$target!" : "") . "!$content";
+    $seenData{lc($nick)} = "$time!$doing!" . ($target ? "$target!" : "") . "$content";
     
     if($doing eq 'KICKED') {
         $doing = 'KICKING';
-        $seenData{lc($target)} = "$time!$doing!$nick!$reason";
-        SimBot::debug(4, "Seeing $target ($doing $nick!$reason)\n");
+        $seenData{lc($target)} = "$time!$doing!$nick!$content";
+        SimBot::debug(4, "Seeing $target ($doing $nick!$content)\n");
     }
 }
 
