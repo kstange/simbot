@@ -29,7 +29,9 @@ our $std_backlog = 10;
 sub send_recap {
     my ($kernel, $nick, $channel, undef, $lines) = @_;
     &SimBot::debug(3, "Received recap command from $nick... backlog is " . $#backlog . " lines, user wants " . (defined $lines ? $lines : $std_backlog) ." lines.\n");
-    if ($#backlog + 1 < 1) {
+    if (defined $lines && $lines =~ /^[^0-9]+$/) {
+		&SimBot::send_message($channel, "Try using numbers.  I can't count to $lines!");
+	} elsif ($#backlog + 1 < 1) {
 		&SimBot::send_notice($nick, "I haven't seen enough chat yet to provide a useful recap.");
 	} elsif (defined $lines && $lines < 0) {
 		&SimBot::send_message($channel, "$nick: Sorry, I haven't figured out how to precap yet.");
@@ -45,9 +47,7 @@ sub send_recap {
 			&SimBot::send_notice($nick, "Note: I have not seen as many lines of chat as you requested.  I'll show you everything I've got.");
 			$lines = $#backlog;
 		}
-		for(my $i=($#backlog)-$lines; $i < $#backlog; $i++) {
-			&SimBot::send_notice($nick, $backlog[$i]);
-		}
+		&SimBot::send_pieces_with_notice($nick, undef, join("\n", @backlog[(($#backlog)-$lines) .. ($#backlog-1)]));
 	}
 }
 

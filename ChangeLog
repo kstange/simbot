@@ -1,4 +1,7 @@
 Version 6.0 alpha: (26 Jul 2004)
+	* simbot.pl:
+	  - Added send_pieces_with_notice to allow large blocks of text to be
+	    broken up and sent by notice instead of normal messages.
 	* plugins/rss.pl:
 	  - Added natural language data for getting RSS feeds. (Vincent Gevers)
 	  - Added expire option, which determines how often the plugin wants to

@@ -1328,10 +1328,19 @@ sub send_notice {
 	}
 }
 
-# SEND_PIECES: This tells POE to run the cont_send_pieces function, below
+# SEND_PIECES_WITH_NOTICE: This tells POE to run the cont_send_pieces function,
+# sending the pieces as notices.
+sub send_pieces_with_notice {
+    my ($dest, $prefix, $text) = @_;
+    $kernel->yield('cont_send_pieces', 'NOTICE', $dest, $prefix,
+                    $text);
+}
+
+# SEND_PIECES: This tells POE to run the cont_send_pieces function, below,
+# sending the pieces as messages.
 sub send_pieces {
     my ($dest, $prefix, $text) = @_;
-    $kernel->yield('cont_send_pieces', $dest, $prefix,
+    $kernel->yield('cont_send_pieces', 'PRIVMSG', $dest, $prefix,
                     $text);
 }
 
@@ -1341,12 +1350,13 @@ sub send_pieces {
 # on most IRC networks.
 #
 # Arguments:
-#   ARG0: $dest:    where we are sending the message
-#   ARG1: $prefix:  should something be put at the beginning of each
+#   ARG0: $type:    NOTICE to send notices, or PRIVMSG to send messages
+#   ARG1: $dest:    where we are sending the message
+#   ARG2: $prefix:  should something be put at the beginning of each
 #                   piece?
-#   ARG2: $text:    the text to split.
+#   ARG3: $text:    the text to split.
 sub cont_send_pieces {
-    my ($kernel, $dest, $prefix, $text) = @_[KERNEL, ARG0, ARG1, ARG2];
+    my ($kernel, $type, $dest, $prefix, $text) = @_[KERNEL, ARG0, ARG1, ARG2, ARG3];
     my @words = split(/ +/, $text);
     my $line = ($prefix ? $prefix . ' ' : '') . shift(@words);
     my ($curWord);
@@ -1367,10 +1377,10 @@ sub cont_send_pieces {
             unshift(@words, $nextWord);
             if(length($line) + length($curWord) <= 440) {
                 $line .= ' ' . $curWord;
-                $kernel->delay('cont_send_pieces', 1, $dest, $prefix,
+                $kernel->delay('cont_send_pieces', 1, $type, $dest, $prefix,
                                join(' ', @words));
             } else {
-                $kernel->delay('cont_send_pieces', 1, $dest, $prefix,
+                $kernel->delay('cont_send_pieces', 1, $type, $dest, $prefix,
                                ("$curWord\n" . join(' ', @words)));
             }
             last;
@@ -1381,12 +1391,16 @@ sub cont_send_pieces {
             # tell POE to run cont_send_pieces again with the remaining
             # words.
             unshift(@words, $curWord);
-            $kernel->delay('cont_send_pieces', 1, $dest, $prefix,
+            $kernel->delay('cont_send_pieces', 1, $type, $dest, $prefix,
                             join(' ', @words));
             last;
         }
     }
-    &send_message($dest, $line);
+	if ($type eq "NOTICE") {
+		&send_notice($dest, $line);
+	} else {
+		&send_message($dest, $line);
+	}
 }
 
 # ######### IRC FUNCTION CALLS ###########
