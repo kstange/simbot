@@ -54,15 +54,6 @@ sub munge_url {
     return $_;
 }
 
-sub messup_tinyurl {
-    dbmopen(%urlcache, 'caches/tinyurl', 0664);
-    1;
-}
-
-sub cleanup_tinyurl {
-    dbmclose(%urlcache);
-}
-
 sub handle_chat {
     my (undef, $nick, $channel, undef, $content) = @_;
     foreach my $cur_rule (@match_rules) {
@@ -122,7 +113,7 @@ sub shorten_url {
 &SimBot::plugin_register(
     plugin_id   => 'tinyurl',
     event_plugin_call   => sub {}, # do nothing.
-    event_plugin_load   => \&messup_tinyurl,
-    event_plugin_unload => \&cleanup_tinyurl,
+#    event_plugin_load   => \&messup_tinyurl,
+#    event_plugin_unload => \&cleanup_tinyurl,
     event_channel_message   => \&handle_chat,
 );
