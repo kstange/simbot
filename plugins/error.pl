@@ -44,6 +44,7 @@ sub random_quip {
 				 "$nick: The FBI thanks you for your patronage.",
 				 "$nick: h4x0r5 0n teh yu0r pC? oh nos!!! my megahurtz haev been stoeled!!!!!111 safely check yuor megahurtz with me, free!",
 				 "$nick: Ur Leet-Foo is weak!",
+				 "$nick: Like a dagger in teh nite, I catch joo unawarez!",
 				 );
     &SimBot::send_message($channel, &SimBot::pick(@reply));
 }
