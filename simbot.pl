@@ -37,6 +37,8 @@ use constant ERROR_DESCRIPTIONS
 @greeting = ();
 @chat_ignore = ();
 $services_type = "";
+$quit_default = "";
+$quit_prompt = 0;
 
 # Load the configuration file in.  We're not going to try to deal with what
 # happens if this fails.  If you have no configuration, you should get one
@@ -81,7 +83,6 @@ $version = "6.0 alpha";
 $SIG{'TERM'} = 'SimBot::quit';
 $SIG{'INT'}  = 'SimBot::quit';
 $SIG{'HUP'}  = 'SimBot::quit';
-#$SIG{'HUP'}  = 'SimBot::cleanup';
 $SIG{'USR1'} = 'SimBot::restart';
 $SIG{'USR2'} = 'SimBot::reload';
 
@@ -163,13 +164,13 @@ $SIG{'USR2'} = 'SimBot::reload';
 # Now that we've initialized the callback tables, let's load
 # all the plugins that we can from the plugins directory.
 opendir(DIR, "./plugins");
-foreach(readdir(DIR)) {
-    if($_ =~ /.*\.pl$/) {
-	if($_ =~ /^services\.(.+)\.pl$/) {
+foreach $plugin (readdir(DIR)) {
+    if($plugin =~ /.*\.pl$/) {
+	if($plugin =~ /^services\.(.+)\.pl$/) {
 	    debug(4, "$1 services plugin found.\n");
 	    if ($services_type eq $1) {
 		debug(4, "$1 services plugin was selected. Attempting to load...\n");
-		if (eval { require "./plugins/$_"; }) {
+		if (eval { require "./plugins/$plugin"; }) {
 		    debug(3, "$1 services plugin loaded successfully.\n");
 		} else {
 		    debug(1, "$@");
@@ -178,11 +179,11 @@ foreach(readdir(DIR)) {
 	    } else {
 		debug(4, "$1 services plugin was not selected.\n");
 	    }
-	} elsif(eval { require "./plugins/$_"; }) {
-	    debug(3, "$_ plugin loaded successfully.\n");
+	} elsif(eval { require "./plugins/$plugin"; }) {
+	    debug(3, "$plugin plugin loaded successfully.\n");
 	} else {
 	    debug(1, "$@");
-	    debug(2, "$_ plugin did not load due to errors.\n");
+	    debug(2, "$plugin plugin did not load due to errors.\n");
 	}
     }
 }
@@ -308,27 +309,8 @@ sub timeago {
 #          after the script is updated.
 sub restart {
     &debug(3, "Received restart call...\n");
-    foreach(keys(%event_plugin_unload)) {
-		&plugin_callback($_, $event_plugin_unload{$_});
-    }
-    &debug(3, "Disconnecting from IRC...\n");
+	$terminating = 2;
     &quit("Restarting, brb...");
-    &save;
-    &debug(3, "Restarting script...\n");
-    exec "./simbot.pl";
-}
-
-# CLEANUP: Terminates the script immediately after saving.
-sub cleanup {
-    &debug(3, "Received cleanup call...\n");
-    foreach(keys(%event_plugin_unload)) {
-		&plugin_callback($_, $event_plugin_unload{$_});
-    }
-    &debug(3, "Disconnecting from IRC...\n");
-    &quit("Bye everyone!");
-    &save;
-    &debug(3, "Terminated.\n");
-    exit 0;
 }
 
 # RELOAD: Calls a series of reload callbacks to refresh plugins' data.
@@ -1022,7 +1004,8 @@ sub channel_join {
 sub channel_part {
     my ($nick) = split(/!/, $_[ ARG0 ]);
     my ($chan, $message) = split(/ :/, $_[ ARG1 ], 2);
-    &debug(4, "$nick has parted $chan. ($message)\n");
+    &debug(4, "$nick has parted $chan."
+		   . (defined $message ? " ($message)" : "") . "\n");
     foreach(keys(%event_channel_part)) {
 		&plugin_callback($_, $event_channel_part{$_}, ($nick, $chan, 'PARTED', $message));
     }
@@ -1032,7 +1015,8 @@ sub channel_part {
 sub channel_quit {
     my $message = $_[ ARG1 ];
     my ($nick) = split(/!/, $_[ ARG0 ]);
-    &debug(4, "$nick has quit IRC. ($message)\n");
+    &debug(4, "$nick has quit IRC."
+		   . (defined $message ? " ($message)" : "") . "\n");
     foreach(keys(%event_channel_quit)) {
 		&plugin_callback($_, $event_channel_quit{$_}, ($nick, undef, 'QUIT', $message));
     }
@@ -1073,17 +1057,29 @@ sub channel_mode {
 
 # QUIT: Quit IRC.
 sub quit {
-#    my $message = "@_";
-    my $message = "Bye everyone!";
-    $terminating = 1;
-    $kernel->call(bot => quit => "$project $version: $message");
-    
-    &debug(2, "Quitting IRC... $message\n");
+    my ($message) = @_;
+	if ($message eq "TERM") {
+		$message = "Terminated";
+	} elsif ($message eq "HUP") {
+		$message = "I am lost without my terminal!";
+	} elsif ($message eq "INT") {
+		if ($quit_prompt == 1) {
+			print "\nEnter Quit Message:\n";
+			$message = readline(STDIN);
+			chomp($message);
+		} else {
+			$message = $quit_default;
+		}
+	}
+    $terminating = 1 unless $terminating == 2;
+    $kernel->call(bot => quit => "$project $version"
+				  . (($message ne "") ? ": $message" : ""));
+    &debug(3, "Disconnecting from IRC... $message\n");
 }
 
 # RECONNECT: Reconnect to IRC when disconnected.
 sub reconnect {
-    if ($terminating == 1) {
+    if ($terminating >= 1) {
 		&debug(2, "Disconnected!\n");
 		$kernel->post(bot => unregister => "all");
 		# since the event loop should soon have nothing to do
@@ -1139,6 +1135,10 @@ foreach(keys(%event_plugin_unload)) {
     &plugin_callback($_, $event_plugin_unload{$_});
 }
 &save;
-# &debug(3, "Disconnecting from IRC...\n");
-#    &quit("Bye everyone!");
-exit 0;
+if ($terminating == 2) {
+    &debug(3, "Restarting script...\n");
+	exec "./simbot.pl";
+} else {
+    &debug(3, "Terminated.\n");
+	exit 0;
+}

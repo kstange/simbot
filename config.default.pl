@@ -29,6 +29,14 @@ $rulefile = "./rules.db";
 	   "Zagreb.Hr.EU.UnderNet.org",
 	   );
 
+# This is the default message that will be used when the bot quits.  If
+# it is defined, the bot will use it on an interrupt signal, unless
+# quit_prompt is set to 1.  Setting quit prompt to 1 will cause the bot
+# to prompt on an interrupt for a quit message.  Pressing enter at this
+# prompt will result in no message."
+$quit_default = "Bye everyone!";
+$quit_prompt = 0;
+
 # This specifies the type of services this network has. The services
 # type must match the name of a services plugin.  The stock variety
 # is currently only "undernet"  Leave the services type value blank
