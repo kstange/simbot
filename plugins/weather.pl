@@ -28,9 +28,9 @@ sub get_wx {
 	return;
     }
     $station = uc($station);
-    my $url = 'http://weather.noaa.gov/pub/data/observations/metar/stations/' 
+    my $url = 'http://weather.noaa.gov/pub/data/observations/metar/stations/'
         . $station . '.TXT';
-    SimBot::debug(3, 'Received weather command from ' . $nick . 
+    SimBot::debug(3, 'Received weather command from ' . $nick .
 	   " for $station\n");
     my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
     $useragent->agent("$project/1.0");
@@ -40,20 +40,20 @@ sub get_wx {
     if (!$response->is_error) {
 	my (undef, $raw_metar) = split(/\n/, $response->content);
 	my $m = new Geo::METAR;
-        
+
         # Geo::METAR has issues not ignoring the remarks section of the
         # METAR report. Let's strip it out.
         $raw_metar =~ s/^(.*?) RMK .*$/$1/;
         SimBot::debug(3, "METAR is " . $raw_metar . "\n");
 	$m->metar($raw_metar);
-        
+
 	# Let's form a response!
         $m->{date_time} =~ m/\d\d(\d\d)(\d\d)Z/;
         my $time = "$1:$2";
 	my $reply = "As reported at $time UTC at $station it is ";
 	my @reply_with;
 	$reply .= $m->TEMP_F . '°F (' . int($m->TEMP_C) . '°C) ' if defined $m->TEMP_F;
-        
+
         if($m->TEMP_F <= 40 && $m->WIND_MPH > 5) {
             my $windchill = 35.74 + (0.6215 * $m->TEMP_F)
                 - 35.75 * ($m->WIND_MPH ** 0.16)
@@ -61,11 +61,11 @@ sub get_wx {
             my $windchill_c = ($windchill - 32) * (5/9);
             push(@reply_with, sprintf('a wind chill of %.1f°F (%.1f°C)', $windchill, $windchill_c));
         }
-        
+
         my $humidity = 100 * ( ( (112 - (0.1 * $m->TEMP_C) + $m->C_DEW) /
                                  (112 + (0.9 * $m->TEMP_C)) ) ** 8 );
         push(@reply_with, sprintf('%d', $humidity) . '% humidity');
-            
+
 	if($m->WIND_MPH) {
 	    my $tmp = int($m->WIND_MPH) . ' mph winds';
             $tmp .= ' from the ' . $m->WIND_DIR_ENG if defined $m->WIND_DIR_ENG;
@@ -80,10 +80,10 @@ sub get_wx {
             $sky[$x] = lc($sky[$x]);
             $sky[$x] =~ s/solid overcast/overcast/;
             $sky[$x] =~ s/sky clear/clear skies/;
-            
+
             $sky[$x] =~ s/(broken|few|scattered) at/$1 clouds at/;
         }
-        
+
         push(@reply_with, @sky);
 
         $reply .= "with " . join(', ', @reply_with) if @reply_with;
@@ -91,7 +91,11 @@ sub get_wx {
 
 	$kernel->post(bot => privmsg => $channel, "$nick: $reply");
     } else {
-	$kernel->post(bot => privmsg => $channel, "$nick: Sorry, I could not access NOAA.");
+	if ($response->code eq "404") {
+	    $kernel->post(bot => privmsg => $channel, "$nick: Sorry, there is no METAR report available matching \"$station\". You can look up station IDs at <http://www.nws.noaa.gov/tg/siteloc.shtml>.");
+	} else {
+	    $kernel->post(bot => privmsg => $channel, "$nick: Sorry, I could not access NOAA.");
+	}
     }
 }
 
