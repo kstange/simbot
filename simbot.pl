@@ -1006,10 +1006,10 @@ sub channel_message {
 		&plugin_callback($_, $event_channel_message{$_}, ($nick, $channel, 'SAY', $text));
 	}
 
-    if ($text =~ /^\_/) {
+    if ($text =~ /^%/) {
 		my @command = split(/\s/, $text);
 		my $cmd = $command[0];
-		$cmd =~ s/^_//;
+		$cmd =~ s/^%//;
 		if ($event_plugin_call{$cmd}) {
 			&plugin_callback($cmd, $event_plugin_call{$cmd}, ($nick, $channel, @command));
 		} else {
