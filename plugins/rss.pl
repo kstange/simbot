@@ -28,7 +28,7 @@
 #   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 # TODO:
-#   * 
+#   * Switch to PoCo::Client::HTTP for the startup RSS fetch
 #
 
 package SimBot::plugin::rss;
@@ -40,6 +40,7 @@ use LWP::UserAgent;
 use POE;
 use POE::Component::Client::HTTP;
 use HTTP::Request::Common qw(GET POST);
+use HTTP::Status;
 use vars qw( %mostRecentPost %feeds %announce_feed $session );
 
 # Configure feeds here. Key should be local cache name; value should be
@@ -47,17 +48,17 @@ use vars qw( %mostRecentPost %feeds %announce_feed $session );
 $feeds{'fourohfour'}        = 'http://fourohfour.info/rss.xml';
 $announce_feed{'fourohfour'} = 1;
 
-$feeds{'simguy'}            = 'http://simguy.net/rss';
-$announce_feed{'simguy'}    = 1;
+#$feeds{'simguy'}            = 'http://simguy.net/rss';
+#$announce_feed{'simguy'}    = 1;
 
-$feeds{'slashdot'}          = 'http://slashdot.org/index.rss';
-$announce_feed{'slashdot'}  = 1;
+#$feeds{'slashdot'}          = 'http://slashdot.org/index.rss';
+#$announce_feed{'slashdot'}  = 1;
 
-$feeds{'fark'}              = 'http://www.pluck.com/rss/fark.rss';
-$announce_feed{'fark'}      = 0;
+#$feeds{'fark'}              = 'http://www.pluck.com/rss/fark.rss';
+#$announce_feed{'fark'}      = 0;
 
-$feeds{'lpetr'}             = 'http://slashdot.org/journal.pl?op=display&uid=557952&content_type=rss';
-$announce_feed{'lpetr'}     = 1;
+#$feeds{'lpetr'}             = 'http://slashdot.org/journal.pl?op=display&uid=557952&content_type=rss';
+#$announce_feed{'lpetr'}     = 1;
 
 use constant CHANNEL => &SimBot::option('network', 'channel');
 
@@ -103,27 +104,36 @@ sub bootstrap {
     $useragent->timeout(8);
     
     &SimBot::debug(3, "Updating RSS cache... \n");
+    my $file;
     foreach my $curFeed (keys %feeds) {
-        if(!-e "caches/${curFeed}.xml"
-           || -M "caches/${curFeed}.xml" > 0.042) {
+        $file = "caches/${curFeed}.xml";
+        if(!-e $file || -M $file > 0.042) {
             # cache is nonexistent or stale
-            
+            &SimBot::debug(3, "   Fetching ${curFeed}: ");
             #system('curl', '-o', "caches/$curFeed", $feeds{$curFeed});
             my $request = HTTP::Request->new(GET => $feeds{$curFeed});
+            if(-e $file) {
+                my $mtime = (stat($file))[9];
+                $request->if_modified_since($mtime);
+            }
             my $response = $useragent->request($request);
-            unless($response->is_error) {
-                open(OUT, ">caches/${curFeed}.xml");
+            &SimBot::debug(3, $response->status_line . "\n");
+            if($response->code == RC_NOT_MODIFIED) {
+                # File wasn't modified. We touch the file so we don't
+                # request it again for an hour
+                my $now = time;
+                utime($now, $now, $file);
+            } elsif($response->is_success) {
+                open(OUT, ">$file");
                 print OUT $response->content;
                 close(OUT);
             }
         }
-        $rss->parsefile("caches/${curFeed}.xml");
+        $rss->parsefile($file);
         $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
     }
-        
-    &SimBot::debug(3, "...done!\n");
-    
-    $kernel->delay(do_rss => 3600)
+
+    $kernel->delay(do_rss => 3600);
 }
 
 ### do_rss
@@ -131,15 +141,21 @@ sub bootstrap {
 # there is anything new, announce it.
 sub do_rss {
     my $kernel = $_[KERNEL];
-    my (@newPosts, $title);
+    my (@newPosts, $title, $request, $file);
     &SimBot::debug(3, "Updating RSS...\n");
 #    my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
 #    $useragent->agent(SimBot::PROJECT . "/" . SimBot::VERSION);
 #    $useragent->timeout(8);
     
     foreach my $curFeed (keys %feeds) {
+        $file = "caches/${curFeed}.xml";
+        $request = HTTP::Request->new(GET => $feeds{$curFeed});
+        if(-e $file) {
+            my $mtime = (stat($file))[9];
+            $request->if_modified_since($mtime);
+        }
         $kernel->post( 'ua' => 'request', 'got_response',
-                        (GET $feeds{$curFeed}), $curFeed);
+                        $request, $curFeed);
     }
     $kernel->delay(do_rss => 3600);
 }   
@@ -149,14 +165,21 @@ sub do_rss {
 # to disk and ask and post an event to parse it later.
 sub got_response {
     my ($request_packet, $response_packet) = @_[ ARG0, ARG1 ];
-    my (@newPosts, $title, $link);
+    my (@newPosts, $title, $link, $file);
     my $curFeed = $request_packet->[1];
     my $response = $response_packet->[0];
     my $rss = new XML::RSS;
-    &SimBot::debug(3, "...got RSS for $curFeed\n");
+    $file = "caches/${curFeed}.xml";
+    &SimBot::debug(3, "  got RSS for $curFeed: "
+                      . $response->status_line . "\n");
     
-    unless($response->is_error) {
-        open(OUT, ">caches/${curFeed}.xml");
+    if($response->code == RC_NOT_MODIFIED) {
+        # File wasn't modified. We touch the file so we don't
+        # request it again for an hour
+        my $now = time;
+        utime($now, $now, $file);
+    } elsif($response->is_success) {
+        open(OUT, ">$file");
         print OUT $response->content;
         close(OUT);
     
@@ -216,9 +239,7 @@ sub latest_headlines {
             
             $link =~ s{^http://go\.fark\.com/cgi/fark/go\.pl\?\S*&location=(\S*)$}{$1};
             
-            &SimBot::send_message($channel,
-                                  "$title <$link>");
-#            push(@newPosts, "$title <$item->{'link'}>");
+            &SimBot::send_message($channel, "$title <$link>");
         }
     } else {
         my $message = "$nick: "
