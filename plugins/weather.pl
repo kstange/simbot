@@ -306,7 +306,7 @@ sub got_wx {
             my $temp_f = (defined $m->TEMP_F ? $m->TEMP_F
                           : (9/5)*$temp_c+32);
 
-            my $temp = $temp_f . '¡F (' . int($temp_c) . '¡C)';
+            my $temp = $temp_f . '°F (' . int($temp_c) . '°C)';
             push(@reply_with, $temp);
 
             # this nonsense checks for the odd wind declaration NZSP
@@ -326,7 +326,7 @@ sub got_wx {
                                 + 0.4275 * $temp_f * ($wind_mph ** 0.16);
                 my $windchill_c = ($windchill - 32) * (5/9);
                 push(@reply_with,
-                    sprintf('a wind chill of %.1f¡F (%.1f¡C)',
+                    sprintf('a wind chill of %.1f°F (%.1f°C)',
                     $windchill, $windchill_c));
             }
 
@@ -352,7 +352,7 @@ sub got_wx {
 
                     my $heatindex_c = ($heatindex - 32) * (5/9);
                     push(@reply_with,
-                        sprintf('a heat index of %.1f¡F (%.1f¡C)',
+                        sprintf('a heat index of %.1f°F (%.1f°C)',
                                 $heatindex, $heatindex_c));
                 }
             }
