@@ -29,10 +29,9 @@
 # TODO:
 #   * We need a far more intelligent way to figure out where exactly the
 #     factoid ends or the key begins.
-#   * Support for multiple factoids on a key.
-#      - format will probably be flags|factoid||flags|factoid...
 #   * Figure out how the heck we should handle deletions when there are
 #     multiple factoids
+#   * Don't learn something we already know with 'is also'
 #
 
 package SimBot::plugin::info;
@@ -87,14 +86,13 @@ use constant I_CANNOT => (    # used to respond to requests with bad words
 );
 
 # these flags are used globally. Flags <= 128 are specific to the function
-use constant NO_RECURSE         => 512;
 use constant BEING_ADDRESSED    => 256;
 
 # these flags are used to tell handle_query stuff, also used when storing
 # factoids
 use constant PREFER_DESC        => 128;
-use constant PREFER_URL         => 64;
-#                               => 32;
+use constant PREFER_LOCATION    => 64;
+use constant NO_RECURSE         => 32;
 #                               => 16;
 #                               => 8;
 #                               => 4;
@@ -173,7 +171,7 @@ sub handle_chat {
         # otherwise, we should try to respond with a non-URL
         my $key = $2;
         my $flags;
-        if($1 =~ m/where/i) { $flags =  PREFER_URL;         }
+        if($1 =~ m/where/i) { $flags =  PREFER_LOCATION;    }
         else                { $flags =  PREFER_DESC;        }
         if($being_addressed){ $flags |= BEING_ADDRESSED;    }
         
@@ -183,7 +181,7 @@ sub handle_chat {
         # looks like a query, try to respond with a URL
         &handle_query($2, $nick, $channel, $person_being_referenced,
                       ($being_addressed ? BEING_ADDRESSED : 0)
-                      | PREFER_URL);
+                      | PREFER_LOCATION);
     } elsif($content =~ m{([\'\w\s]+) is[\s\w]* (also )(\w+://\S+)}i) {
         # looks like a URL to me!
         my ($key, $also, $factoid) = (lc($1), $2, $3);
@@ -271,7 +269,7 @@ sub handle_chat {
 #   $query:     the key we are looking up
 #   $channel:   channel the chat was in
 #   $addressed: content of the message
-#   $flags:     bit flags PREFER_URL, PREFER_DESC, and BEING_ADDRESSED
+#   $flags:     bit flags PREFER_LOCATION, PREFER_DESC, and BEING_ADDRESSED
 # Returns:
 #   nothing
 sub handle_query {
@@ -291,11 +289,16 @@ sub handle_query {
         
         # If we are to prefer URLs or nonURLs, let's remove everything
         # else from the list.
-        if(($flags & PREFER_URL) || ($flags & PREFER_DESC)) {
+        if(($flags & PREFER_LOCATION) || ($flags & PREFER_DESC)) {
             for(my $i=0;$i<=$#factoids;$i++) {
-                ($factFlags,undef) = split(/\|/, $factoids[$i], 2);
-                if(  ($flags & PREFER_URL  && !($factFlags & FACT_URL))
-                  || ($flags & PREFER_DESC &&  ($factFlags & FACT_URL)) ) {
+                ($factFlags,$factoid) = split(/\|/, $factoids[$i], 2);
+                my $isLoc = 0;
+                if(($factFlags & FACT_URL)
+                   || ($factoid =~ m/^(at|on|in|near)/i)) {
+                    $isLoc = 1;
+                }
+                if(  ($flags & PREFER_LOCATION  && !$isLoc)
+                  || ($flags & PREFER_DESC      && $isLoc) ) {
                     # if we are preferring URLs, and the factoid isn't
                     # or we are preferring non-URLs, and the factoid is
                     
