@@ -1,5 +1,14 @@
-Version 6.0 alpha: (26 Apr 2004)
+Version 6.0 alpha: (04 Jul 2004)
+	* simbot.pl:
+	   - Added snooze mode which can be toggled by users in the channel.
+	     If a conversation is bizarre or private and users want to prevent
+	     the bot from learning what is said and responding conversationally
+	     this mode will prevent both temporarily.  It resets to off when
+	     the bot starts up, and the command %snooze [off|on] toggles it.
+	     $SimBot::snooze is available as a boolean to any plugins that want
+	     to check whether snooze is on before generating an action.
 
+Version 6.0 alpha: (26 Apr 2004)
 	* simbot.pl:
 	   - Added a new event handler that allows plugins to identify when
 	     the bot is addressed and do something else.  Returning false
