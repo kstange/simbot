@@ -49,13 +49,13 @@ use Encode;
 
 use constant CHANNEL => &SimBot::option('network', 'channel');
 use constant FEED_TITLE_STYLE => &SimBot::option('plugin.rss','title_style');
-use constant DELAY => (&SimBot::option('plugin.rss', 'delay') ?
-					   &SimBot::option('plugin.rss', 'delay') : 3600);
+use constant EXPIRE => (&SimBot::option('plugin.rss', 'expire') ?
+						&SimBot::option('plugin.rss', 'expire') : 3600);
 
 ### messup_rss
-# This runs when simbot loads. We need to make sure we know the
-# most recent post on each feed at this time so when we update in an hour
-# we can announce only new stuff.
+# This runs when simbot loads. We need to make sure we know the most recent
+# post on each feed at this time so when we update we can announce only new
+# stuff.
 sub messup_rss {
     foreach my $cur_feed
             (&SimBot::options_in_section('plugin.rss.feeds')) {
@@ -106,7 +106,7 @@ sub bootstrap {
     my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
     $useragent->agent(SimBot::PROJECT . "/" . SimBot::VERSION);
     $useragent->timeout(8);
-    
+
     &SimBot::debug(3, "Updating RSS cache... \n");
     my $file;
     foreach my $curFeed (keys %feeds) {
@@ -138,17 +138,17 @@ sub bootstrap {
         }
     }
 
-    $kernel->delay(do_rss => DELAY);
+    $kernel->delay(do_rss => EXPIRE);
 }
 
 ### do_rss
-# This is run on a timer, once an hour, to fetch new data and, if
-# there is anything new, announce it.
+# This is run on a timer, once an hour or as specified by the EXPIRE option,
+# to fetch new data and, if there is anything new, announce it.
 sub do_rss {
     my $kernel = $_[KERNEL];
     my (@newPosts, $title, $request, $file);
     &SimBot::debug(3, "Updating RSS...\n");
-    
+
     foreach my $curFeed (keys %feeds) {
         if($announce_feed{$curFeed}) {
             $file = "caches/${curFeed}.xml";
@@ -161,8 +161,8 @@ sub do_rss {
                             $request, $curFeed);
         }
     }
-    $kernel->delay(do_rss => DELAY);
-}   
+    $kernel->delay(do_rss => EXPIRE);
+}
 
 ### got_response
 # This is run whenever we have retrieved a RSS feed. We dump it
@@ -176,7 +176,7 @@ sub got_response {
     $file = "caches/${curFeed}.xml";
     &SimBot::debug(3, "  got RSS for $curFeed: "
                       . $response->status_line . "\n");
-    
+
     if($response->code == RC_NOT_MODIFIED) {
         # File wasn't modified. We touch the file so we don't
         # request it again for an hour
@@ -186,22 +186,22 @@ sub got_response {
         open(OUT, ">$file");
         print OUT $response->content;
         close(OUT);
-    
+
         if($announce_feed{$curFeed}) {
 
             $rss->parsefile("caches/${curFeed}.xml");
-        
+
             foreach my $item (@{$rss->{'items'}}) {
                 if($item->{'link'} eq $mostRecentPost{$curFeed}) {
                     last;
                 } else {
                     ($link, $title) = &get_link_and_title($item);
-                    
+
                     push(@newPosts, "$title  $link");
                 }
             }
             $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
-        
+
             if(@newPosts) {
                 $title = $rss->{'channel'}->{'title'};
                 if($title =~ m/Slashdot Journals/) {
@@ -234,13 +234,13 @@ sub real_latest_headlines {
     my ($kernel, $nick, $channel, $feed) = @_[ KERNEL, ARG0, ARG1, ARG2 ];
     my ($item, $title, $link);
     my $rss = new XML::RSS;
-    
+
     &SimBot::debug(3, "Got RSS command from $nick" .
 				   (defined $feed ? " for $feed: " : ": "));
-    
+
     if(defined $feed && defined $feeds{$feed}) {
         my $file = "caches/${feed}.xml";
-        if(!-e $file || -M $file > 0.042) {
+        if(!-e $file || -M $file > (EXPIRE / 86400)) {
             &SimBot::debug(3, "Old/missing, fetching...\n");
             # cache is stale or missing, we need to go fetch it
             # before we announce anything.
@@ -289,7 +289,7 @@ sub announce_top {
       {
         $item = ${$rss->{'items'}}[$i];
         ($link, $title) = &get_link_and_title($item);
-        
+
         &SimBot::send_message($channel, "$title  $link");
     }
 }
