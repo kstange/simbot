@@ -1,57 +1,73 @@
-
-=head1 NAME
-
-SimBot Weather Plugin
-
-=head1 SYNOPSIS
-
-Provides the ability to get the current conditions for one's locale to
-SimBot. Responds to I<%weather xxxx> with the current conditions for the
-location I<xxxx>, where I<xxxx> is a station providing X<METAR>METAR reports. The four character station IDs can be looked up online at
-L<http://www.nws.noaa.gov/tg/siteloc.shtml>.
-
-=head1 COPYRIGHT
-
-Copyright (C) 2003-04, Pete Pearson
-
-This program is free software; you can redistribute it and/or modify
-under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-
-=head1 TODO
-
-=over
-
-=item Either fix the issues in C<Geo::METAR> or stop using it.
-
-=back
-
-=cut
+###
+#  SimBot Weather Plugin
+#
+# DESCRIPTION:
+#   Provides the ability to get the current weather conditions for one's
+#   locale  to SimBot. Responds to "%weather xxxx>" with the current
+#   conditions for the location xxxx, where xxxx is a station providing
+#   METAR reports. The four character station IDs can be looked up online
+#   at <http://www.nws.noaa.gov/tg/siteloc.shtml>.
+#
+# COPYRIGHT:
+#   Copyright (C) 2003-04, Pete Pearson
+#
+#   This program is free software; you can redistribute it and/or modify
+#   under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 2 of the License, or
+#   (at your option) any later version.
+#   
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#   
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# TODO:
+#   * Either fix the issues in Geo::METAR or stop using it.
+#
 
 package SimBot::plugin::weather;
 use warnings;
+use strict;
 
-# GET_WX: Fetches a METAR report and gives a few weather conditions
+# declare globals
+use vars qw( %stationNames );
+
+# These constants define the phrases simbot will use when responding
+# to weather requests.
+use constant STATION_LOOKS_WRONG =>
+    'That doesn\'t look like a METAR station. ';
+    
+use constant STATION_UNSPECIFIED =>
+    'Please provide a METAR station ID. ';
+
+use constant FIND_STATION_AT => 'You can look up station IDs at <http://www.nws.noaa.gov/tg/siteloc.shtml>.';
+
+use constant CANNOT_ACCESS => 'Sorry; I could not access NOAA.';
+
+### get_wx
+# Fetches a METAR report and sends to the channel the weather conditions
+#
+# Arguments:
+#   undef
+#   $nick:      nickname of the person requesting the weather
+#   $channel:   channel the chat was in
+#   $command:   m/.weather/ or m/.metar/
+#   $station:   the station ID
+# Returns:
+#   nothing
 sub get_wx {
-    my ($kernel, $nick, $channel, $command, $station) = @_;
+    my (undef, $nick, $channel, $command, $station) = @_;
     if(length($station) != 4) {
         # Whine and bail
         &SimBot::send_message($channel,
 							  "$nick: "
-							  . ($station
-								 ? "That doesn't look like a METAR station. "
-								 : 'Please provide a METAR station ID. ')
-							  . 'You can look up station IDs at <http://www.nws.noaa.gov/tg/siteloc.shtml>.');
+							  . ($station ? STATION_LOOKS_WRONG
+							              : STATION_UNSPECIFIED)
+							  . FIND_STATION_AT);
         return;
     }
 
@@ -69,10 +85,10 @@ sub get_wx {
     my $request = HTTP::Request->new(GET => $url);
     my $response = $useragent->request($request);
     if ($response->is_error) {
-        if ($response->code eq "404") {
-            &SimBot::send_message($channel, "$nick: Sorry, there is no METAR report available matching \"$station\". You can look up station IDs at <http://www.nws.noaa.gov/tg/siteloc.shtml>.");
+        if ($response->code eq '404') {
+            &SimBot::send_message($channel, "$nick: Sorry, there is no METAR report available matching \"$station\". " . FIND_STATION_AT);
         } else {
-            &SimBot::send_message($channel, "$nick: Sorry, I could not access NOAA.");
+            &SimBot::send_message($channel, "$nick: " . CANNOT_ACCESS);
         }
         return;
     }
@@ -96,8 +112,9 @@ sub get_wx {
             my $state = ($1 eq $name ? undef : $1);
             $response->content =~ m|Country:.*?<B>(.*?)\s*</B>|s;
             my $country = $1;
-            $stationNames{$station} = "$name, " . ($state ? "$state, " : "")
-				. "$country ($station)";
+            $stationNames{$station} = "$name, "
+                                      . ($state ? "$state, " : "")
+                                      . "$country ($station)";
         }
     }
 
@@ -194,11 +211,17 @@ sub get_wx {
     &SimBot::send_message($channel, "$nick: $reply");
 }
 
+### cleanup_wx
+# This method is run when SimBot is exiting. We save the station names
+# cache here.
 sub cleanup_wx {
 		&SimBot::debug(3, "Saving station names\n");
 		dbmclose(%stationNames);
 }
 
+### messup_wx
+# This method is run when SimBot is loading. We load the station names
+# cache here.
 sub messup_wx {
     &SimBot::debug(3, "Loading station names...\n");
     dbmopen (%stationNames, 'metarStationNames', 0664) || &SimBot::debug(2, "Could not open cache.  Names will not be stored for future sessions.\n");
