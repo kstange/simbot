@@ -309,7 +309,7 @@ sub got_wx {
                 push(@reply_with, $rmk);
             }
             
-            if($remarks =~ m/((OCNL|FRQ|CONS) )?LTG(CG|IC|CC|CA)*( (OHD|VC|DSNT))?( (N|NE|E|SE|S|SW|W|NW))?/) {
+            if($remarks =~ m/\b((OCNL|FRQ|CONS) )?LTG(CG|IC|CC|CA)*( (OHD|VC|DSNT))?( (\S+))?\b/) {
                 my ($freq, $loc, $dir) = ($2, $5, $7);
                 my $rmk;
                 
@@ -326,26 +326,25 @@ sub got_wx {
                 $rmk .= 'lightning';
                 
                 if(defined $loc) {
-                    $loc =~ s{OHD} {overhead};
-                    $loc =~ s{VC}  {in the vicinity};
-                    
-                    $rmk .= " $loc";
+                    if($loc =~ /OHD/)   { $rmk .= ' overhead';          }
+                    if($loc =~ /VC/)    { $rmk .= ' in the vicinity';   }
                 }
                 
-                if(defined $dir)
-                    { $rmk .= " to the $dir"; }
+                if(defined $dir)        { $rmk .= " to the $dir";       }
                 
                 push(@reply_with, $rmk);
             }
         
-            if($remarks =~ m/TS (N|NE|E|SE|S|SW|W|NW)( MOV (N|NE|E|SE|S|SW|W|NW))?/) {
-                my $rmk = "thunderstorm to the $1";
-                if(defined $3)
-                    { $rmk .= " moving $3"; }
+            if($remarks =~ m/\bTS (VC )?(\S*)( MOV (N|NE|E|SE|S|SW|W|NW))?\b/) {
+                my ($in_vc, $in_dir, $mov_dir) = ($1, $2, $4);
+                my $rmk = 'thunderstorm ';
+                if(defined $in_vc)      { $rmk .= 'in the vicinity ';   }
+                if(defined $in_dir)     { $rmk .= "to the $in_dir ";    }
+                if(defined $mov_dir)    { $rmk .= "moving $mov_dir";    }
                 push(@reply_with, $rmk);
             }
             
-            if($remarks =~ m/PRES(R|F)R/) {
+            if($remarks =~ m/\bPRES(R|F)R\b/) {
                 push(@reply_with, 'pressure '
                     . ($1 eq 'R' ? 'rising' : 'falling')
                     . ' rapidly');
