@@ -1,6 +1,6 @@
 # SimBot Todo List Plugin
 #
-# Copyright (C) 2003, Kevin M Stange <kevin@simguy.net>
+# Copyright (C) 2003-4, Kevin M Stange <kevin@simguy.net>
 #
 # This program is free software; you can redistribute it and/or modify
 # under the terms of the GNU General Public License as published by
@@ -24,8 +24,7 @@ package SimBot::plugin::todo;
 	 "3) create a means for automatic dead words cleanup",
 	 "4) automatically perform regular db backups",
 	 "--- Finish above this line and we'll increment to 6.0 final ---",
-	 "5) pray for IRC module to start supporting QUIT properly",
-	 "6) eventually recognize the possibility for joining 2+ channels",
+	 "5) eventually recognize the possibility for joining 2+ channels",
 	 );
 
 # PRINT_TODO: Prints todo list privately to the user.
