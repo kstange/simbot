@@ -9,6 +9,7 @@
 #   * XML::RSS
 #   * LWP::UserAgent (you should have this already)
 #   * POE::Component::Client::HTTP
+#   * HTML::Entities
 #
 # COPYRIGHT:
 #   Copyright (C) 2004, Pete Pearson <http://fourohfour.info/>
@@ -39,6 +40,7 @@ use strict;
 use warnings;
 use XML::RSS;
 use LWP::UserAgent;
+use HTML::Entities;
 use POE;
 use POE::Component::Client::HTTP;
 use HTTP::Request::Common qw(GET POST);
@@ -198,8 +200,7 @@ sub got_response {
                 } else {
                     $title = $item->{'title'};
                     $link = $item->{'link'};
-                    $title =~ s/&quot;/\"/ig;
-                    $title =~ s/&amp;/&/ig;
+					$title = HTML::Entities::decode($title);
                     $title =~ s/\t/  /g;
                     
                     $link =~ s{^http://go\.fark\.com/cgi/fark/go\.pl\?\S*&location=(\S*)$}{$1};
@@ -247,8 +248,7 @@ sub latest_headlines {
             $item = ${$rss->{'items'}}[$i];
             $link = $item->{'link'};
             $title = $item->{'title'};
-            $title =~ s/&quot;/\"/;
-            $title =~ s/&amp;/&/;
+			$title = HTML::Entities::decode($title);
             $title =~ s/\t/  /;
             
             $link =~ s{^http://go\.fark\.com/cgi/fark/go\.pl\?\S*&location=(\S*)$}{$1};
