@@ -89,7 +89,8 @@ use constant I_CANNOT => (    # used to respond to requests with bad words
     'I cannot do that, $nick.',
 );
 
-# these flags are used to tell handle_query stuff
+# these flags are used to tell handle_query stuff, also used when storing
+# factoids
 use constant PREFER_URL         => 128;
 use constant PREFER_DESC        => 64;
 use constant BEING_ADDRESSED    => 32;
@@ -224,7 +225,7 @@ sub handle_chat {
             if($areDB{$key}) {
                 &SimBot::send_message($channel, 
                     &parse_message(&SimBot::pick(BUT_X_IS_Y), $nick,
-                                   $key, 'are', $isDB{$key}))
+                                   $key, 'are', $areDB{$key}))
                     if $being_addressed;
             } else {
                 $areDB{$key} = $factoid;
@@ -269,7 +270,7 @@ sub handle_query {
     } elsif($areDB{$query}) {
         &SimBot::send_message($channel,
                     &parse_message(&SimBot::pick(QUERY_RESPONSE),
-                                   $nick, $query, 'are', $isDB{$query}));
+                                   $nick, $query, 'are', $areDB{$query}));
     } elsif($flags & BEING_ADDRESSED) {
         # we're being addressed, but don't have an answer...
         &SimBot::send_message($channel,
