@@ -409,6 +409,14 @@ sub option_list {
 	}
 }
 
+# OPTIONS_IN_SECTION: Returns a list of the options that are set in
+# a particular section.
+sub options_in_section {
+    my ($sec) = $_[0];
+    return () if !defined $conf{$sec};
+    return keys %{$conf{$sec}};
+}
+
 # RESTART: Quits and restarts the script.  This should be done
 #          after the script is updated.
 sub restart {
