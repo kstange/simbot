@@ -22,13 +22,19 @@
 #       unless you know what you are doing.  Submit bugfixes back to:
 #       http://sf.net/projects/simbot
 
+# Hi, my name is:
+package SimBot;
+
+# Load the configuration file in.  We're not going to try to deal with what
+# happens if this fails.  If you have no configuration, you should get one
+# before you try to do anything.
 require "./config.pl";
 
 # Check some config options or bail out!
 die("Your config.pl is lacking an IRC server to connect to!") unless @server;
 die("Your config.pl is lacking a channel to join!") unless $channel;
 die("Your config.pl is lacking a valid default nickname!") unless (length($nickname) >= 2);
-die("Your config.pl has a extra sentence % >= 100%!") unless ($exsenpct < 100);
+die("Your config.pl has an extra sentence % >= 100%!") unless ($exsenpct < 100);
 die("Your config.pl has no rulefile to load!") unless $rulefile;
 
 if($gender eq 'M') {
@@ -48,19 +54,6 @@ if($gender eq 'M') {
 # 4 shows everything you never wanted to see.
 $verbose = 3;
 
-@todo = (
-	 "1) %delete: allow users to delete words used less than x times",
-	 "2) %recap: allow users to request scrollback of up to x lines",
-	 "3) create a means for automatic dead words cleanup",
-	 "4) add detection for the return of X and log back in",
-	 "5) automatically perform regular db backups",
-	 "6) split out a plugin architecture",
-	 "--- Finish above this line and we'll increment to 6.0 final ---",
-	 "7) maybe: grab contextual hinting",
-	 "8) maybe: do some runaway loop detection",
-	 "9) pray for IRC module to start supporting QUIT properly",
-	 );
-
 # Software Name
 $project = "SimBot";
 # Software Version
@@ -76,17 +69,21 @@ $version = "6.0 alpha";
 # ************ Start of Script ***********
 # ****************************************
 
-%plugin = (
-	   "%stats",   "print_stats",
-	   "%help",    "print_help",
-	   "%todo",    "print_todo",
-	   "%list",    "print_list",
-	   );
+%event_plugin_call = (
+		      "stats",   "print_stats",
+		      "help",    "print_help",
+		      "list",    "print_list",
+		      );
+
+%plugin_type = (
+		"stats",   "INT",
+		"help",    "INT",
+		"list",    "INT",
+		);
 
 %plugin_desc = (
-		"%stats",   "Shows useless stats about the database",
-		"%help",    "Shows this message",
-		"%todo",    "Where the hell am I going?",
+		"stats",   "Shows useless stats about the database.",
+		"help",    "Shows this message.",
 		);		
 
 # We'll need this perl module to be able to do anything meaningful.
@@ -94,21 +91,25 @@ $kernel = new POE::Kernel;
 use POE;
 use POE::Component::IRC;
 
-# Find needs LWP to be useable.
-if (eval { require LWP::UserAgent; }) {
-    $plugin{"%find"} = "google_find";
-    $plugin_desc{"%find"} = "Searches Google with \"I'm Feeling Lucky\"";
-    debug(3, "LWP::UserAgent loaded: Find plugin will be used\n");
-} else {
-    debug(3, "LWP::UserAgent failed: Find plugin will not be available\n");
+opendir(DIR, "./plugins");
+foreach(readdir(DIR)) {
+    if($_ =~ /.*\.pl$/) {
+	if(eval { require "./plugins/$_"; }) {
+	    debug(3, "$_ plugin loaded successfully.\n");
+	} else {
+	    debug(2, "$_ plugin did not load due to errors.\n");
+	}
+    }
 }
+closedir(DIR);
 
 # We want to catch signals to make sure we clean up and save if the
 # system wants to kill us.
-$SIG{'TERM'} = 'cleanup';
-$SIG{'INT'}  = 'cleanup';
-$SIG{'HUP'}  = 'cleanup';
-$SIG{'USR1'} = 'restart';
+$SIG{'TERM'} = 'SimBot::cleanup';
+$SIG{'INT'}  = 'SimBot::cleanup';
+$SIG{'HUP'}  = 'SimBot::cleanup';
+$SIG{'USR1'} = 'SimBot::restart';
+$SIG{'USR2'} = 'SimBot::reload';
 
 # Load the massive table of rules simbot will need.
 &load;
@@ -185,12 +186,49 @@ sub hostmask() {
     return "*!$user\@$host";
 }
 
+# TIMEAGO: Returns a string of how long ago something happened
+sub timeago {
+    my ($seconds, $minutes, $hours, $days, $weeks, $years);
+    $seconds = time - $_[0];
+    if($seconds > 60) {
+        $minutes = int $seconds / 60;
+        $seconds %= 60;
+        if($minutes > 60) {
+            $hours = int $minutes / 60;
+            $minutes %= 60;
+            if($hours > 24) {
+                $days = int $hours / 24;
+                $hours %= 24;
+                if($days > 365) {
+                    $years = int $days/365;
+                    $days %= 365;
+                }
+            }
+        }
+    }
+    
+    my $reply;
+    $reply = "$years year" . (($years == 1) ? ' ' : 's ') if $years;
+    $reply .= "$days day" . (($days == 1) ? ' ' : 's ') if $days;
+    $reply .= "$hours hour" . (($hours == 1) ? ' ' : 's ') if $hours;
+    $reply .= "$minutes minute" . (($minutes == 1) ? ' ' : 's ') if $minutes;
+    $reply .= "$seconds second" . (($seconds == 1) ? ' ' : 's ') if $seconds;
+    if($reply) {
+        $reply .= 'ago';
+    } else {
+        $reply = 'very recently';
+    }
+    return $reply;
+}
+
 # RESTART: Quits and restarts the script.  This should be done
 #          after the script is updated.
 sub restart {
     &debug(3, "Received restart call...\n");
     &save;
-    &cleanup_seen;
+    foreach(keys(%event_plugin_unload)) {
+	&plugin_callback($_, $event_plugin_unload{$_});
+    }
     &debug(3, "Disconnecting from IRC...\n");
     &quit("Restarting, brb...");
     &debug(3, "Restarting script...\n");
@@ -201,11 +239,21 @@ sub restart {
 sub cleanup {
     &debug(3, "Received cleanup call...\n");
     &save;
-    &cleanup_seen;
+    foreach(keys(%event_plugin_unload)) {
+	&plugin_callback($_, $event_plugin_unload{$_});
+    }
     &debug(3, "Disconnecting from IRC...\n");
     &quit("Bye everyone!");
     &debug(3, "Terminated.\n");
     exit 0;
+}
+
+# RELOAD: Calls a series of reload callbacks to refresh plugins' data.
+sub reload {
+    &debug(3, "Received reload call...\n");
+    foreach(keys(%event_plugin_reload)) {
+	&plugin_callback($_, $event_plugin_reload{$_});
+    }
 }
 
 # ########### FILE OPERATIONS ############
@@ -259,58 +307,71 @@ sub save {
     $items = 0;
 }
 
-# GOOGLE_FIND: Prints a URL returned by google's I'm Feeling Lucky.
-sub google_find {
-    my ($nick, @terms) = @_;
-    shift(@terms);
-    my $query = "@terms";
-    $query =~ s/\&/\%26/g;
-    $query =~ s/\%/\%25/g;
-    $query =~ s/\+/\%2B/g;
-    $query =~ s/\s/+/g;
-    my $url = "http://www.google.com/search?q=" . $query . "&btnI=1&safe=active";
-    &debug(3, "Received find command from " . $nick . ".\n");
-    my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
-    $useragent->agent("$project/1.0");
-    $useragent->timeout(5);
-    my $request = HTTP::Request->new(GET => $url);
-    my $response = $useragent->request($request);
-    if ($response->previous) {
-	if ($response->previous->is_redirect) {
-	    $kernel->post(bot => privmsg => $channel, "$nick: " . $response->request->uri());
+# ########### PLUGIN OPERATIONS ############
+
+# PLUGIN_REGISTER: Registers a plugin (or doesn't).
+sub plugin_register {
+    my %data = @_;
+    foreach (split(/,/, $data{modules})) {
+	if (eval { eval "require $_"; }) {
+	    &debug(4, $data{plugin_id} . ": $_ module was loaded as a plugin dependency\n");
 	} else {
-	    $kernel->post(bot => privmsg => $channel, "$nick: An unknown error occured retrieving results.");
+	    &debug(1, $data{plugin_id} . ": $_ module could not be loaded as a plugin dependency\n");
+	    return 0;
 	}
-    } elsif (!$response->is_error) {
-	# Let's use the calculator!
-	if ($response->content =~ m#/images/calc_img\.gif#) {
-	    $response->content =~ m#<td nowrap><font size=\+1><b>(.*?)</b></td>#;
-	    # We can't just take $1 because it might have HTML in it
-	    my $result = $1;
-	    $result =~ s#<sup>(.*?)</sup>#^$1#g;
-	    $result =~ s#<font size=-2> </font>#,#g;
-	    $result =~ s#&times;#x#g;
-	    $kernel->post(bot => privmsg => $channel, "$nick: $result");
-	} else {
-	    $kernel->post(bot => privmsg => $channel, "$nick: Nothing was found.");
-	}
+    } if $data{modules};
+    if(!$plugin_type{$data{plugin_id}}) {
+	&debug(4, $data{plugin_id} . ": no plugin conflicts detected\n");
     } else {
-	$kernel->post(bot => privmsg => $channel, "$nick: Sorry, I could not access Google.");
+	&debug(1, $data{plugin_id} . ": a plugin is already registered to this handle\n");
+	return 0;
     }
+    $event_plugin_call{$data{plugin_id}} = $data{event_plugin_call};
+    $plugin_type{$data{plugin_id}} = "EXT";
+    if(!$data{plugin_desc}) {
+	&debug(4, $data{plugin_id} . ": this plugin has no description and will be hidden\n");
+    } else {
+	$plugin_desc{$data{plugin_id}} = $data{plugin_desc};
+    }
+    if ($data{event_plugin_load}) {
+	if (!&plugin_callback($data{plugin_id}, $data{event_plugin_load})) {
+	    &debug(1, $data{plugin_id} . ": plugin returned an error code on load\n");
+	    return 0;
+	}
+    }
+    if ($data{event_plugin_unload}) {
+	$event_plugin_unload{$data{plugin_id}} = $data{event_plugin_unload};
+    }
+    foreach (keys(%data)) {
+	if ($_ =~ /^event_channel_.*/) {
+	    ${$_}{$data{plugin_id}} = $data{$_};
+        }
+    }
+    return 1;
 }
 
+# PLUGIN_CALLBACK: Calls the given plugin function with paramters.
+sub plugin_callback {
+    my ($plugin, $function, @params) = @_;
+    if($plugin_type{$plugin} eq "EXT") {
+	return &{"SimBot::plugin::$plugin\:\:$function"}($kernel, @params);
+    } else {
+	return &{$function}($kernel, @params);
+    }
+}
+	    
 # PRINT_HELP: Prints a list of valid commands privately to the user.
 sub print_help {
-    my $nick = $_[0];
+    my $nick = $_[1];
     &debug(3, "Received help command from " . $nick . ".\n");
     foreach(sort {$a cmp $b} keys(%plugin_desc)) {
-	$kernel->post(bot => privmsg => $nick, $_ . " - " . $plugin_desc{$_});
+	$kernel->post(bot => privmsg => $nick, "%" . $_ . " - " . $plugin_desc{$_});
     }
 }
 
 # PRINT_LIST: Stupid replies.
 sub print_list {
-    my $nick = $_[0];
+    my $nick = $_[1];
     &debug(3, "Received list command from " . $nick . ".\n");
     my @reply = (
 		 "$nick: HER R TEH FIL3Z!!!! TEH PR1Z3 FOR U! KTHXBYE",
@@ -321,19 +382,6 @@ sub print_list {
 		 "$nick: h4x0r5 0n teh yu0r pC? oh nos!!! my megahurtz haev been stoeled!!!!!111 safely check yuor megahurtz with me, free!",
 		 );
     $kernel->post(bot => privmsg => $channel, &pick(@reply));
-}
-
-# PRINT_TODO: Prints todo list privately to the user.
-sub print_todo {
-    my $nick = $_[0];
-    &debug(3, "Received todo command from " . $nick . ".\n");
-    if (@todo) {
-	foreach(@todo) {
-	    $kernel->post(bot => privmsg => $nick, $_);
-	}
-    } else {
-	$kernel->post(bot => privmsg => $nick, "Request some features!  My todo list is empty!");
-    }
 }
 
 # PRINT_STATS: Prints some useless stats about the bot to the channel.
@@ -395,222 +443,6 @@ sub print_stats {
     }
     $kernel->post(bot => privmsg => $channel, $message);
 }
-
-### BEGIN seen stuff
-dbmopen (%seenData, 'seen', 0664) || die("Can't open dbm\n");
-
-$plugin{'%seen'} = "get_seen";
-$plugin_desc{'%seen'} = 'Tells you the last time I saw someone.';
-# GET_SEEN: Checks to see if a person has done anything lately...
-sub get_seen {
-    my ($nick, undef, $person) = @_;
-    if(!$person) {
-        $kernel->post(bot => privmsg => $channel, "$nick: There are many things I have seen. Perhaps you should ask for someone in particular?");
-    } elsif(lc($person) eq lc($chosen_nick)) {
-        $kernel->post(bot => ctcp => $channel, 'action', "waves $hisher hand in front of $hisher face. \"Yup, I can see myself!\"");
-    } elsif($seenData{lc($person)}) {
-        my ($when, $doing, $seenData) = split(/!/, $seenData{lc($person)}, 3);
-        $doing = "saying \"$seenData\"" if($doing eq 'SAY');
-        $doing = 'in a private message' if($doing eq 'PMSG');
-        $doing = "($seenData)" if ($doing eq 'ACTION');
-        if($doing eq 'KICKED') {
-            my ($kicker,$reason) = split(/!/, $seenData, 2);
-            $doing = "getting kicked by $kicker ($reason)";
-        }
-        if($doing eq 'KICKING') {
-            my ($kicked,$reason) = split(/!/, $seenData, 2);
-            $doing = "kicking $kicked ($reason)";
-        }
-        my $response = "I last saw $person " . timeago($when) . " ${doing}.";
-        $kernel->post(bot => privmsg => $channel, "$nick: $response");
-    } else {
-        $kernel->post(bot => privmsg => $channel, "$nick: I have not seen $person.");
-    }
-}
-
-# TIMEAGO: Returns a string of how long ago something happened
-sub timeago {
-    my ($seconds, $minutes, $hours, $days, $weeks, $years);
-    $seconds = time - $_[0];
-    if($seconds > 60) {
-        $minutes = int $seconds / 60;
-        $seconds %= 60;
-        if($minutes > 60) {
-            $hours = int $minutes / 60;
-            $minutes %= 60;
-            if($hours > 24) {
-                $days = int $hours / 24;
-                $hours %= 24;
-                if($days > 365) {
-                    $years = int $days/365;
-                    $days %= 365;
-                }
-            }
-        }
-    }
-    
-    my $reply;
-    $reply = "$years year" . (($years == 1) ? ' ' : 's ') if $years;
-    $reply .= "$days day" . (($days == 1) ? ' ' : 's ') if $days;
-    $reply .= "$hours hour" . (($hours == 1) ? ' ' : 's ') if $hours;
-    $reply .= "$minutes minute" . (($minutes == 1) ? ' ' : 's ') if $minutes;
-    $reply .= "$seconds second" . (($seconds == 1) ? ' ' : 's ') if $seconds;
-    if($reply) {
-        $reply .= 'ago';
-    } else {
-        $reply = 'very recently';
-    }
-    return $reply;
-}
- 
-# SET_SEEN: Updates seen data
-sub set_seen {
-    my($nick, $doing, $content) = @_;
-    &debug(4, "Seeing $nick ($doing $content)\n");
-    my $time = time;
-    $seenData{lc($nick)} = "$time!$doing!$content";
-    
-    if($doing eq 'KICKED') {
-        $doing = 'KICKING';
-        my ($kicker, $reason) = split(/!/, $content, 2);
-        $seenData{lc($kicker)} = "$time!$doing!$nick!$reason";
-        &debug(4, "Seeing $kicker ($doing $nick!$reason)\n");
-    }
-}
-
-# CLEANUP_SEEN: Cleans up when we're quitting
-sub cleanup_seen {
-    &debug(3, "Saving seen data\n");
-    dbmclose(%seenData);
-}
-### END seen stuff
-
-### BEGIN dice
-$plugin{'%roll'} = "roll_dice";
-$plugin_desc{'%roll'} = 'Rolls dice. You can specify how many dice, and how many sides, in the format 3D6.';
-$plugin{'%flip'} = "flip_coin";
-$plugin_desc{'%flip'} = 'Flips a coin.';
-
-sub roll_dice {
-    my $numDice = 2;
-    my $numSides = 6;
-    my ($nick, undef, $dice) = @_;
-    if($dice =~ m/(\d*)[Dd](\d+)/) {
-        $numDice = (defined $1 ? $1 : 1);
-        $numSides = $2;
-    }
-    if($numDice == 0) {
-        $kernel->post(bot => privmsg => $channel, "$nick: I can't roll zero dice!");
-    } elsif($numDice > 100000000000000) {
-        $kernel->post(bot => privmsg => $channel, "$nick: I can't even count that high!");
-    } elsif($numDice > 100) {
-        $kernel->post(bot => ctcp => $channel, 'ACTION', "drops $numDice ${numSides}-sided dice on the floor, trying to roll them for ${nick}.");
-    } elsif($numSides == 0) {
-        $kernel->post(bot => ctcp => $channel, 'ACTION', "rolls $numDice zero-sided " . (($numDice==1) ? 'die' : 'dice') . " for ${nick}: " . (($numDice==1) ? "it doesn't" : "they don't") . ' land, having no sides to land on.');
-    } else {
-        my @rolls = ();
-        for(my $x=0;$x<$numDice;$x++) {
-            push(@rolls, int rand($numSides)+1);
-        }
-    
-        $kernel->post(bot => ctcp => $channel, 'ACTION', "rolls $numDice ${numSides}-sided " . (($numDice==1) ? 'die' : 'dice') . " for ${nick}: " . join(' ', @rolls));
-    }
-}
-
-sub flip_coin {
-    my $nick = $_[0];
-    $kernel->post(bot => ctcp => $channel, 'ACTION', "flips a coin for $nick: "
-        . ((int rand(2)==0) ? 'heads' : 'tails'));
-}
-### END dice
-
-### BEGIN weather
-# Weather needs Geo::METAR to be useable.
-if (eval { require Geo::METAR; } && eval { require LWP::UserAgent; }) {
-    $plugin{"%weather"} = "get_wx";
-    $plugin_desc{"%weather"} = "Gets a weather report for the given station";
-    debug(3, "Geo::METAR, LWP::UserAgent loaded: Weather plugin will be used\n");
-} else {
-    debug(3, "GEO::METAR, LWP::UserAgent failed: Weather plugin will not be available\n");
-}
-
-# GET_WX: Fetches a METAR report and gives a few weather conditions
-sub get_wx {
-    my ($nick, undef, $station) = @_;
-    if(length($station) != 4) {
-	# Whine and bail
-	$kernel->post(bot => privmsg => $channel,
-               "$nick: " . ($station ? "That doesn't look like a METAR station. " : 'Please provide a METAR station ID. ') . 'You can look up station IDs at <http://www.nws.noaa.gov/tg/siteloc.shtml>.');
-	return;
-    }
-    $station = uc($station);
-    my $url = 'http://weather.noaa.gov/pub/data/observations/metar/stations/' 
-        . $station . '.TXT';
-    &debug(3, 'Received weather command from ' . $nick . 
-	   " for $station\n");
-    my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
-    $useragent->agent("$project/1.0");
-    $useragent->timeout(5);
-    my $request = HTTP::Request->new(GET => $url);
-    my $response = $useragent->request($request);
-    if (!$response->is_error) {
-	my (undef, $raw_metar) = split(/\n/, $response->content);
-	my $m = new Geo::METAR;
-        
-        # Geo::METAR has issues not ignoring the remarks section of the
-        # METAR report. Let's strip it out.
-        $raw_metar =~ s/^(.*?) RMK .*$/\1/;
-        &debug(3, "METAR is " . $raw_metar . "\n");
-	$m->metar($raw_metar);
-        
-	# Let's form a response!
-        $m->{date_time} =~ m/\d\d(\d\d)(\d\d)Z/;
-        my $time = "$1:$2";
-	my $reply = "As reported at $time UTC at $station it is ";
-	my @reply_with;
-	$reply .= $m->TEMP_F . '°F (' . int($m->TEMP_C) . '°C) ' if defined $m->TEMP_F;
-        
-        if($m->TEMP_F <= 40 && $m->WIND_MPH > 5) {
-            my $windchill = 35.74 + (0.6215 * $m->TEMP_F)
-                - 35.75 * ($m->WIND_MPH ** 0.16)
-                + 0.4275 * $m->TEMP_F * ($m->WIND_MPH ** 0.16);
-            my $windchill_c = ($windchill - 32) * (5/9);
-            push(@reply_with, sprintf('a wind chill of %.1f°F (%.1f°C)', $windchill, $windchill_c));
-        }
-        
-        my $humidity = 100 * ( ( (112 - (0.1 * $m->TEMP_C) + $m->C_DEW) /
-                                 (112 + (0.9 * $m->TEMP_C)) ) ** 8 );
-        push(@reply_with, sprintf('%d', $humidity) . '% humidity');
-            
-	if($m->WIND_MPH) {
-	    my $tmp = int($m->WIND_MPH) . ' mph winds';
-            $tmp .= ' from the ' . $m->WIND_DIR_ENG if defined $m->WIND_DIR_ENG;
-	    push(@reply_with, $tmp);
-	}
-
-        push(@reply_with, @{$m->WEATHER});
-        my @sky = @{$m->SKY};
-# Geo::METAR returns sky conditions that can't be plugged into sentences nicely
-# let's clean them up.
-        for(my $x=0;$x<=$#sky;$x++) {
-            $sky[$x] = lc($sky[$x]);
-            $sky[$x] =~ s/solid overcast/overcast/;
-            $sky[$x] =~ s/sky clear/clear skies/;
-            
-            $sky[$x] =~ s/(broken|few|scattered) at/\1 clouds at/;
-        }
-        
-        push(@reply_with, @sky);
-
-        $reply .= "with " . join(', ', @reply_with) if @reply_with;
-        $reply .= '.';
-
-	$kernel->post(bot => privmsg => $channel, "$nick: $reply");
-    } else {
-	$kernel->post(bot => privmsg => $channel, "$nick: Sorry, I could not access NOAA.");
-    }
-}
-### END weather
 
 # ######### CONVERSATION LOGIC ###########
 
@@ -784,7 +616,7 @@ sub process_time {
     my ($nick) = split(/!/, $_[ARG0]);
     my $reply = localtime(time);
     &debug(3, "Received time request from " . $nick . ".\n");
--    $kernel->post(bot => ctcpreply => $nick, 'TIME ' . $reply);
+    $kernel->post(bot => ctcpreply => $nick, 'TIME ' . $reply);
 }
 
 # PROCESS_VERSION: Handle ping requests to the bot.
@@ -808,8 +640,10 @@ sub process_public {
 	$kernel->post(bot => notice => $nick, "Commands must be prefixed with %.");
     } elsif ($text =~ /^\%/) {
 	my @command = split(/\s/, $text);
-	if ($plugin{$command[0]}) {
-	    &{$plugin{$command[0]}}($nick, @command);
+	my $cmd = $command[0];
+	$cmd =~ s/^%//;
+	if ($event_plugin_call{$cmd}) {
+	    &plugin_callback($cmd, $event_plugin_call{$cmd}, ($nick, $channel, @command));
 	} else {
 	    $kernel->post(bot => privmsg => $channel, "Hmm... @command isn't supported. Try \%help");
 	}
@@ -836,7 +670,9 @@ sub process_public {
 	&debug(3, "Learning from " . $nick . "...\n");
 	&buildrecords($text);
     }
-    &set_seen($nick, 'SAY', $text);
+    foreach(keys(%event_channel_public)) {
+	&plugin_callback($_, $event_channel_public{$_}, ($nick, $channel, 'SAY', $text));
+    }
 }
 
 # PROCESS_ACTION: Handle actions sent to the channel.
@@ -845,7 +681,9 @@ sub process_action {
     my ($nick) = split(/!/, $usermask);
     &debug(3, "Learning from " . $nick . "'s action...\n");
     &buildrecords($text,"ACTION");
-    &set_seen($nick, 'ACTION', "$nick $text");
+    foreach(keys(%event_channel_action)) {
+	&plugin_callback($_, $event_channel_action{$_}, ($nick, $channel, 'ACTION', "$nick $text"));
+    }
 }
 
 # PRCESS_PRIV: Handle private messages to the bot.
@@ -900,7 +738,9 @@ sub check_kick {
 	$kernel->post(bot => join => $channel);
     }
     
-    &set_seen($nick, 'KICKED', "${kicker}!$reason");
+    foreach(keys(%event_channel_kick)) {
+	&plugin_callback($_, $event_channel_kick{$_}, ($nick, $channel, 'KICKED', $reason, $kicker));
+    }
 }
 
 #REQUEST_INVITE: Ask channel service for an invitation

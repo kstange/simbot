@@ -1,14 +1,22 @@
+Version 6.0 alpha: (12 Dec 2003)
+	* added: plugins are now out on their own with a partial implementation
+	  of a plugin architecture.  The idea is that your plugin declares
+	  itself a package and then you plugin_register() and connect your
+	  callback functions to different events.
+	* added: a %error plugin now spits out random error messages on demand
+	* added: the core is now defined as a package called SimBot.
+
 Version 6.0 alpha: (06 Dec 2003)
-        * added: %flip (Pete Pearson)
-        * fixed: seen now sees kicks (Pete Pearson)
+	* added: %flip
+	* fixed: seen now sees kicks
 
 Version 6.0 alpha: (05 Dec 2003)
-	* added: seen support! Well, somewhat. %seen SomeLoser (Pete Pearson)
-	* added: dice! (Pete Pearson)
+	* added: seen support! Well, somewhat. %seen SomeLoser
+	* added: dice!
 	* added: debug output for notices from channel service
 
 Version 6.0 alpha: (04 Dec 2003)
-	* added: support for %weather via Geo::METAR (Pete Pearson)
+	* added: support for %weather via Geo::METAR
 	* added: google search via %find now turns itself off without LWP
 	* added: you can now add "plugins" inside simbot.pl, a feature which
 	  will be split out later
@@ -19,14 +27,14 @@ Version 6.0 alpha: (04 Dec 2003)
 	* fixed: smileys with = at the end of a line should not be recorded
 	* removed: some sleep calls that aren't used for anything
 	* removed: %version command to eliminate duplicate ChangeLog
-	    
+
 Version 5.99.16: (03 Dec 2003)
 	* added: config.pl splits the configuration from the main script
 	* added: ChangeLog splits the ChangeLog from the main script
 	* added: some error checking should die on a bad configuration
 	* removed: evil hacky privmsg functions that could be abused
 	* this will be the first version to appear in SF.net CVS
-	
+
 Version 5.99.15: (17 Nov 2003)
 	* fixed: %find's queries sometimes broke the calculator result
 	* added: %find can now use the Google calculator!
@@ -37,7 +45,7 @@ Version 5.99.15: (17 Nov 2003)
 	* added: ignore lines that have no alphanumeric characters
 	* added: strip out all formatting codes before processing text
 	* added: allow ASCII international characters to be recorded
-	
+
 Version 5.99.14:
 	* fixed: bot should no longer try to record blank actions
 	* fixed: bot will not report dead word count without dead words
@@ -101,4 +109,3 @@ Version 5.99.1:
 
 Version 5.0:
 	* last version of SimBot using mIRC
-

@@ -45,4 +45,16 @@ Or set the script executable and run it:
 
 	./simbot.pl
 
+================================================
+Plugin Installation
+================================================
 
+SimBot's plugins are simply perl scripts with special function
+calls.  There are a bunch of stock plugins you can use with
+SimBot.  If you want to create or install a plugin that isn't
+included with SimBot, place it in the "plugins" subdirectory
+of SimBot's script directory.
+
+To disable a plugin that is included with SimBot, just change
+the plugin's file extension to something other than ".pl" and
+it will no longer be loaded.
