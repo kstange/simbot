@@ -38,6 +38,7 @@ use warnings;
 $services_type = "";
 $quit_default = "";
 $quit_prompt = 0;
+$cmd_prefix = "%";
 
 # Load the configuration file in.  We're not going to try to deal with what
 # happens if this fails.  If you have no configuration, you should get one
@@ -470,7 +471,7 @@ sub print_help {
     my $nick = $_[1];
     &debug(3, "Received help command from " . $nick . ".\n");
     foreach(sort {$a cmp $b} keys(%plugin_desc)) {
-		&send_message($nick, "%" . $_ . " - " . $plugin_desc{$_});
+		&send_message($nick, $cmd_prefix . $_ . " - " . $plugin_desc{$_});
     }
 }
 
@@ -1006,15 +1007,15 @@ sub channel_message {
 		&plugin_callback($_, $event_channel_message{$_}, ($nick, $channel, 'SAY', $text));
 	}
 
-    if ($text =~ /^%/) {
+    if ($text =~ /^$cmd_prefix/) {
 		my @command = split(/\s/, $text);
 		my $cmd = $command[0];
-		$cmd =~ s/^%//;
+		$cmd =~ s/^$cmd_prefix//;
 		if ($event_plugin_call{$cmd}) {
 			&plugin_callback($cmd, $event_plugin_call{$cmd}, ($nick, $channel, @command));
 		} else {
 			if($cmd =~ m/[a-z]/) {
-				&send_message($channel, "Hmm... @command isn't supported. Try \%help");
+				&send_message($channel, "Hmm... @command isn't supported. Try " . $cmd_prefix . "help");
 			}
 			# otherwise, command has no letters in it, and therefore was probably a smile %-) (a very odd smile, sure, but whatever)
 		}

@@ -55,6 +55,13 @@ $channel = "#MyChannel";
 # until it finds a nickname that is not in use.
 $nickname = "MyBot";
 
+# This is the prefix that the bot will look for to identify commands sent
+# to it in the channel.  You do not want this to be something that freqently
+# gets typed at the begging of a line.  The default, %, is reasonable.
+# Sane alternatives are _, #, !, @, ^, and probably not any letters or
+# numbers.
+$cmd_prefix = '%';
+
 # This is the bot's gender. M (for his, himself, etc), F (her, herself),
 # or I (its, itself)
 $gender = 'I';

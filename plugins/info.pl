@@ -125,7 +125,7 @@ sub handle_chat {
     my(undef, $nick, $channel, undef, $content) = @_;
     my($person_being_referenced, $being_addressed, $is_query); 
     
-    if($content =~ s/^.info ?//) {
+    if($content =~ s/^${SimBot::cmd_prefix}info ?//o) {
         $being_addressed = 1;
     }
     

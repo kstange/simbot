@@ -1,3 +1,9 @@
+Version 6.0 alpha: (26 Feb 2004)
+	* simbot.pl:
+	   - Added a new configuration option that allows you to change the
+	     prefix that the bot will use to recognize commands.  The default
+	     will remain as %.
+
 Version 6.0 alpha: (25 Feb 2004)
 	* simbot.pl:
 	   - Plugins now register their callbacks with references to functions
