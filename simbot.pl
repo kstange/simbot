@@ -559,9 +559,11 @@ sub get_wx {
 	$m->metar($raw_metar);
         
 	# Let's form a response!
-	my $reply = "At $station it is ";
+        $m->{date_time} =~ m/\d\d(\d\d)(\d\d)Z/;
+        my $time = "$1:$2";
+	my $reply = "As reported at $time UTC at $station it is ";
 	my @reply_with;
-	$reply .= $m->TEMP_F . '°F (' . $m->TEMP_C . '°C) ' if defined $m->TEMP_F;
+	$reply .= $m->TEMP_F . '°F (' . int($m->TEMP_C) . '°C) ' if defined $m->TEMP_F;
 	if($m->WIND_MPH) {
 	    my $tmp = $m->WIND_MPH . ' mph winds';
             $tmp .= ' from the ' . $m->WIND_DIR_ENG if defined $m->WIND_DIR_ENG;
@@ -569,7 +571,18 @@ sub get_wx {
 	}
 
         push(@reply_with, @{$m->WEATHER});
-        push(@reply_with, @{$m->SKY});
+        my @sky = @{$m->SKY};
+# Geo::METAR returns sky conditions that can't be plugged into sentences nicely
+# let's clean them up.
+        for(my $x=0;$x<=$#sky;$x++) {
+            $sky[$x] = lc($sky[$x]);
+            $sky[$x] =~ s/solid overcast/overcast/;
+            $sky[$x] =~ s/sky clear/clear skies/;
+            
+            $sky[$x] =~ s/(broken|few|scattered) at/\1 clouds at/;
+        }
+        
+        push(@reply_with, @sky);
 
         $reply .= "with " . join(', ', @reply_with) if @reply_with;
         $reply .= '.';
