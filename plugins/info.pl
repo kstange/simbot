@@ -230,7 +230,7 @@ sub handle_chat {
             $info{$key} = "$flags|$factoid";
             &report_learned($channel, $nick, $key, $factoid, $flags);
         }
-    } elsif($content =~ m{([\'\-\w\s]+?) (is|are) ((aka|also) )?([\'\-\w\s]+)}i) {
+    } elsif($content =~ m{([\'\-\w\s]+?) (is|are) ((aka|also) )?(.*)}i) {
 		no warnings;
         my ($key, $isare, $akaalso, $factoid) = (lc($1), $2, $4, $5);
         
@@ -238,6 +238,17 @@ sub handle_chat {
         if   ($akaalso =~ m/aka/i)  { $flags |= FACT_SEE_OTHER;     }
         if   ($isare =~ m/are/i)    { $flags |= FACT_ARE;           }
         if   ($being_addressed)     { $flags |= BEING_ADDRESSED;    }
+        
+        unless($being_addressed) {
+            if($factoid =~ m/([\'\-\w\s]+)/) {
+                $factoid = $1;
+            } else {
+                # We aren't being addressed, and the factoid
+                # seems to have no data before punctuation
+                # let's not learn it.
+                return;
+            }
+        }
         
         # if the line contains something on simbot's block list, we
         # refuse to learn it. If we are being addressed, we give a

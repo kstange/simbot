@@ -1,3 +1,9 @@
+Version 6.0 alpha: (23 Apr 2004)
+    * plugins/info.pl:
+       - If you address the bot while teaching, it will correctly take
+         the entire line after the 'is' as the factoid, instead of cutting
+         at punctuation.
+
 Version 6.0 alpha: (02 Mar 2004)
 	* plugins/dict.pl:
 	   - Changed the dictionary plugin to try to find a definition for
