@@ -260,13 +260,13 @@ sub got_response {
     my $response = $response_packet->[0];
     my $rss = new XML::RSS;
     
-    &SimBot::debug((($response->code >= 400) ? 1 : 4),
-				   "rss:   fetching feed for $id: "
-				   . $response->status_line . "\n");
-
     $get_feed_by_id_query->execute($id);
     my (undef, $feed_name, $key, $last_update, $feed_url, $announce)
         = $get_feed_by_id_query->fetchrow_array;
+
+    &SimBot::debug((($response->code >= 400) ? 1 : 4),
+				   "rss:   fetching feed for $key: "
+				   . $response->status_line . "\n");
 
     if($response->code == RC_NOT_MODIFIED) {
         # File wasn't modified. We update the modified time...
