@@ -1,3 +1,9 @@
+Version 6.0 alpha: (11 Jul 2004)
+   * plugins/rss.pl:
+      - The RSS plugin no longer downloads feeds that aren't being
+        announced every hour/on load, instead it downloads them as
+        needed.
+
 Version 6.0 alpha: (10 Jul 2004)
 	* simbot.pl:
 	   - SimBot now caches hostmasks for users when they enter the channel

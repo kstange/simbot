@@ -70,6 +70,9 @@ sub messup_rss {
             _start          => \&bootstrap,
             do_rss          => \&do_rss,
             got_response    => \&got_response,
+            announce_top    => \&announce_top,
+            real_latest_headlines
+                            => \&real_latest_headlines,
             shutdown        => \&shutdown,
         }
     );
@@ -105,8 +108,8 @@ sub bootstrap {
     my $file;
     foreach my $curFeed (keys %feeds) {
         $file = "caches/${curFeed}.xml";
-        if(!-e $file || -M $file > 0.042) {
-            # cache is nonexistent or stale
+        if(($announce_feed{$curFeed})              # we should announce the feed
+           && (!-e $file || -M $file > 0.042)) {   # and cache missing or stale
             &SimBot::debug(3, "   Fetching ${curFeed}: ");
             my $request = HTTP::Request->new(GET => $feeds{$curFeed});
             if(-e $file) {
@@ -126,8 +129,10 @@ sub bootstrap {
                 close(OUT);
             }
         }
-        $rss->parsefile($file);
-        $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
+        if($announce_feed{$curFeed}) {
+            $rss->parsefile($file);
+            $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
+        }
     }
 
     $kernel->delay(do_rss => 3600);
@@ -142,25 +147,27 @@ sub do_rss {
     &SimBot::debug(3, "Updating RSS...\n");
     
     foreach my $curFeed (keys %feeds) {
-        $file = "caches/${curFeed}.xml";
-        $request = HTTP::Request->new(GET => $feeds{$curFeed});
-        if(-e $file) {
-            my $mtime = (stat($file))[9];
-            $request->if_modified_since($mtime);
+        if($announce_feed{$curFeed}) {
+            $file = "caches/${curFeed}.xml";
+            $request = HTTP::Request->new(GET => $feeds{$curFeed});
+            if(-e $file) {
+                my $mtime = (stat($file))[9];
+                $request->if_modified_since($mtime);
+            }
+            $kernel->post( 'ua' => 'request', 'got_response',
+                            $request, $curFeed);
         }
-        $kernel->post( 'ua' => 'request', 'got_response',
-                        $request, $curFeed);
     }
     $kernel->delay(do_rss => 3600);
 }   
 
 ### got_response
 # This is run whenever we have retrieved a RSS feed. We dump it
-# to disk and ask and post an event to parse it later.
+# to disk.
 sub got_response {
-    my ($request_packet, $response_packet) = @_[ ARG0, ARG1 ];
+    my ($kernel, $request_packet, $response_packet) = @_[ KERNEL, ARG0, ARG1 ];
     my (@newPosts, $title, $link, $file);
-    my $curFeed = $request_packet->[1];
+    my ($curFeed, $nick) = split(/!!/, $request_packet->[1]);
     my $response = $response_packet->[0];
     my $rss = new XML::RSS;
     $file = "caches/${curFeed}.xml";
@@ -206,35 +213,46 @@ sub got_response {
             }
         }
     }
+    if(defined $nick) {
+        $kernel->yield('announce_top', $curFeed, $nick, CHANNEL);
+    }
 }
 
 ### latest_headlines
 # gets the latest headlines for the specified feed.
-
 sub latest_headlines {
-    my (undef, $nick, $channel, undef, $feed) = @_;
+    my ($kernel, $nick, $channel, undef, $feed) = @_;
+    $kernel->post($session => 'real_latest_headlines', $nick, $channel, $feed);
+}
+
+### real_latest_headlines
+# POE calls this. This actually does the work for latest_headlines.
+sub real_latest_headlines {
+    my ($kernel, $nick, $channel, $feed) = @_[ KERNEL, ARG0, ARG1, ARG2 ];
     my ($item, $title, $link);
     my $rss = new XML::RSS;
     
+    &SimBot::debug(3, "Got RSS command from $nick for $feed: ");
+    
     if(defined $feeds{$feed}) {
-        $rss->parsefile("caches/${feed}.xml");
-        $title = $rss->{'channel'}->{'title'};
-        if($title =~ m/Slashdot Journals/) {
-            $title = $rss->{'channel'}->{'description'};
-        }
-        &SimBot::send_message($channel, &SimBot::parse_style(
-                        "$nick: Here are the latest posts to "
-                        . &colorize_feed($title) . ':'));
-        for(my $i=0;
-            $i <= ($#{$rss->{'items'}} < 2 ? $#{$rss->{'items'}} : 2);
-            $i++)
-          {
-            $item = ${$rss->{'items'}}[$i];
-            ($link, $title) = &get_link_and_title($item);
-            
-            &SimBot::send_message($channel, "$title <$link>");
+        my $file = "caches/${feed}.xml";
+        if(!-e $file || -M $file > 0.042) {
+            &SimBot::debug(3, "Old/missing, fetching...\n");
+            # cache is stale or missing, we need to go fetch it
+            # before we announce anything.
+            my $request = HTTP::Request->new(GET => $feeds{$feed});
+            if(-e $file) {
+                my $mtime = (stat($file))[9];
+                $request->if_modified_since($mtime);
+            }
+            $kernel->post( 'ua' => 'request', 'got_response',
+                            $request, "$feed!!$nick");
+        } else {
+            &SimBot::debug(3, "Up to date, displaying\n");
+            $kernel->post($session => 'announce_top', $feed, $nick, $channel);
         }
     } else {
+        &SimBot::debug(3, "unknown\n");
         my $message = "$nick: "
             . ($feed ? "I have no feed $feed."
                      : "What feed do you want latest posts from?")
@@ -243,6 +261,32 @@ sub latest_headlines {
             $message .= " $_";
         }
         &SimBot::send_message($channel, $message);
+    }
+}
+
+### announce_top
+# Called when someone requests the top few headlines for a feed, and
+# we already have an up to date cache
+sub announce_top {
+    my ($feed, $nick, $channel) = @_[ ARG0, ARG1, ARG2 ];
+    my ($rss, $link, $title, $item);
+    $rss = new XML::RSS;
+    $rss->parsefile("caches/${feed}.xml");
+    $title = $rss->{'channel'}->{'title'};
+    if($title =~ m/Slashdot Journals/) {
+        $title = $rss->{'channel'}->{'description'};
+    }
+    &SimBot::send_message($channel, &SimBot::parse_style(
+                    "$nick: Here are the latest posts to "
+                    . &colorize_feed($title) . ':'));
+    for(my $i=0;
+        $i <= ($#{$rss->{'items'}} < 2 ? $#{$rss->{'items'}} : 2);
+        $i++)
+      {
+        $item = ${$rss->{'items'}}[$i];
+        ($link, $title) = &get_link_and_title($item);
+        
+        &SimBot::send_message($channel, "$title <$link>");
     }
 }
 
