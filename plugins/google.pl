@@ -42,14 +42,23 @@ sub google_find {
 	}
     } elsif (!$response->is_error) {
 	# Let's use the calculator!
-	if ($response->content =~ m#/images/calc_img\.gif#) {
-	    $response->content =~ m#<td nowrap><font size=\+1><b>(.*?)</b></td>#;
+	if ($response->content =~ m|/images/calc_img\.gif|) {
+	    $response->content =~ m|<td nowrap><font size=\+1><b>(.*?)</b></td>|;
 	    # We can't just take $1 because it might have HTML in it
 	    my $result = $1;
-	    $result =~ s#<sup>(.*?)</sup>#^$1#g;
-	    $result =~ s#<font size=-2> </font>#,#g;
-	    $result =~ s#&times;#x#g;
+	    $result =~ s|<sup>(.*?)</sup>|^$1|g;
+	    $result =~ s|<font size=-2> </font>|,|g;
+	    $result =~ s|&times;|x|g;
 	    $kernel->post(bot => privmsg => $channel, "$nick: $result");
+	} elsif ($response->content =~ m|Definitions of <b>(.*?)</b> on the Web:|) {
+	    my $term = $1;
+	    $response->content =~ m|<blockquote><p> (.*?)<br>|;
+	    my $result = $1;
+	    $result =~ s|[\n\r]||g;
+	    $kernel->post(bot => privmsg => $channel, "$nick: \"$term\" is $result");
+	} elsif ($response->content =~ m|No definitions were found for|) {
+	    $kernel->post(bot => privmsg => $channel, "$nick: Making up words again?");
+ 
 	} else {
 	    $kernel->post(bot => privmsg => $channel, "$nick: Nothing was found.");
 	}
