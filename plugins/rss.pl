@@ -194,7 +194,7 @@ sub got_response {
                 } else {
                     ($link, $title) = &get_link_and_title($item);
                     
-                    push(@newPosts, "$title <$link>");
+                    push(@newPosts, "$title  $link");
                 }
             }
             $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
@@ -286,7 +286,7 @@ sub announce_top {
         $item = ${$rss->{'items'}}[$i];
         ($link, $title) = &get_link_and_title($item);
         
-        &SimBot::send_message($channel, "$title <$link>");
+        &SimBot::send_message($channel, "$title  $link");
     }
 }
 
