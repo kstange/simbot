@@ -1490,10 +1490,10 @@ sub process_notice {
     my ($target, $text) = @_[ ARG1, ARG2 ];
     my $public = 0;
 	my $channel;
-    foreach(@{$target}) {
-		if($_ =~ /([\#\&].+)/) {
+    foreach my $dest (@{$target}) {
+		if($dest =~ /([\#\&].+)/) {
 			$public = 1;
-			$channel = $1;
+			$channel = $dest;
 		}
     }
     if($public) {
@@ -1515,10 +1515,10 @@ sub process_action {
     my ($target, $text) = @_[ ARG1, ARG2 ];
     my $public = 0;
 	my $channel;
-    foreach(@{$target}) {
-		if($_ =~ /[\#\&].+/) {
+    foreach my $dest (@{$target}) {
+		if($dest =~ /[\#\&].+/) {
 			$public = 1;
-			$channel = $1;
+			$channel = $dest;
 		}
     }
     if($public) {
