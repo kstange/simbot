@@ -103,15 +103,6 @@ if (eval { require LWP::UserAgent; }) {
     debug(3, "LWP::UserAgent failed: Find plugin will not be available\n");
 }
 
-# Weather needs Geo::METAR to be useable.
-if (eval { require Geo::METAR; } && eval { require LWP::UserAgent; }) {
-    $plugin{"%weather"} = "get_wx";
-    $plugin_desc{"%weather"} = "Gets a weather report for the given station";
-    debug(3, "Geo::METAR, LWP::UserAgent loaded: Weather plugin will be used\n");
-} else {
-    debug(3, "GEO::METAR, LWP::UserAgent failed: Weather plugin will not be available\n");
-}
-
 # We want to catch signals to make sure we clean up and save if the
 # system wants to kill us.
 $SIG{'TERM'} = 'cleanup';
@@ -496,17 +487,29 @@ sub flip_coin {
 }
 ### END dice
 
+### BEGIN weather
+# Weather needs Geo::METAR to be useable.
+if (eval { require Geo::METAR; } && eval { require LWP::UserAgent; }) {
+    $plugin{"%weather"} = "get_wx";
+    $plugin_desc{"%weather"} = "Gets a weather report for the given station";
+    debug(3, "Geo::METAR, LWP::UserAgent loaded: Weather plugin will be used\n");
+} else {
+    debug(3, "GEO::METAR, LWP::UserAgent failed: Weather plugin will not be available\n");
+}
+
 # GET_WX: Fetches a METAR report and gives a few weather conditions
 sub get_wx {
     my ($nick, undef, $station) = @_;
     if(length($station) != 4) {
 	# Whine and bail
-	$kernel->post(bot => privmsg => $channel, "$nick: That doesn't look like a METAR station.");
+	$kernel->post(bot => privmsg => $channel,
+               "$nick: That doesn't look like a METAR station.");
 	return;
     }
     $station = uc($station);
     #Fetch report from http://weather.noaa.gov/pub/data/observations/metar/stations/$station.TXT
-    my $url = 'http://weather.noaa.gov/pub/data/observations/metar/stations/' . $station . '.TXT';
+    my $url = 'http://weather.noaa.gov/pub/data/observations/metar/stations/' 
+        . $station . '.TXT';
     &debug(3, 'Received weather command from ' . $nick . 
 	   " for $station\n");
     my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
@@ -519,34 +522,29 @@ sub get_wx {
 	my $m = new Geo::METAR;
 	&debug(3, "METAR is " . $raw_metar . "\n");
 	$m->metar($raw_metar);
-#	&debug(3, $m->dump);
+        
 	# Let's form a response!
-	my $f_temp = $m->TEMP_F;
-	my $c_temp = $m->TEMP_C;
-	my $wind_dir = $m->WIND_DIR_ENG;
-	my $wind_mph = $m->WIND_MPH;
-	my @sky = @{$m->SKY};
-	my @weather = @{$m->WEATHER};
 	my $reply = "At $station it is ";
 	my @reply_with;
-	$reply .= "$f_temp F ($c_temp C) " if $f_temp;
-	if($wind_mph) {
-	    my $tmp = "$wind_mph mph winds";
-	    $tmp .= " from the $wind_dir" if $wind_dir;
+	$reply .= $m->TEMP_F . '°F (' . $m->TEMP_C . '°C) ' if defined $m->TEMP_F;
+	if($m->WIND_MPH) {
+	    my $tmp = $m->WIND_MPH . ' mph winds';
+            $tmp .= ' from the ' . $m->WIND_DIR_ENG if defined $m->WIND_DIR_ENG;
 	    push(@reply_with, $tmp);
 	}
 
-	push(@reply_with, @weather);
-	push(@reply_with, @sky);
+        push(@reply_with, @{$m->WEATHER});
+        push(@reply_with, @{$m->SKY});
 
         $reply .= "with " . join(', ', @reply_with) if @reply_with;
         $reply .= '.';
-	# Let's respond!
+
 	$kernel->post(bot => privmsg => $channel, "$nick: $reply");
     } else {
 	$kernel->post(bot => privmsg => $channel, "$nick: Sorry, I could not access NOAA.");
     }
 }
+### END weather
 
 # ######### CONVERSATION LOGIC ###########
 
