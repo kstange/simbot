@@ -312,14 +312,16 @@ sub save {
 # PLUGIN_REGISTER: Registers a plugin (or doesn't).
 sub plugin_register {
     my %data = @_;
-    foreach (split(/,/, $data{modules})) {
-	if (eval { eval "require $_"; }) {
-	    &debug(4, $data{plugin_id} . ": $_ module was loaded as a plugin dependency\n");
-	} else {
-	    &debug(1, $data{plugin_id} . ": $_ module could not be loaded as a plugin dependency\n");
-	    return 0;
+    if ($data{modules}) {
+	foreach (split(/,/, $data{modules})) {
+	    if (eval { eval "require $_"; }) {
+		&debug(4, $data{plugin_id} . ": $_ module was loaded as a plugin dependency\n");
+	    } else {
+		&debug(1, $data{plugin_id} . ": $_ module could not be loaded as a plugin dependency\n");
+		return 0;
+	    }
 	}
-    } if $data{modules};
+    }
     if(!$plugin_type{$data{plugin_id}}) {
 	&debug(4, $data{plugin_id} . ": no plugin conflicts detected\n");
     } else {
