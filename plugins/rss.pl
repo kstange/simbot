@@ -48,9 +48,7 @@ use vars qw( %mostRecentPost %feeds %announce_feed $session );
 use Encode;
 
 use constant CHANNEL => &SimBot::option('network', 'channel');
-
-# This sets the style to use for feed titles; use undef for no style
-use constant FEED_TITLE_STYLE => '%green%';
+use constant FEED_TITLE_STYLE => &SimBot::option('plugin.rss','title_style');
 
 ### messup_rss
 # This runs when simbot loads. We need to make sure we know the
