@@ -28,7 +28,7 @@ package SimBot;
 # Let's be chatty!
 use warnings;
 
-# Declare some constants so reduce allocating and deallocating memory
+# Declare some constants to reduce allocating and deallocating memory
 # repeatedly for frequently used values.
 use constant ERROR_DESCRIPTIONS
         => ('', 'ERROR: ', 'WARNING: ', '', 'SPAM: ',);
