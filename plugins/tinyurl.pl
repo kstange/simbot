@@ -24,11 +24,14 @@
 #   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 # TODO:
-#   * Long URLs should be cut in the middle
 #   * common affiliate links should be recognized, and the affiliate
 #     part should not be left out when shortening links (possibly
-#     resulting in output looking like "...links to: somesite.com/f...someaffiliate...sdf.php"
-#     or should it look like "links to somesite.com (Affiliate: someaffiliate)" instead?
+#     resulting in output looking like
+#     "...links to: somesite.com/f...someaffiliate...sdf.php"
+#     or should it look like
+#     "links to somesite.com (Affiliate: someaffiliate)" instead?
+#   * We probably should use the actual service's name instead of
+#     always calling it TinyURL even if it is really url123.com
 
 package SimBot::plugin::tinyurl;
 
@@ -39,14 +42,25 @@ use vars qw( @match_rules %urlcache );
 
 use LWP::UserAgent;
 
+# these are matching rules for various tinyurl style services
+# they should be qr// regular expressions. The entire URL needs to be
+# in ().
 @match_rules = (
     qr%(http://tinyurl\.(com|co\.uk)/[\S]+)%,
-    qr%(http://([\S]+\.)?url123.com/[\S]+)%,
+    qr%(http://([\S]+\.)?url123\.com/[\S]+)%,
+    qr%(http://[\S+]\.v3\.net)%,
 );
+# makeashorterlink.com aka masl.to doesn't work as it doesn't use
+# http redirects. Doesn't matter, as it warns you where you're about to
+# go so a warning in chat isn't necessary
 
+
+# munge_url
+# takes in a URL, returns a URL.
+# does any URL replacements necessary to get a URL that will return
+# a useful Location header instead of one that redirects to another
+# redirect
 sub munge_url {
-    # this does any URL replacements necessary *after* running
-    # match_rules
     $_ = $_[0];
     
     s|http://tinyurl.com/|http://redirecting.tinyurl.com/redirect.php?num=|;
@@ -54,6 +68,7 @@ sub munge_url {
     return $_;
 }
 
+# handle_chat is called by simbot whenever something is said.
 sub handle_chat {
     my (undef, $nick, $channel, undef, $content) = @_;
     foreach my $cur_rule (@match_rules) {
@@ -61,7 +76,8 @@ sub handle_chat {
             my $url = munge_url($1);
             &SimBot::debug(3, "tinyurl: Looking up ${url}\n");
             
-            my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
+            my $useragent =
+                LWP::UserAgent->new(requests_redirectable => undef);
             $useragent->agent(SimBot::PROJECT . '/' . SimBot::VERSION);
             $useragent->timeout(5);
             my $request = HTTP::Request->new(GET => $url);
@@ -79,10 +95,12 @@ sub handle_chat {
             }
             return;
         }
-    }
-        
+    }       
 }
 
+# shorten_url takes in a URL, returns a string
+# Here is where we replace long URLs with something that still
+# gets the point across.
 sub shorten_url {
     my $url = $_[0];
     my $desc = '';
