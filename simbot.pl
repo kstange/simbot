@@ -518,6 +518,7 @@ sub save {
 # PLUGIN_REGISTER: Registers a plugin (or doesn't).
 sub plugin_register {
     my %data = @_;
+	$data{plugin_id} = lc($data{plugin_id});
     if(!$event_plugin_call{$data{plugin_id}}) {
 		&debug(4, $data{plugin_id} . ": no plugin conflicts detected\n");
     } else {
@@ -1248,8 +1249,8 @@ sub channel_message {
 		my @command = split(/\s/, $text);
 		my $cmd = $command[0];
 		$cmd =~ s/^$prefix//;
-		if ($event_plugin_call{$cmd}) {
-			&plugin_callback($cmd, $event_plugin_call{$cmd}, ($nick, $channel, @command));
+		if ($event_plugin_call{lc($cmd)}) {
+			&plugin_callback($cmd, $event_plugin_call{lc($cmd)}, ($nick, $channel, @command));
 		} else {
 			if($cmd =~ m/[a-z]/) {
 				&send_message($channel, "Hmm... @command isn't supported. Try " . $prefix . "help");
