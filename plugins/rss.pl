@@ -131,10 +131,13 @@ sub bootstrap {
                 print OUT $response->content;
                 close(OUT);
             }
-        }
-        if($announce_feed{$curFeed}) {
+            
             $rss->parsefile($file);
-            $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
+            if(defined $rss->{'items'}->[0]->{'guid'}) {
+                $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'guid'};
+            } else {
+                $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
+            }
         }
     }
 
@@ -192,7 +195,8 @@ sub got_response {
             $rss->parsefile("caches/${curFeed}.xml");
 
             foreach my $item (@{$rss->{'items'}}) {
-                if($item->{'link'} eq $mostRecentPost{$curFeed}) {
+                if((defined $item->{'guid'} && $item->{'guid'} eq $mostRecentPost{$curFeed})
+                    || $item->{'link'} eq $mostRecentPost{$curFeed}) {
                     last;
                 } else {
                     ($link, $title) = &get_link_and_title($item);
@@ -200,7 +204,11 @@ sub got_response {
                     push(@newPosts, "$title  $link");
                 }
             }
-            $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
+            if(defined $rss->{'items'}->[0]->{'guid'}) {
+                $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'guid'};
+            } else {
+                $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
+            }
 
             if(@newPosts) {
                 $title = $rss->{'channel'}->{'title'};
