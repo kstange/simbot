@@ -127,7 +127,6 @@ sub bootstrap {
         if(!-e $file || -M $file > 0.042) {
             # cache is nonexistent or stale
             &SimBot::debug(3, "   Fetching ${curFeed}: ");
-            #system('curl', '-o', "caches/$curFeed", $feeds{$curFeed});
             my $request = HTTP::Request->new(GET => $feeds{$curFeed});
             if(-e $file) {
                 my $mtime = (stat($file))[9];
@@ -160,9 +159,6 @@ sub do_rss {
     my $kernel = $_[KERNEL];
     my (@newPosts, $title, $request, $file);
     &SimBot::debug(3, "Updating RSS...\n");
-#    my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
-#    $useragent->agent(SimBot::PROJECT . "/" . SimBot::VERSION);
-#    $useragent->timeout(8);
     
     foreach my $curFeed (keys %feeds) {
         $file = "caches/${curFeed}.xml";
@@ -248,7 +244,6 @@ sub latest_headlines {
         &SimBot::send_message($channel, &SimBot::parse_style(
                         "$nick: Here are the latest posts to "
                         . &colorize_feed($title) . ':'));
-#        foreach my $item (@{$rss->{'items'}}) {
         for(my $i=0;
             $i <= ($#{$rss->{'items'}} < 2 ? $#{$rss->{'items'}} : 2);
             $i++)
@@ -261,7 +256,7 @@ sub latest_headlines {
     } else {
         my $message = "$nick: "
             . ($feed ? "I have no feed $feed."
-                     : "What feed what do you want latest posts from?")
+                     : "What feed do you want latest posts from?")
             . ' Try one of:';
         foreach(sort keys %feeds) {
             $message .= " $_";
