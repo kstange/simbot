@@ -35,22 +35,26 @@ sub print_todo {
     if(open(TODO, "TODO")) {
 	my $version = "";
 	my $todo = "";
+	my $prev = "";
 	foreach my $line (<TODO>) {
 	    next if !defined $line;
 	    chomp $line;
-	    if ($line =~ /^Targets for (.*)/) {
-		$version = $1;
-		if (defined $vers{$version}) {
-		    $todo .= "For Version $version:\n";
-		}
-	    } elsif ($line =~ /(.*) Targets$/) {
-		$version = $1;
-		if (defined $vers{$version}) {
-		    $todo .= "$version Items:\n";
+	    if ($line eq "======================") {
+		if ($prev =~ /^Targets for (.*)/) {
+		    $version = $1;
+		    if (defined $vers{$version}) {
+			$todo .= "For Version $version:\n";
+		    }
+		} else {
+		    $version = $prev;
+		    if (defined $vers{$version}) {
+			$todo .= "$version Items:\n";
+		    }
 		}
 	    } elsif (defined $vers{$version} && $line =~ /^- (.*)/) {
 		$todo .= "- $1\n";
 	    }
+	    $prev = $line;
 	}
 	
 	if ($todo ne "") {
