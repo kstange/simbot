@@ -465,18 +465,18 @@ sub roll_dice {
         $numDice = ($1 ? $1 : 1);
         $numSides = $2;
     }
-    my @rolls;
+    my @rolls = ();
     for(my $x=0;$x<$numDice;$x++) {
         push(@rolls, int rand($numSides)+1);
     }
     if($numDice == 0) {
         $kernel->post(bot => privmsg => $channel, "$nick: I can't roll zero dice!");
     } elsif($numDice > 100) {
-        $kernel->post(bot => ctcp => $channel, 'action', "drops $numDice ${numSides}-sided dice on the floor, trying to roll them for ${nick}.");
+        $kernel->post(bot => ctcp => $channel, 'ACTION', "drops $numDice ${numSides}-sided dice on the floor, trying to roll them for ${nick}.");
     } elsif($numSides == 0) {
-        $kernel->post(bot => ctcp => $channel, 'action', "rolls $numDice zero-sided " . (($numDice==1) ? 'die' : 'dice') . " for ${nick}: " . (($numDice==1) ? "it doesn't" : "they don't") . ' land, having no sides to land on.');
+        $kernel->post(bot => ctcp => $channel, 'ACTION', "rolls $numDice zero-sided " . (($numDice==1) ? 'die' : 'dice') . " for ${nick}: " . (($numDice==1) ? "it doesn't" : "they don't") . ' land, having no sides to land on.');
     } else {
-        $kernel->post(bot => ctcp => $channel, 'action', "rolls $numDice ${numSides}-sided " . (($numDice==1) ? 'die' : 'dice') . " for ${nick}: " . join(' ', @rolls));
+        $kernel->post(bot => ctcp => $channel, 'ACTION', "rolls $numDice ${numSides}-sided " . (($numDice==1) ? 'die' : 'dice') . " for ${nick}: " . join(' ', @rolls));
     }
 }
 
