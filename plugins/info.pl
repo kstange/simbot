@@ -1,49 +1,92 @@
-# SimBot Info Plugin
-#
-# Copyright (C) 2004, Pete Pearson
-#
-# This program is free software; you can redistribute it and/or modify
-# under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+=head1 NAME
+
+SimBot Info Plugin
+
+=head1 SYNOPSIS
+
+The Info plugin is designed to bring Infobot style features
+to SimBot. It'll learn things X<factoid>(factoids) from the channel,
+usually in the form of "I<x> is I<y>". Later, when someone asks for it
+using I<%info x>, SimBot will respond with what it knows about I<x>.
+It will even respond to "What is I<x>?" type questions if it believes
+the question wasn't asked of anyone in particular.
+
+=head1 COPYRIGHT
+
+Copyright (C) 2004, Pete Pearson
+
+This program is free software; you can redistribute it and/or modify
+under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+=head1 TODO
+
+=over
+
+=item We need a far more intelligent way to figure out where exactly the
+factoid ends or the key begins.
+
+=back
+
+=cut
 
 package SimBot::plugin::info;
 
 use warnings;
-use constant I_DONT_KNOW =>
-    ('$nick: Damned if I know!', '$nick: Huh?', 'I dunno, $nick.',
-     'Tell me if you find out, $nick.', );
-use constant OK_LEARNED =>
-    ('$nick: I will remember that.', 'OK, $nick.',
-     'I\'ll keep that in mind, $nick.', );
-use constant OK_FORGOTTEN =>
-    ('$nick: What were we talking about again?',
-	 '$nick: Information has been nullified!  Have a nice day.',
-	 '$nick: Done.  Wouldn\'t it be cool if %uline%you%uline% could forget on demand?',
-	 );
-use constant CANT_FORGET =>
-    ('$nick: I don\'t know anything about $key.');
-use constant QUERY_RESPONSE =>
-    ('$nick: I have been told that $key $isare $factoid.',
-     '$nick: Someone mentioned that $key $isare $factoid.',
-     '$nick: $key, according to popular belief, $isare $factoid.',
-    );
-use constant ALREADY_WAS =>
-    ('I already know that, $nick.');
-use constant BUT_X_IS_Y =>
-    ('$nick: I thought $key $isare $factoid.');
-use constant I_CANNOT =>
-    ('I cannot do that, $nick.');
-     
+
+# These constants define the phrases simbot will use when responding
+# to queries.
+use constant I_DONT_KNOW => (
+    '$nick: Damned if I know!',
+    '$nick: Huh?',
+    'I dunno, $nick.',
+    'Tell me if you find out, $nick.',
+);
+
+use constant OK_LEARNED => (
+    '$nick: I will remember that.', 'OK, $nick.',
+    'I\'ll keep that in mind, $nick.',
+);
+
+use constant OK_FORGOTTEN => (
+    '$nick: What were we talking about again?',
+	'$nick: Information has been nullified!  Have a nice day.',
+	'$nick: Done.  Wouldn\'t it be cool if %uline%you%uline% could forget on demand?',
+);
+use constant CANT_FORGET => (
+    '$nick: I don\'t know anything about $key.'
+);
+
+use constant QUERY_RESPONSE => (
+    '$nick: I have been told that $key $isare $factoid.',
+    '$nick: Someone mentioned that $key $isare $factoid.',
+    '$nick: $key, according to popular belief, $isare $factoid.',
+);
+
+use constant ALREADY_WAS => (
+    'I already know that, $nick.',
+    '$nick: You\'re telling me stuff I already know!',
+);
+
+use constant BUT_X_IS_Y => (
+    '$nick: I thought $key $isare $factoid.',
+);
+
+use constant I_CANNOT => (    # used to respond to requests with bad words
+    'I cannot do that, $nick.',
+);
+
 sub messup_info {
     dbmopen(%isDB, 'is', 0664);
     dbmopen(%areDB, 'are', 0664);
@@ -53,7 +96,7 @@ sub cleanup_info {
     dbmclose(%isDB); dbmclose(%areDB);
 }
 
-sub learn_info {
+sub handle_chat {
     my($kernel, $nick, $channel, $doing, $content) = @_;
     my($person_being_referenced, $being_addressed, $is_query); 
     
@@ -109,14 +152,17 @@ sub learn_info {
         $factoid = 'at ' . $factoid;
         unless($isDB{$key}) {
             $isDB{$key} = $factoid;
-            &report_learned($channel, $nick, $key, 'is', $factoid, $being_addressed);
+            &report_learned($channel, $nick, $key, 'is', $factoid,
+                            $being_addressed);
         }
     } elsif($content =~ m{([\'\w\s]+?) (is|are) ([\'\w\s]+)}i) {
         my ($key, $isare, $factoid) = (lc($1), $2, $3);
 
         foreach(@SimBot::chat_ignore) {
             if($content =~ /$_/) {
-                &SimBot::send_message($channel, "I cannot do that, $nick.") if $being_addressed;
+                &SimBot::send_message($channel, 
+                    &parse_message(&SimBot::pick(I_CANNOT), $nick))
+                    if $being_addressed;
                 return;
             }
         }
@@ -128,17 +174,25 @@ sub learn_info {
         }
         if($isare =~ m/is/i) {
             if($isDB{$key}) {
-                &SimBot::send_message($channel, "$nick: But $key is $isDB{$key}.") if $being_addressed;
+                &SimBot::send_message($channel, 
+                    &parse_message(&SimBot::pick(BUT_X_IS_Y), $nick,
+                                   $key, 'is', $isDB{$key}))
+                    if $being_addressed;
             } else {
                 $isDB{$key} = $factoid;
-                &report_learned($channel, $nick, $key, 'is', $factoid, $being_addressed);
+                &report_learned($channel, $nick, $key, 'is', $factoid,
+                                $being_addressed);
             }
         } else {
             if($areDB{$key}) {
-                &SimBot::send_message($channel, "$nick: But $key are $isDB{$key}.") if $being_addressed;
+                &SimBot::send_message($channel, 
+                    &parse_message(&SimBot::pick(BUT_X_IS_Y), $nick,
+                                   $key, 'are', $isDB{$key}))
+                    if $being_addressed;
             } else {
                 $areDB{$key} = $factoid;
-                &report_learned($channel, $nick, $key, 'are', $factoid, $being_addressed);
+                &report_learned($channel, $nick, $key, 'are', $factoid,
+                                $being_addressed);
             }
         }
     } elsif($being_addressed && $content =~ m{^([\'\w\s]+)$}) {
@@ -155,7 +209,7 @@ sub handle_query {
         = @_;
     
     if($person_being_addressed && !$being_addressed) {
-        # Someone's being referenced, and it isn't us
+        # Someone's being referenced, and it isn't us.
         # We should keep quiet.
         return;
     }
@@ -180,7 +234,10 @@ sub handle_query {
 sub report_learned {
     my($channel, $nick, $key, $isare, $factoid, $addressed) = @_;
     &SimBot::debug(3, "Learning from $nick: $key =$isare=> $factoid\n");
-    &SimBot::send_message($channel, &parse_message(&SimBot::pick(OK_LEARNED), $nick) . " ($key =$isare=> $factoid)") if $addressed;
+    &SimBot::send_message($channel,
+        &parse_message(&SimBot::pick(OK_LEARNED), $nick)
+        . " ($key =$isare=> $factoid)")
+        if $addressed;
 }
 
 sub parse_message {
@@ -215,8 +272,8 @@ sub normalize_urls {
         
     foreach $curWord (@words) {
         # map some common host names to protocols
-        $curWord =~ s{^(www|web)\.}{http://$1\.};
-        $curWord =~ s{^ftp\.}{ftp://ftp\.};
+        $curWord =~ s{^(www|web)\.} {http://$1\.};
+        $curWord =~ s{^ftp\.}       {ftp://ftp\.};
         
         if($curWord =~ m{^((http|ftp|news|nntp|mailto|aim)s?:[\w.?/]+)}) {
             $curWord = $1;
@@ -243,55 +300,5 @@ sub normalize_urls {
     event_plugin_call   => sub {}, # Do nothing.
     event_plugin_load   => \&messup_info,
     event_plugin_unload => \&cleanup_info,
-    event_channel_message   => \&learn_info,
+    event_channel_message   => \&handle_chat,
 );
-
-__END__
-This is the code graveyard... I might need this for reference later, but
-it's currently unused. I wouldn't touch this stuff if I were you...
-
-sub get_info {
-    my($kernel, $nick, $channel, undef, @query) = @_;
-
-    $query = &munge_pronouns(join(' ', @query), $nick, $SimBot::nickname);
-
-    if($query =~ m/^$/) {
-        # looks like someone doesn't know what to do
-        &SimBot::send_message($channel, "$nick: What d'ya wanna know?");
-    } elsif($query =~ m{^forget (.*)}) {
-        # looks like someone wants us to be forgetful
-        my($forgotten, $key) = (0, lc($1));
-        if($isDB{$key}) {
-            delete $isDB{$key};
-            $forgotten = 1;
-        }
-        if($areDB{$key}) {
-            delete $areDB{$key};
-            $forgotten = 1;
-        }
-        if($forgotten) {
-            &SimBot::debug(3, "Forgot $key (req'd by $nick)\n");
-            &SimBot::send_message($channel, "$nick: OK, I forgot $key.");
-        } else {
-            &SimBot::send_message($channel, "$nick: I don't know $key!");
-        }
-    } elsif($query =~ m{ (is|are) }) {
-        #looks like someone's teaching
-        # my($kernel, $nick, $channel, $doing, $content, $being_addressed)
-        &learn_info(undef, $nick, $channel, undef, $query, 1);
-    } else {
-        #looks like someone wants to learn
-        $query = lc($query);
-        if($isDB{$query}) {
-            if($isDB{$query} =~ m/<reply>(.*)/) {
-                &SimBot::send_message($channel, $1);
-            } else {
-                &SimBot::send_message($channel, "$nick: I believe $query is $isDB{$query}.");
-            }
-        } elsif($areDB{$query}) {
-            &SimBot::send_message($channel, "$nick: I believe $query are $areDB{$query}.");
-        } else {
-            &SimBot::send_message($channel, "$nick: I don't know.");
-        }
-    }
-}
