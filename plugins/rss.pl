@@ -46,18 +46,21 @@ use POE;
 use POE::Component::Client::HTTP;
 use HTTP::Request::Common qw(GET POST);
 use HTTP::Status;
-use DBI;
+use DBI;            # for the sqlite database
+
+use Encode;         # so we can deal with unicode
+
+# declare globals
 use vars qw( %mostRecentPost $session $dbh $get_all_feeds_info_query
     $get_feed_info_query $get_feed_by_id_query $get_headline_query
     $insert_headline_query $update_headline_query
     $update_feed_title_query $done_initial_update);
-use Encode;
 
 use constant CHANNEL => &SimBot::option('network', 'channel');
 use constant FEED_TITLE_STYLE => &SimBot::option('plugin.rss','title_style');
 use constant EXPIRE => (&SimBot::option('plugin.rss', 'expire') ?
                             &SimBot::option('plugin.rss', 'expire') : 1500);
-#3600
+
 ### messup_rss
 # This runs when simbot loads. We need to make sure we know the most
 # recent post on each feed at this time so when we update we can
@@ -445,9 +448,7 @@ sub get_link_and_title {
     }
 
     $title = ($item->{'title'} ? $item->{'title'} : "");
-#    $title = Encode::decode_utf8($title);
     $title = HTML::Entities::decode($title);
-#    $title = Encode::decode('utf8', $title);
     $title =~ s/\t/  /g;
 
     return ($link, $title);
