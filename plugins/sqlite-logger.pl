@@ -51,6 +51,30 @@ sub messup_sqlite_logger {
     ) or die;
     &SimBot::debug(3, 'sqlite: Using SQLite version '
         . $dbh->{'sqlite_version'} . "\n");
+        
+    # let's create our table. If this fails, we don't care.
+    {
+        local $dbh->{RaiseError}; # let's not die in this block
+        local $dbh->{PrintError}; # and let's be quiet
+        $dbh->do(<<EOT);
+CREATE TABLE chatlog (
+    id INTEGER PRIMARY KEY,
+    time INTEGER,
+    channel_id INTEGER,
+    source_nick_id INTEGER,
+    event STRING,
+    target_nick_id INTEGER,
+    content STRING);
+EOT
+
+        $dbh->do(<<EOT);
+CREATE TABLE names (
+    id INTEGER PRIMARY KEY,
+    name STRING,
+    context STRING);
+EOT
+        $dbh->commit;
+    }
     
     # let's prepare the insert query now, it'll be used a lot so
     # keeping it ready is a good idea
@@ -299,11 +323,12 @@ sub access_log {
             }
         
             while(my $cur_arg = shift(@args)) {
-                if($cur_arg =~ /(say|join|part|quit|kicked|notice|action)/) {
+                if($cur_arg =~ /(say|join|part|quit|kick|notice|action)/i) {
                     my $cur_event = $1;
-                    if($cur_event =~ /^(join|part|quit)$/) 
+                    if($cur_event =~ /^(join|part|quit|kick)$/i) 
                         { $cur_event .= 'ed'; }
-                    push(@events, $cur_event);
+                        
+                    push(@events, uc($cur_event));
                 } elsif($cur_arg =~ m/before/) {
                     my $time = shift(@args);
                     

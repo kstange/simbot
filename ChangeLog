@@ -3,6 +3,8 @@ Version 1.0 alpha: (05 Dec 2004)
 	  - Uses NOAA's new XML current observations instead of the rather
 	    brittle METAR for stations in the US. Other stations will still
 	    use METAR.
+	* plugins/sqlite-logger.pl
+	  - Creates the tables if they don't exist automatically.
 
 Version 1.0 alpha: (04 Dec 2004)
 	* plugins/sqlite-logger.pl:
