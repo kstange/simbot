@@ -1,6 +1,6 @@
 # SimBot Seen Plugin
 #
-# Copyright (C) 2003, Pete Pearson
+# Copyright (C) 2003-04, Pete Pearson
 #
 # This program is free software; you can redistribute it and/or modify
 # under the terms of the GNU General Public License as published by
@@ -34,8 +34,12 @@ sub get_seen {
     } elsif($seenData{lc($person)}) {
         my ($when, $doing, $seenData) = split(/!/, $seenData{lc($person)}, 3);
         $doing = "saying \"$seenData\"" if($doing eq 'SAY');
-        $doing = 'in a private message' if($doing eq 'PMSG');
+        $doing = qq(saying "$seenData" in a notice) if($doing eq 'NOTICE');
+        $doing = 'in a private message' if($doing eq 'PRIVMSG');
         $doing = "($seenData)" if ($doing eq 'ACTION');
+        $doing = qq(changing the topic to "$seenData")
+            if ($doing eq 'TOPIC');
+            
         if($doing eq 'KICKED') {
             my ($kicker,$reason) = split(/!/, $seenData, 2);
             $doing = "getting kicked by $kicker ($reason)";
@@ -65,6 +69,14 @@ sub set_seen {
     }
 }
 
+# SCORE_WORD: Gives a score modifier to a word
+# for seen, we give a 40 point bonus to words that are the
+# nicknames of people we have seen.
+sub score_word {
+    return 40 if defined $seenData{$_[0]};
+    return 0;
+}
+
 # CLEANUP_SEEN: Cleans up when we're quitting
 sub cleanup_seen {
     SimBot::debug(3, "Saving seen data\n");
@@ -80,4 +92,7 @@ SimBot::plugin_register(plugin_id   => "seen",
 			event_channel_kick    => "set_seen",
 			event_channel_message => "set_seen",
 			event_channel_action  => "set_seen",
+			event_channel_topic   => "set_seen",
+			event_channel_notice  => 'set_seen',
+			query_word_score      => 'score_word',
 			);
