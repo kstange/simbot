@@ -8,3 +8,4 @@ simbot.sh
 gendocs.pl
 .DS_Store
 *.stackdump
+irclog

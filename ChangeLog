@@ -1,3 +1,14 @@
+Version 6.0 alpha: (04 Dec 2004)
+   * plugins/sqlite-logger.pl:
+      - New plugin! Logs all chat to a SQLite database. Supports
+        %log recap and %log seen commands. Recap is intelligent, only
+        recaps what you actually missed. Seen supports the special
+        phrase 'before that' to look for the previous match. You can
+        also provide one or more of say, action, join, part, quit, kick,
+        mode, topic after the nickname to look up to limit to those
+        events. recap and seen should eventually replace the %recap and
+        %seen plugins.
+
 Version 6.0 alpha: (28 Nov 2004)
 	* plugins/tinyurl.pl:
 	  - New plugin! Looks for TinyURLs in chat, and announces where
