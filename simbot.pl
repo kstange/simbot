@@ -1386,8 +1386,10 @@ sub process_action {
 		}
     }
     if($public) {
-		&debug(3, "Learning from " . $nick . "'s action...\n");
-		&build_records($text,"ACTION");
+		if (!$snooze) {
+			&debug(3, "Learning from " . $nick . "'s action...\n");
+			&build_records($text,"ACTION");
+		}
 		foreach(keys(%event_channel_action)) {
 			&plugin_callback($_, $event_channel_action{$_}, ($nick, $channel, 'ACTION', "$nick $text"));
 		}
