@@ -331,7 +331,7 @@ sub nlp_match {
 	foreach (@params) {
 		if (m/(\w+)\'s (rss|feed|posts|headlines)/i) {
 			$feed = $1;
-		} elsif (m/(at|for) (\w+)/i) {
+		} elsif (m/(\w+) (\w+)/i) {
 			$feed = $2;
 		}
 	}

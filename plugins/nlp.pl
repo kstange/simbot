@@ -264,13 +264,13 @@ sub process_nlp {
 				# has (words indicating posession)
 				$format =~ s/\{has\}/(with|of|having|that has|that have)/g;
 				# for (words meaning belonging to)
-				$format =~ s/\{for\}/(for)/g;
+				$format =~ s/\{for\}/(for|of)/g;
 				# is (words indicating definition)
 				$format =~ s/\{is\}/(is|are)/g;
 				# at (words indicating location)
-				$format =~ s/\{at\}/(at|in)/g;
+				$format =~ s/\{at\}/(at|in|on)/g;
 				# from (words indicating source)
-				$format =~ s/\{from\}/(from)/g;
+				$format =~ s/\{from\}/(from|of)/g;
 				# to (words indicating target or destination)
 				$format =~ s/\{to\}/(to|into)/g;
 

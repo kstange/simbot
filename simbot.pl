@@ -1253,7 +1253,8 @@ sub send_message {
 			$public = 1;
 		}
     }
-	&debug((3 + (!$public)), "[@{$dest}:$chosen_nick] $text\n");
+	&debug((3 + (!$public)), "[" . (@{$dest} ? "@{$dest}" : $dest) .
+		   ":$chosen_nick] $text\n");
 
     if($public) {
 		foreach(keys(%event_channel_message_out)) {
@@ -1278,7 +1279,8 @@ sub send_action {
 			$public = 1;
 		}
     }
-	&debug((3 + (!$public)), "[@{$dest}:$chosen_nick] [action] $chosen_nick $text\n");
+	&debug((3 + (!$public)), "[" . (@{$dest} ? "@{$dest}" : $dest) .
+		   ":$chosen_nick] [action] $chosen_nick $text\n");
     if($public) {
 		foreach(keys(%event_channel_message_out)) {
 			&plugin_callback($_, $event_channel_action_out{$_}, ($chosen_nick, $dest, 'ACTION', $text));
@@ -1302,7 +1304,8 @@ sub send_notice {
 			$public = 1;
 		}
     }
-	&debug((3 + (!$public)), "[@{$dest}:$chosen_nick] [notice] $text\n");
+	&debug((3 + (!$public)), "[" . (@{$dest} ? "@{$dest}" : $dest) .
+		   ":$chosen_nick] [notice] $text\n");
 
     if($public) {
 		foreach(keys(%event_channel_notice_out)) {
