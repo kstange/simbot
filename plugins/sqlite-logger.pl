@@ -378,6 +378,35 @@ sub access_log {
         &update_nick_context($nick_id, 'seen', $seen_nick_id);
         &update_nick_context($nick_id, 'seen-event',
             join(',', @events));
+    } elsif($query =~ m/^last/) {
+        # let's find the last time a certain event happened...
+        if(!defined $args[0]) {
+            &SimBot::send_message($channel, "$nick: You need to specify an event, such as join, part, quit, kick, join, topic");
+            return;
+        }
+        my $event = $args[0];
+        my $last_query = $dbh->prepare(
+            'SELECT id, time, source_nick_id, event, target_nick_id,'
+            . ' content'
+            . ' FROM chatlog'
+            . ' WHERE event = ?'
+            . ' AND channel_id = ?'
+            . ' ORDER BY time DESC'
+            . ' LIMIT 1'
+        );
+        $last_query->execute($event, &get_nickchan_id(&SimBot::option('network', 'channel')));
+        my $row;
+        if($row = $seen_query->fetchrow_hashref) {
+            $seen_query->finish;
+            &SimBot::send_message($channel,
+                "$nick: " . &row_hashref_to_text($row));
+        } else {
+            $seen_query->finish;
+            &SimBot::send_message($channel,
+                "$nick: Nothing matched your query.");
+            return;
+        }
+
     } else {
         &SimBot::send_message($channel, "$nick: Sorry, I do not understand that.");
     }
