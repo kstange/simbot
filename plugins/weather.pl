@@ -35,7 +35,7 @@
 #   * Find a way to convert zip codes to lat/long, use to find closest
 #     station
 #   * KILL Geo::METAR DAMN IT
-#   * Forecats would be nice. http://www.nws.noaa.gov/forecasts/xml/
+#   * Forecasts would be nice. http://www.nws.noaa.gov/forecasts/xml/
 
 package SimBot::plugin::weather;
 
