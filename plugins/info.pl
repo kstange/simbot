@@ -74,7 +74,7 @@ sub learn_info {
     $content = &munge_pronouns($content, $nick, $person_being_referenced);
     $content = &normalize_urls($content);
     
-    if($being_addressed && $content =~ m{^forget ([\w\s]+)}g) {
+    if($being_addressed && $content =~ m{^forget ([\w\s]+)}i) {
         # someone wants us to forget
         
         my($forgotten, $key) = (0, lc($1));
@@ -96,11 +96,11 @@ sub learn_info {
                 &parse_message(&SimBot::pick(CANT_FORGET),
                                $nick, $key));
         }
-    } elsif($content =~ m{(where|what|who) is ([\'\w\s]+)}g) {
+    } elsif($content =~ m{(where|what|who) is ([\'\w\s]+)}i) {
         # looks like a query
         &handle_query($2, $nick, $channel, $person_being_referenced,
                       $being_addressed);
-    } elsif($content =~ m{([\'\w\s]+) is[\s\w]* (\w+://\S+)}g) {
+    } elsif($content =~ m{([\'\w\s]+) is[\s\w]* (\w+://\S+)}i) {
         # looks like a URL to me!
         my ($key, $factoid) = (lc($1), $2);
         $factoid = 'at ' . $factoid;
@@ -108,7 +108,7 @@ sub learn_info {
             $isDB{$key} = $factoid;
             &report_learned($channel, $nick, $key, 'is', $factoid, $being_addressed);
         }
-    } elsif($content =~ m{([\'\w\s]+?) (is|are) ([\'\w\s]+)}) {
+    } elsif($content =~ m{([\'\w\s]+?) (is|are) ([\'\w\s]+)}i) {
         my ($key, $isare, $factoid) = (lc($1), $2, $3);
 
         foreach(@SimBot::chat_ignore) {
@@ -118,12 +118,12 @@ sub learn_info {
             }
         }
         
-        if($key =~ m/(your|you're|you are)/) {
+        if($key =~ m/(your|you're|you are)/i) {
             # key contains a pronoun we can't expand
             # Let's not learn it.
             return;
         }
-        if($isare =~ m/is/g) {
+        if($isare =~ m/is/i) {
             if($isDB{$key}) {
                 &SimBot::send_message($channel, "$nick: But $key is $isDB{$key}.") if $being_addressed;
             } else {
