@@ -16,14 +16,29 @@ you should already have a working Encode.  If you do not, you will need to
 install it.  You may also install these additional modules for extra
 features in SimBot:
 
-	LWP								for google.pl, weather.pl, currency.pl
-	POE::Component::Client::HTTP	for rss.pl (RSS Plugin)
-	XML::RSS						for rss.pl (RSS Plugin)
-	Net::Dict						for dict.pl (Dictionary Plugin)
-	HTML::Entities					for google.pl (Google Search Plugin)
-	Geo::METAR						for weather.pl (Weather Plugin)
-	XML::Simple					for weather.pl (Weather Plugin)
-	DBD::SQLite					for sqlite-logger.pl (Logging Plugin)
+	POE::Component::Client::HTTP:
+		For weather.pl, rss.pl
+
+	LWP: (libwwwperl)
+		For google.pl, currency.pl, tinyurl.pl
+
+	HTML::Entities:
+		For google.pl, rss.pl
+
+	DBD::SQLite:
+		For sqlite-logger.pl, weather.pl, rss.pl
+
+	Geo::METAR:
+		For weather.pl
+
+	XML::Simple:
+		For weather.pl
+
+	XML::RSS:
+		For rss.pl
+
+	Net::Dict:
+		For dict.pl
 
 This all, of course, requires that you have Perl installed.
 
