@@ -21,6 +21,10 @@ package SimBot::plugin::find;
 use strict;
 use warnings;
 
+# We need these to work with HTML and HTTP
+use LWP::UserAgent;
+use HTML::Entities;
+
 # GOOGLE_FIND: Prints a URL returned by google's I'm Feeling Lucky.
 sub google_find {
     my ($kernel, $nick, $channel, @terms) = @_;
@@ -80,7 +84,6 @@ sub google_find {
 # Register Plugin
 &SimBot::plugin_register(plugin_id   => "find",
 						 plugin_desc => "Searches Google with \"I'm Feeling Lucky\"",
-						 modules     => "LWP::UserAgent,HTML::Entities",
 
 						 event_plugin_call => \&google_find,
 						 );

@@ -1,34 +1,32 @@
-
-=head1 NAME
-
-SimBot Dice & Coin Plugin
-
-=head1 SYNOPSIS
-
-Every IRC needs to be able to roll some dice of arbitrary sides for its
-regulars, and SimBot is no exception. Responds to C<%roll> with a pair of
-6 sided dice, or to C<%roll I<x>dI<y>> with I<x> I<y>-sided dice. It can
-also flip a coin with C<%flip>.
-
-=head1 COPYRIGHT
-
-Copyright (C) 2003, Pete Pearson
-
-This program is free software; you can redistribute it and/or modify
-under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-
-=cut
+###
+#  SimBot Dice & Coin Plugin
+#
+# DESCRIPTION:
+#   Every IRC needs to be able to roll some dice of arbitrary sides for its
+#   regulars, and SimBot is no exception. Responds to '%roll' with a pair of
+#   6 sided dice, or to '%roll xdy' with x y-sided dice. It can
+#   also flip a coin with '%flip'.
+#
+# COPYRIGHT:
+#   Copyright (C) 2003-04, Pete Pearson
+#
+#   This program is free software; you can redistribute it and/or modify
+#   under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 2 of the License, or
+#   (at your option) any later version.
+#   
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#   
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# TODO:
+#   *
+#
 
 package SimBot::plugin::roll;
 
@@ -86,14 +84,12 @@ sub flip_coin {
 # Register Plugins
 &SimBot::plugin_register(plugin_id   => "roll",
 						 plugin_desc => "Rolls dice. You can specify how many dice, and how many sides, in the format 3D6.",
-						 modules     => "",
 
 						 event_plugin_call => \&roll_dice,
 						 );
 
 &SimBot::plugin_register(plugin_id   => "flip",
 						 plugin_desc => "Flips a coin.",
-						 modules     => "",
 
 						 event_plugin_call => \&flip_coin,
 						 );

@@ -49,13 +49,11 @@ sub random_quip {
 # Register Plugin
 &SimBot::plugin_register(plugin_id   => "error",
 						 plugin_desc => "Prints out a random error message.",
-						 modules     => "",
 
 						 event_plugin_call => \&random_error,
 						 );
 
 &SimBot::plugin_register(plugin_id   => "list",
-						 modules     => "",
 
 						 event_plugin_call => \&random_quip,
 						 );

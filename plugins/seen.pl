@@ -1,34 +1,32 @@
-
-=head1 NAME
-
-SimBot Seen Plugin
-
-=head1 SYNOPSIS
-
-Provides SimBot the ability to remember when it last saw someone online,
-and to tell channel members when this was, and what he or she was doing.
-Responds to C<%seen I<name>> with the last time the person was seen, and
-what he or she was doing.
-
-=head1 COPYRIGHT
-
-Copyright (C) 2003-04, Pete Pearson
-
-This program is free software; you can redistribute it and/or modify
-under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-
-=cut
+###
+#  SimBot Seen Plugin
+#
+# DESCRIPTION:
+#   Provides SimBot the ability to remember when it last saw someone online,
+#   and to tell channel members when this was, and what he or she was doing.
+#   Responds to '%seen name' with the last time the person was seen, and
+#   what he or she was doing.
+#
+# COPYRIGHT:
+#   Copyright (C) 2003-04, Pete Pearson
+#
+#   This program is free software; you can redistribute it and/or modify
+#   under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 2 of the License, or
+#   (at your option) any later version.
+#   
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#   
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# TODO:
+#   *
+#
 
 package SimBot::plugin::seen;
 

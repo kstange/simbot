@@ -14,12 +14,12 @@ You need the POE::Component::IRC Perl module installed before SimBot
 will function correctly.  You may also install these additional
 modules for extra features in SimBot:
 
-	Geo::METAR		for weather.pl (Weather Plugin)
-	HTML::Entities	for google.pl (Google Search Plugin)
-	HTTP::Request	for currency.pl (Currency Plugin)
-	LWP				for google.pl, weather.pl, currency.pl
-	Net::Dict		for dict.pl (Dictionary Plugin)
-	XML::RSS		for rss.pl (RSS Plugin)
+	LWP								for google.pl, weather.pl, currency.pl
+	POE::Component::Client::HTTP	for rss.pl (RSS Plugin)
+	XML::RSS						for rss.pl (RSS Plugin)
+	Net::Dict						for dict.pl (Dictionary Plugin)
+	HTML::Entities					for google.pl (Google Search Plugin)
+	Geo::METAR						for weather.pl (Weather Plugin)
 
 This all, of course, requires that you have Perl installed.
 
@@ -31,7 +31,11 @@ can install them in most Perl installations by running:
 This will take you into the Perl module installation tool.  To
 install the most recent version of each module, type:
 
-	install POE::Component::IRC LWP Geo::METAR HTML::Entities Net::Dict HTTP::Request XML::RSS
+	install <module names>
+
+For example:
+
+    install Geo::METAR HTML::Entities LWP
 
 CPAN will do what it needs to install the necessary package and
 you'll be on your way.  If you are unsure how to answer the

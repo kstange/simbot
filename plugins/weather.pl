@@ -34,6 +34,12 @@ package SimBot::plugin::weather;
 use strict;
 use warnings;
 
+# The weather, more or less!
+use Geo::METAR;
+
+# Fetching from URLs is better with LWP!
+use LWP::UserAgent;
+
 # declare globals
 use vars qw( %stationNames );
 
@@ -232,7 +238,6 @@ sub messup_wx {
 &SimBot::plugin_register(
 						 plugin_id   => "weather",
 						 plugin_desc => "Gets a weather report for the given station.",
-						 modules     => "Geo::METAR,LWP::UserAgent",
 
 						 event_plugin_call    => \&get_wx,
 						 event_plugin_load    => \&messup_wx,
@@ -242,7 +247,6 @@ sub messup_wx {
 &SimBot::plugin_register(
 						 plugin_id   => "metar",
 						 plugin_desc => "Gives a raw METAR report for the given station.",
-						 modules     => "LWP::UserAgent",
 
 						 event_plugin_call   => \&get_wx,
 						 );

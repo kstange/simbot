@@ -18,6 +18,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 package SimBot::plugin::currency;
+use LWP::UserAgent;
 use HTTP::Request::Common qw(POST GET);
 use warnings;
 use constant REFERER    => 'http://www.xe.net/ucc/full.shtml';
@@ -159,7 +160,6 @@ close(DATA);
 &SimBot::plugin_register(
 						 plugin_id   => 'currency',
 						 plugin_desc => 'Converts between currencies. Give it <number> <from> <to>, where from and to are countries or currency codes.',
-						 modules     => 'LWP::UserAgent,HTTP::Request::Common',
 
 						 event_plugin_call   => \&conv_currency,
 						 );

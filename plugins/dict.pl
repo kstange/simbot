@@ -1,4 +1,4 @@
-# SimBot Todo List Plugin
+# SimBot Dictionary Plugin
 #
 # Copyright (C) 2003-04, Kevin M Stange <kevin@simguy.net>
 #
@@ -20,6 +20,9 @@ package SimBot::plugin::define;
 
 use strict;
 use warnings;
+
+# Support for the Dict protocol is found here:
+use Net::Dict;
 
 # LOOK UP: Prints a defintion to the channel.
 sub look_up {
@@ -71,14 +74,12 @@ sub look_up {
 # Register Plugin
 &SimBot::plugin_register(plugin_id   => "define",
 						 plugin_desc => "Defines the term. Defaults to Jargon.  Follow a term by a dictionary name to search an alternate dictionary.",
-						 modules     => "Net::Dict",
 
 						 event_plugin_call => \&look_up,
 						 );
 
 &SimBot::plugin_register(plugin_id   => "define_private",
 						 plugin_desc => "Defines the term privately to you.",
-						 modules     => "Net::Dict",
 
 						 event_plugin_call => \&look_up,
 						 );

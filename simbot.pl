@@ -479,16 +479,6 @@ sub save {
 # PLUGIN_REGISTER: Registers a plugin (or doesn't).
 sub plugin_register {
     my %data = @_;
-    if ($data{modules}) {
-		foreach (split(/,/, $data{modules})) {
-			if (eval { eval "require $_"; }) {
-				&debug(4, $data{plugin_id} . ": $_ module was loaded as a plugin dependency\n");
-			} else {
-				&debug(1, $data{plugin_id} . ": $_ module could not be loaded as a plugin dependency\n");
-				die("$data{plugin_id}: the plugin is missing dependencies");
-			}
-		}
-    }
     if(!$event_plugin_call{$data{plugin_id}}) {
 		&debug(4, $data{plugin_id} . ": no plugin conflicts detected\n");
     } else {

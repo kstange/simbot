@@ -41,7 +41,6 @@ use LWP::UserAgent;
 use POE;
 use POE::Component::Client::HTTP;
 use HTTP::Request::Common qw(GET POST);
-use Encode;
 use vars qw( %mostRecentPost %feeds %announce_feed $session );
 
 # Configure feeds here. Key should be local cache name; value should be
@@ -169,7 +168,6 @@ sub got_response {
                     last;
                 } else {
                     $title = $item->{'title'};
-                    Encode::from_to($title, 'utf8', ENCODING);                  
                     $title =~ s/&quot;/\"/;
                     $title =~ s/&amp;/&/;
                     $title =~ s/\t/  /;
@@ -206,7 +204,6 @@ sub latest_headlines {
           {
             $item = ${$rss->{'items'}}[$i];
             $title = $item->{'title'};
-            Encode::from_to($title, 'utf8', ENCODING);                  
             $title =~ s/&quot;/\"/;
             $title =~ s/&amp;/&/;
             $title =~ s/\t/  /;
@@ -215,20 +212,20 @@ sub latest_headlines {
 #            push(@newPosts, "$title <$item->{'link'}>");
         }
     } else {
-        my $message = "$nick: " 
+        my $message = "$nick: "
             . ($feed ? "I have no feed $feed."
                      : "What feed what do you want latest posts from?")
             . ' Try one of:';
         foreach(keys %feeds) {
             $message .= " $_";
         }
-        &SimBot::send_message($channel, $message); 
+        &SimBot::send_message($channel, $message);
     }
 }
 
 &SimBot::plugin_register(
     plugin_id   => 'rss',
-#    plugin_desc => 'Tells you what simbot has learned about something.',
+    plugin_desc => 'Lists the three most recent posts in the requested RSS feed.',
     event_plugin_call   => \&latest_headlines,
     event_plugin_load   => \&messup_rss,
     event_plugin_unload => \&cleanup_rss,
