@@ -1,3 +1,13 @@
+Version 6.0 alpha: (09 Jul 2004)
+	* simbot.pl:
+	   - Added a means to override standard IRC commands like kick, op,
+	     and voice with alternate functions.  This means that calling
+	     SimBot::send_kick can be made to ask your network's ChanServ to
+	     do it through a plugin.
+	* plugins/services.undernet.pl:
+	   - Added support for the kick command, but some error checking will
+	     need to be added along with overrides for other IRC functions.
+
 Version 6.0 alpha: (04 Jul 2004)
 	* simbot.pl:
 	   - Added snooze mode which can be toggled by users in the channel.
