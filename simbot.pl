@@ -32,7 +32,7 @@ use warnings;
 use strict;
 no strict 'refs';
 
-use vars qw( %conf %chat_words $chosen_nick $chosen_server );
+use vars qw( %conf %chat_words $chosen_nick $chosen_server $POE_SESSION );
 
 # Load the configuration file into memory.
 open(CONFIG, "./config.ini") || die("Your configuration file (config.ini) is missing.");
@@ -121,9 +121,9 @@ use constant VERSION => "6.0 alpha";
 
 # We want to catch signals to make sure we clean up and save if the
 # system wants to kill us.
-$SIG{'TERM'} = 'SimBot::quit';
-$SIG{'INT'}  = 'SimBot::quit';
-$SIG{'HUP'}  = 'SimBot::quit';
+#$SIG{'TERM'} = 'SimBot::quit';
+#$SIG{'INT'}  = 'SimBot::quit';
+#$SIG{'HUP'}  = 'SimBot::quit';
 $SIG{'USR1'} = 'SimBot::restart';
 $SIG{'USR2'} = 'SimBot::reload';
 
@@ -280,6 +280,9 @@ POE::Session->new
 	  irc_ctcp_time    => \&process_time,
 	  irc_ctcp_finger  => \&process_finger,
 	  irc_ctcp_ping    => \&process_ping,
+	  
+	  cont_send_pieces => \&cont_send_pieces,
+	  quit_session     => \&quit_session,
 	  );
 
 # ****************************************
@@ -534,10 +537,14 @@ sub plugin_callback {
 sub print_help {
     my $nick = $_[1];
 	my $prefix = option('global', 'command_prefix');
+	my $message = '';
     &debug(3, "Received help command from " . $nick . ".\n");
     foreach(sort {$a cmp $b} keys(%plugin_desc)) {
-		&send_message($nick, $prefix . $_ . " - " . $plugin_desc{$_});
+        $message .= "${prefix}$_ - $plugin_desc{$_}\n";
+#		&send_message($nick, $prefix . $_ . " - " . $plugin_desc{$_});
     }
+    chomp $message;
+    &send_pieces($nick, undef, $message);
 }
 
 # PRINT_STATS: Prints some useless stats about the bot to the channel.
@@ -970,24 +977,65 @@ sub send_notice {
 	}
 }
 
-# SEND_PIECES: This will break the message up into blocks of no more
-# than 450 characters and send them separately.  This works around
-# IRC message limitations.
+# SEND_PIECES: This tells POE to run the cont_send_pieces function, below
 sub send_pieces {
     my ($dest, $prefix, $text) = @_;
-    my @words = split(/\s/, $text);
-    my $line = "";
-    foreach(@words) {
-		if (length($line) == 0) {
-			$line = ($prefix ? $prefix : "") . "$_";
-		} elsif (length($line) + length($_) + 1 <= 450) {
-			$line .= " $_";
-		} else {
-			&send_message($dest, $line);
-			$line = ($prefix ? $prefix : "") . "$_";
-		}
+    $kernel->yield('cont_send_pieces', $dest, $prefix,
+                    $text);
+}
+
+### cont_send_pieces
+# This is called by POE to break the message up into pieces of no more
+# than 440 characters. This accommodates the message length limitation
+# on most IRC networks.
+#
+# Arguments:
+#   ARG0: $dest:    where we are sending the message
+#   ARG1: $prefix:  should something be put at the beginning of each
+#                   piece?
+#   ARG2: $text:    the text to split.
+sub cont_send_pieces {
+    my ($kernel, $dest, $prefix, $text) = @_[KERNEL, ARG0, ARG1, ARG2];
+    my @words = split(/ +/, $text);
+    my $line = ($prefix ? $prefix . ' ' : '') . shift(@words);
+    my ($curWord);
+    
+    while(@words) {
+        $curWord = shift(@words);
+        if($curWord =~ m/^(.*)\n(.*)$/s) {
+            # curword has a line break in it
+            # split the line break, and push the word after it back
+            # onto the left of the array.
+            # if the word before the line break fits, add it and send
+            # the message.
+            # if not, push the line feed and the left word back onto
+            # the left of the array, and have POE call cont_send_pieces
+            # again.
+            my $nextWord;
+            ($curWord, $nextWord) = ($1, $2);
+            unshift(@words, $nextWord);
+            if(length($line) + length($curWord) <= 440) {
+                $line .= ' ' . $curWord;
+                $kernel->yield('cont_send_pieces', $dest, $prefix,
+                               join(' ', @words));
+            } else {
+                $kernel->yield('cont_send_pieces', $dest, $prefix,
+                               ("$curWord\n" . join(' ', @words)));
+            }
+            last;
+        } elsif(length($line) + length($curWord) <= 440) {
+            $line .= ' ' . $curWord;
+        } else {
+            # next word would make the line too long.
+            # tell POE to run cont_send_pieces again with the remaining
+            # words.
+            unshift(@words, $curWord);
+            $kernel->yield('cont_send_pieces', $dest, $prefix,
+                            join(' ', @words));
+            last;
+        }
     }
-	&send_message($dest, $line);
+    &send_message($dest, $line);
 }
 
 # ######### IRC FUNCTION CALLS ###########
@@ -1293,32 +1341,71 @@ sub channel_mode {
 
 # ######### CONNECTION SUBROUTINES ###########
 
+sub quit_session {
+    my($kernel, $message) = @_[ KERNEL, ARG0 ];
+    if($terminating < 1) {
+        
+    	if ($message eq "TERM") {
+    		$message = "Terminated";
+    	} elsif ($message eq "HUP") {
+    		$message = "I am lost without my terminal!";
+    	} elsif ($message eq "INT") {
+    		if (option('network', 'quit_prompt')) {
+    			print "\nEnter Quit Message:\n";
+    			$message = readline(STDIN);
+    			chomp($message);
+    		} else {
+    			$message = option('network', 'quit_default');
+    		}
+    	}
+        $terminating = 1 unless $terminating == 2;
+    
+    	# Everyone out of the pool!
+    	foreach(keys(%event_plugin_unload)) {
+    		&plugin_callback($_, $event_plugin_unload{$_});
+    	}
+    
+        $kernel->post(bot => quit => PROJECT . " " . VERSION
+    				  . (($message ne "") ? ": $message" : ""));
+        &debug(3, "Disconnecting from IRC... $message\n");
+    } else {
+        # somebody's impatient today
+        $kernel->alarm_remove_all();
+    }
+    $kernel->sig_handled();
+}
+
 # QUIT: Quit IRC.
 sub quit {
-    my ($message) = @_;
-	if ($message eq "TERM") {
-		$message = "Terminated";
-	} elsif ($message eq "HUP") {
-		$message = "I am lost without my terminal!";
-	} elsif ($message eq "INT") {
-		if (option('network', 'quit_prompt')) {
-			print "\nEnter Quit Message:\n";
-			$message = readline(STDIN);
-			chomp($message);
-		} else {
-			$message = option('network', 'quit_default');
-		}
-	}
-    $terminating = 1 unless $terminating == 2;
-
-	# Everyone out of the pool!
-	foreach(keys(%event_plugin_unload)) {
-		&plugin_callback($_, $event_plugin_unload{$_});
-	}
-
-    $kernel->post(bot => quit => PROJECT . " " . VERSION
-				  . (($message ne "") ? ": $message" : ""));
-    &debug(3, "Disconnecting from IRC... $message\n");
+    if($terminating < 1) {
+        
+        my ($message) = @_;
+    	if ($message eq "TERM") {
+    		$message = "Terminated";
+    	} elsif ($message eq "HUP") {
+    		$message = "I am lost without my terminal!";
+    	} elsif ($message eq "INT") {
+    		if (option('network', 'quit_prompt')) {
+    			print "\nEnter Quit Message:\n";
+    			$message = readline(STDIN);
+    			chomp($message);
+    		} else {
+    			$message = option('network', 'quit_default');
+    		}
+    	}
+        $terminating = 1 unless $terminating == 2;
+    
+    	# Everyone out of the pool!
+    	foreach(keys(%event_plugin_unload)) {
+    		&plugin_callback($_, $event_plugin_unload{$_});
+    	}
+    
+        $kernel->post(bot => quit => PROJECT . " " . VERSION
+    				  . (($message ne "") ? ": $message" : ""));
+        &debug(3, "Disconnecting from IRC... $message\n");
+    } else {
+        $kernel->yield('quit_session');
+    }
 }
 
 # RECONNECT: Reconnect to IRC when disconnected.
@@ -1350,6 +1437,10 @@ sub reconnect {
 sub make_connection {
     &debug(3, "Setting up the IRC connection...\n");
 
+    $kernel->sig( INT => 'quit_session' );
+    $kernel->sig( HUP => 'quit_session' );
+    $kernel->sig( TERM => 'quit_session' );
+    
     $kernel->post(bot => register => "all");
     $chosen_nick = option('global', 'nickname');
 
