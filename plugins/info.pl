@@ -184,24 +184,40 @@ sub handle_chat {
         &handle_query($2, $nick, $channel, $person_being_referenced,
                       ($being_addressed ? BEING_ADDRESSED : 0)
                       | PREFER_URL);
-    } elsif($content =~ m{([\'\w\s]+) is[\s\w]* (\w+://\S+)}i) {
+    } elsif($content =~ m{([\'\w\s]+) is[\s\w]* (also )(\w+://\S+)}i) {
         # looks like a URL to me!
-        my ($key, $factoid) = (lc($1), $2);
+        my ($key, $also, $factoid) = (lc($1), $2, $3);
         
         my $flags = FACT_URL;
         if($being_addressed) { $flags |= BEING_ADDRESSED; }
         
-        unless($info{$key}) {
-            $info{$key} = "$flags|$factoid";
+        if($also) {
+            # We are learning something *also*
+
+            if($info{$key}) { $info{$key} .= "||$flags|$factoid"; }
+            else            { $info{$key} =    "$flags|$factoid"; }
+            
             &report_learned($channel, $nick, $key, $factoid, $flags);
+        } elsif($info{$key}) {
+            my ($keyFlags, $oldFactoid) = split(/\|/, $info{$key}, 2);
+            
+            my $isare = 'is';
+            if   ($keyFlags & FACT_ARE)         { $isare = 'are';       }
+            elsif($keyFlags & FACT_SEE_OTHER)   { $isare = 'is aka';    }
+            
+            &SimBot::send_message($channel, 
+                &parse_message(&SimBot::pick(BUT_X_IS_Y), $nick,
+                               $key, $isare, $oldFactoid))
+                if $being_addressed;
         }
-    } elsif($content =~ m{([\'\w\s]+?) (is|are) (aka )?([\'\w\s]+)}i) {
-        my ($key, $isare, $factoid) = (lc($1), $2, $4);
+    } elsif($content =~ m{([\'\w\s]+?) (is|are) ((aka|also) )?([\'\w\s]+)}i) {
+        my ($key, $isare, $akaalso, $factoid) = (lc($1), $2, $4, $5);
         
         my $flags=0;
-        if($3)                  { $flags |= FACT_SEE_OTHER;     }
-        if($isare =~ m/are/i)   { $flags |= FACT_ARE;           }
-        if($being_addressed)    { $flags |= BEING_ADDRESSED;    }
+        if   ($akaalso =~ m/aka/i)  { $flags |= FACT_SEE_OTHER;     }
+        if   ($isare =~ m/are/i)    { $flags |= FACT_ARE;           }
+        if   ($being_addressed)     { $flags |= BEING_ADDRESSED;    }
+        
 
         foreach(@SimBot::chat_ignore) {
             if($content =~ /$_/) {
@@ -218,7 +234,14 @@ sub handle_chat {
             return;
         }
 
-        if($info{$key}) {
+        if($akaalso =~ m/also/i) {
+            # We are learning something *also*
+
+            if($info{$key}) { $info{$key} .= "||$flags|$factoid"; }
+            else            { $info{$key} =    "$flags|$factoid"; }
+            
+            &report_learned($channel, $nick, $key, $factoid, $flags);
+        } elsif($info{$key}) {
             my ($keyFlags, $oldFactoid) = split(/\|/, $info{$key}, 2);
             
             my $isare = 'is';
@@ -263,7 +286,27 @@ sub handle_query {
     
     $query = lc($query);
     if($info{$query}) {
-        my($factFlags, $factoid) = split(/\|/, $info{$query}, 2);
+        my @factoids = split(/\|\|/, $info{$query});
+        my($factFlags, $factoid);
+        
+        # If we are to prefer URLs or nonURLs, let's remove everything
+        # else from the list.
+        if(($flags & PREFER_URL) || ($flags & PREFER_DESC)) {
+            for(my $i=0;$i<=$#factoids;$i++) {
+                ($factFlags,undef) = split(/\|/, $factoids[$i], 2);
+                if(  ($flags & PREFER_URL  && !($factFlags & FACT_URL))
+                  || ($flags & PREFER_DESC &&  ($factFlags & FACT_URL)) ) {
+                    # if we are preferring URLs, and the factoid isn't
+                    # or we are preferring non-URLs, and the factoid is
+                    
+                    splice(@factoids, $i, 1); # remove it
+                }
+            }
+            # if we lost all of the factoids, let's get the list back
+            if(!@factoids) { @factoids = split(/\|\|/, $info{$query}); }
+        }
+        
+        ($factFlags, $factoid) = split(/\|/, &SimBot::pick(@factoids), 2);
         
         my $isare = 'is';
         if($factFlags & FACT_ARE)   { $isare = 'are'; }
