@@ -172,9 +172,9 @@ sub got_response {
     if(defined $nick) {
         $kernel->yield('announce_top', $curFeed, $nick, CHANNEL);
 		return;
-	} elsif($announce_feed{$curFeed}) {
+	} elsif($announce_feed{$curFeed} && -e $file) {
 
-		$rss->parsefile("caches/${curFeed}.xml");
+		$rss->parsefile($file);
 
 		if (defined $mostRecentPost{$curFeed}) {
 			foreach my $item (@{$rss->{'items'}}) {
