@@ -1,10 +1,14 @@
 Version 6.0 alpha: (12 Feb 2004)
-	* simbot.pl
+	* simbot.pl:
 	   - We now exit the POE event loop in a way that lets us quit IRC
 	     without doing the famous "EOF from client."
 	   - New configuration option to make bot prompt for a quit message
 	     on an interrupt signal, and to set a default quit message if
 	     prompting is off.
+	* plugins/recap.pl:
+	   - New plugin which recounts up to X lines of chat on demand. It's
+	     great for catching up on a conversation after joining.  The
+	     plugin is currently incomplete, but it is usable.
 
 Version 6.0 alpha: (11 Feb 2004)
 
