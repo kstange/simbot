@@ -28,49 +28,49 @@ sub google_find {
     $query =~ s/\+/\%2B/g;
     $query =~ s/\s/+/g;
     my $url = "http://www.google.com/search?q=" . $query . "&btnI=1&safe=active";
-    SimBot::debug(3, "Received find command from " . $nick . ".\n");
+    &SimBot::debug(3, "Received find command from " . $nick . ".\n");
     my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
     $useragent->agent("$SimBot::project/1.0");
     $useragent->timeout(5);
     my $request = HTTP::Request->new(GET => $url);
     my $response = $useragent->request($request);
     if ($response->previous) {
-	if ($response->previous->is_redirect) {
-	    $kernel->post(bot => privmsg => $channel, "$nick: " . $response->request->uri());
-	} else {
-	    $kernel->post(bot => privmsg => $channel, "$nick: An unknown error occured retrieving results.");
-	}
+		if ($response->previous->is_redirect) {
+			&SimBot::send_message($channel, "$nick: " . $response->request->uri());
+		} else {
+			&SimBot::send_message($channel, "$nick: An unknown error occured retrieving results.");
+		}
     } elsif (!$response->is_error) {
-	# Let's use the calculator!
-	if ($response->content =~ m|/images/calc_img\.gif|) {
-	    $response->content =~ m|<td nowrap><font size=\+1><b>(.*?)</b></td>|;
-	    # We can't just take $1 because it might have HTML in it
-	    my $result = $1;
-	    $result =~ s|<sup>(.*?)</sup>|^$1|g;
-	    $result =~ s|<font size=-2> </font>|,|g;
-	    $result = HTML::Entities::decode($result);
-	    $kernel->post(bot => privmsg => $channel, "$nick: $result");
-	} elsif ($response->content =~ m|Definitions of <b>(.*?)</b> on the Web:|) {
-	    my $term = $1;
-	    $response->content =~ m|<blockquote><p> (.*?)<br>|;
-	    my $result = $1;
-	    $result =~ s|[\n\r]||g;
-	    $result = HTML::Entities::decode($result);
-	    SimBot::send_pieces($channel, "$nick: ", "\"$term\" is $result");
-	} elsif ($response->content =~ m|No definitions were found for|) {
-	    $kernel->post(bot => privmsg => $channel, "$nick: Making up words again?");
-	} else {
-	    $kernel->post(bot => privmsg => $channel, "$nick: Nothing was found.");
-	}
+		# Let's use the calculator!
+		if ($response->content =~ m|/images/calc_img\.gif|) {
+			$response->content =~ m|<td nowrap><font size=\+1><b>(.*?)</b></td>|;
+			# We can't just take $1 because it might have HTML in it
+			my $result = $1;
+			$result =~ s|<sup>(.*?)</sup>|^$1|g;
+			$result =~ s|<font size=-2> </font>|,|g;
+			$result = HTML::Entities::decode($result);
+			&SimBot::send_message($channel, "$nick: $result");
+		} elsif ($response->content =~ m|Definitions of <b>(.*?)</b> on the Web:|) {
+			my $term = $1;
+			$response->content =~ m|<blockquote><p> (.*?)<br>|;
+			my $result = $1;
+			$result =~ s|[\n\r]||g;
+			$result = HTML::Entities::decode($result);
+			&SimBot::send_pieces($channel, "$nick: ", "\"$term\" is $result");
+		} elsif ($response->content =~ m|No definitions were found for|) {
+			&SimBot::send_message($channel, "$nick: Making up words again?");
+		} else {
+			&SimBot::send_message($channel, "$nick: Nothing was found.");
+		}
     } else {
-	$kernel->post(bot => privmsg => $channel, "$nick: Sorry, I could not access Google.");
-    }
+		&SimBot::send_message($channel, "$nick: Sorry, I could not access Google.");
+	}
 }
 
 # Register Plugin
-SimBot::plugin_register(plugin_id   => "find",
-			plugin_desc => "Searches Google with \"I'm Feeling Lucky\"",
-			modules     => "LWP::UserAgent,HTML::Entities",
+&SimBot::plugin_register(plugin_id   => "find",
+						 plugin_desc => "Searches Google with \"I'm Feeling Lucky\"",
+						 modules     => "LWP::UserAgent,HTML::Entities",
 
-			event_plugin_call => "google_find",
-			);
+						 event_plugin_call => "google_find",
+						 );

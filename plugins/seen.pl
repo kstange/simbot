@@ -21,7 +21,7 @@ use warnings;
 
 # MESSUP_SEEN: Opens the seen database for use
 sub messup_seen {
-    SimBot::debug(3, "Loading seen database...\n");
+    &SimBot::debug(3, "Loading seen database...\n");
     dbmopen (%seenData, 'seen', 0664) || return 0;
 }
 
@@ -29,16 +29,15 @@ sub messup_seen {
 sub get_seen {
     my ($kernel, $nick, $channel, undef, $person) = @_;
     if(!$person) {
-        $kernel->post(bot => privmsg => $channel,
+        &SimBot::send_message($channel,
             "$nick: There are many things I have seen. Perhaps you should ask for someone in particular?");
     } elsif(lc($person) eq lc($SimBot::chosen_nick)) {
-        $kernel->post(bot => ctcp => $channel,
-                'ACTION',
+        &SimBot::send_action($channel,
                 qq(waves $SimBot::hisher hand in front of $SimBot::hisher face. "Yup, I can see myself!"));
-                
+
     } elsif($seenData{lc($person)}) {
         my ($when, $doing, $seenData) = split(/!/, $seenData{lc($person)}, 3);
-        
+
         if   ($doing eq 'SAY')      { $doing = qq(saying "$seenData");              }
         elsif($doing eq 'NOTICE')   { $doing = qq(saying "$seenData" in a notice);  }
         elsif($doing eq 'PRIVMSG')  { $doing = 'in a private message';              }
@@ -54,11 +53,11 @@ sub get_seen {
             my ($kicked,$reason) = split(/!/, $seenData, 2);
             $doing = "kicking $kicked ($reason)";
         }
-        
+
         my $response = "I last saw $person " . SimBot::timeago($when) . " ${doing}.";
-        $kernel->post(bot => privmsg => $channel, "$nick: $response");
+        &SimBot::send_message($channel, "$nick: $response");
     } else {
-        $kernel->post(bot => privmsg => $channel, "$nick: I have not seen $person.");
+        &SimBot::send_message($channel, "$nick: I have not seen $person.");
     }
 }
 
@@ -91,20 +90,20 @@ sub score_word {
 
 # CLEANUP_SEEN: Cleans up when we're quitting
 sub cleanup_seen {
-    SimBot::debug(3, "Saving seen data\n");
+    &SimBot::debug(3, "Saving seen data\n");
     dbmclose(%seenData);
 }
 
 # Register Plugin
-SimBot::plugin_register(plugin_id   => "seen",
-			plugin_desc => "Tells you the last time I saw someone.",
-			event_plugin_call     => "get_seen",
-			event_plugin_load     => "messup_seen",
-			event_plugin_unload   => "cleanup_seen",
-			event_channel_kick    => "set_seen",
-			event_channel_message => "set_seen",
-			event_channel_action  => "set_seen",
-			event_channel_topic   => "set_seen",
-			event_channel_notice  => 'set_seen',
-			query_word_score      => 'score_word',
-			);
+&SimBot::plugin_register(plugin_id   => "seen",
+						 plugin_desc => "Tells you the last time I saw someone.",
+						 event_plugin_call     => "get_seen",
+						 event_plugin_load     => "messup_seen",
+						 event_plugin_unload   => "cleanup_seen",
+						 event_channel_kick    => "set_seen",
+						 event_channel_message => "set_seen",
+						 event_channel_action  => "set_seen",
+						 event_channel_topic   => "set_seen",
+						 event_channel_notice  => 'set_seen',
+						 query_word_score      => 'score_word',
+						 );

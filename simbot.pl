@@ -125,26 +125,32 @@ $SIG{'USR2'} = 'SimBot::reload';
 ### Channel Events ###
 # Channel events get params:
 #  (kernel, from, channel, eventname, params)
-%event_channel_message = (); # eventname = SAY (text)
-%event_channel_action  = (); # eventname = ACTION (text)
-%event_channel_notice  = (); # eventname = NOTICE (text)
-%event_channel_kick    = (); # eventname = KICKED (text, kicker)
-%event_channel_mode    = (); # eventname = MODE (modes, arguments...)
-%event_channel_topic   = (); # eventname = TOPIC (text)
-%event_channel_join    = (); # eventname = JOINED ()
-%event_channel_part    = (); # eventname = PARTED (message)
-%event_channel_quit    = (); # eventname = QUIT (message)
-%event_channel_mejoin  = (); # eventname = JOINED ()
-%event_channel_nojoin  = (); # eventname = NOTJOINED ()
-%event_channel_novoice = (); # eventname = CANTSAY ()
-%event_channel_invite  = (); # eventname = INVITED ()
+%event_channel_message     = (); # eventname = SAY (text)
+%event_channel_message_out = (); # eventname = SAY (text)
+%event_channel_action      = (); # eventname = ACTION (text)
+%event_channel_action_out  = (); # eventname = ACTION (text)
+%event_channel_notice      = (); # eventname = NOTICE (text)
+%event_channel_notice_out  = (); # eventname = NOTICE (text)
+%event_channel_kick        = (); # eventname = KICKED (text, kicker)
+%event_channel_mode        = (); # eventname = MODE (modes, arguments...)
+%event_channel_topic       = (); # eventname = TOPIC (text)
+%event_channel_join        = (); # eventname = JOINED ()
+%event_channel_part        = (); # eventname = PARTED (message)
+%event_channel_quit        = (); # eventname = QUIT (message)
+%event_channel_mejoin      = (); # eventname = JOINED ()
+%event_channel_nojoin      = (); # eventname = NOTJOINED ()
+%event_channel_novoice     = (); # eventname = CANTSAY ()
+%event_channel_invite      = (); # eventname = INVITED ()
 
 ### Private Events ###
 # Private events get params:
 #  (kernel, from, eventname, text)
-%event_private_message = (); # eventname = PRIVMSG (text)
-%event_private_action  = (); # eventname = PRIVACTION (text)
-%event_private_notice  = (); # eventname = NOTICE (text)
+%event_private_message     = (); # eventname = PRIVMSG (text)
+%event_private_message_out = (); # eventname = PRIVMSG (text)
+%event_private_action      = (); # eventname = PRIVACTION (text)
+%event_private_action_out  = (); # eventname = PRIVACTION (text)
+%event_private_notice      = (); # eventname = NOTICE (text)
+%event_private_notice_out  = (); # eventname = NOTICE (text)
 
 ### Server Events ###
 # Server events get params:
@@ -445,7 +451,7 @@ sub print_help {
     my $nick = $_[1];
     &debug(3, "Received help command from " . $nick . ".\n");
     foreach(sort {$a cmp $b} keys(%plugin_desc)) {
-		$kernel->post(bot => privmsg => $nick, "%" . $_ . " - " . $plugin_desc{$_});
+		&send_message($nick, "%" . $_ . " - " . $plugin_desc{$_});
     }
 }
 
@@ -461,7 +467,7 @@ sub print_list {
 				 "$nick: The FBI thanks you for your patronage.",
 				 "$nick: h4x0r5 0n teh yu0r pC? oh nos!!! my megahurtz haev been stoeled!!!!!111 safely check yuor megahurtz with me, free!",
 				 );
-    $kernel->post(bot => privmsg => $channel, &pick(@reply));
+    &send_message($channel, &pick(@reply));
 }
 
 # PRINT_STATS: Prints some useless stats about the bot to the channel.
@@ -475,7 +481,7 @@ sub print_stats {
     my $begins = keys(%{$chat_words{'__BEGIN'}}) + keys(%{$chat_words{'__!BEGIN'}}) + keys(%{$chat_words{'__?BEGIN'}});
     my $ends = keys(%{$chat_words{'__END'}}) + keys(%{$chat_words{'__!END'}}) + keys(%{$chat_words{'__?END'}});
     my $actions = keys(%{$chat_words{'__ACTION'}});
-    $kernel->post(bot => privmsg => $channel, "In total, I know $count words.  I've learned $begins words that I can start a sentence with, and $ends words that I can end one with.  I know of $actions ways to start an IRC action (/me).");
+    &send_message($channel, "In total, I know $count words.  I've learned $begins words that I can start a sentence with, and $ends words that I can end one with.  I know of $actions ways to start an IRC action (/me).");
 
     # Process through the list and find words that have no links in one or
     # both directions (because we can never use these words safely).  We'll
@@ -513,12 +519,12 @@ sub print_stats {
 			push(@rdeadwords, "'$word'");
 		}
     }
-    $kernel->post(bot => privmsg => $channel, "The most popular two word sequence (with more than 3 letters) is \"$wordpop\" which has been used $wordpopcount times.");
+	&send_message($channel, "The most popular two word sequence (with more than 3 letters) is \"$wordpop\" which has been used $wordpopcount times.");
     if ($rcount > 0) {
-		$kernel->post(bot => privmsg => $channel, "There are $rcount words that lead me to unexpected dead ends. They are: @rdeadwords");
+		&send_message($channel, "There are $rcount words that lead me to unexpected dead ends. They are: @rdeadwords");
     }
     if ($lcount > 0) {
-		$kernel->post(bot => privmsg => $channel, "There are $lcount words that lead me to unexpected dead beginnings.  They are: @ldeadwords");
+		&send_message($channel, "There are $lcount words that lead me to unexpected dead beginnings.  They are: @ldeadwords");
     }
 }
 
@@ -745,6 +751,75 @@ sub find_interesting_word {
     return $highestScoreWord;
 }
 
+# SEND_MESSAGE: This sends a message and provides something we can hook
+# into for logging what the bot says for plugins and whatnot.
+sub send_message {
+	my ($dest, $text) = @_;
+	$kernel->post(bot => privmsg => $dest, $text);
+	&debug(4, "sending message to @{$dest}\n");
+    my $public = 0;
+    foreach(@{$dest}) {
+		if($_ =~ /[\#\&].+/) {
+			$public = 1;
+		}
+    }
+    if($public) {
+		foreach(keys(%event_channel_message_out)) {
+			&plugin_callback($_, $event_channel_message_out{$_}, ($chosen_nick, $dest, 'SAY', $text));
+		}
+	} else {
+		foreach(keys(%event_private_message_out)) {
+			&plugin_callback($_, $event_private_message_out{$_}, ($chosen_nick, 'PRIVMSG', $text));
+		}
+	}
+}
+
+# SEND_ACTION: This sends an action and provides something we can hook
+# into for logging what the bot says for plugins and whatnot.
+sub send_action {
+	my ($dest, $text) = @_;
+	$kernel->post(bot => ctcp => $dest, 'ACTION', $text);
+	&debug(4, "sending action to @{$dest}\n");
+    my $public = 0;
+    foreach(@{$dest}) {
+		if($_ =~ /[\#\&].+/) {
+			$public = 1;
+		}
+    }
+    if($public) {
+		foreach(keys(%event_channel_message_out)) {
+			&plugin_callback($_, $event_channel_action_out{$_}, ($chosen_nick, $dest, 'ACTION', $text));
+		}
+	} else {
+		foreach(keys(%event_private_message_out)) {
+			&plugin_callback($_, $event_private_action_out{$_}, ($chosen_nick, 'PRIVACTION', $text));
+		}
+	}
+}
+
+# SEND_NOTICE: This sends a notice and provides something we can hook
+# into for logging what the bot says for plugins and whatnot.
+sub send_notice {
+	my ($dest, $text) = @_;
+	$kernel->post(bot => notice => $dest, $text);
+	&debug(4, "sending notice to @{$dest}\n");
+    my $public = 0;
+    foreach(@{$dest}) {
+		if($_ =~ /[\#\&].+/) {
+			$public = 1;
+		}
+    }
+    if($public) {
+		foreach(keys(%event_channel_notice_out)) {
+			&plugin_callback($_, $event_channel_notice_out{$_}, ($chosen_nick, $dest, 'NOTICE', $text));
+		}
+	} else {
+		foreach(keys(%event_private_notice_out)) {
+			&plugin_callback($_, $event_private_notice_out{$_}, ($chosen_nick, 'NOTICE', $text));
+		}
+	}
+}
+
 # SEND_PIECES: This will break the message up into blocks of no more
 # than 450 characters and send them separately.  This works around
 # IRC message limitations.
@@ -758,11 +833,11 @@ sub send_pieces {
 		} elsif (length($line) + length($_) + 1 <= 450) {
 			$line .= " $_";
 		} else {
-			$kernel->post(bot => privmsg => $dest, $line);
+			&send_message($dest, $line);
 			$line = ($prefix ? $prefix : "") . "$_";
 		}
     }
-    $kernel->post(bot => privmsg => $dest, $line);
+	&send_message($dest, $line);
 }
 
 # ######### IRC FUNCTION CALLS ###########
@@ -771,7 +846,7 @@ sub send_pieces {
 # log the bot into channel services.
 sub server_connect {
     &debug(3, "Setting invisible user mode...\n");
-    $kernel->call(bot => mode => $chosen_nick, "+i");
+    $kernel->post(bot => mode => $chosen_nick, "+i");
     foreach(keys(%event_server_connect)) {
 		&plugin_callback($_, $event_server_connect{$_}, ($chosen_server, $chosen_nick));
     }
@@ -907,10 +982,12 @@ sub channel_message {
     my ($channel, $text) = @_[ ARG1, ARG2 ];
     $text =~ s/\003\d{0,2},?\d{0,2}//g;
     $text =~ s/[\002\017\026\037]//g;
-    if ($text =~ /^[!\@].+/) {
-		&debug(3, "Alerting " . $nick . " to use % in place of ! or @.\n");
-		$kernel->post(bot => notice => $nick, "Commands must be prefixed with %.");
-    } elsif ($text =~ /^\%/) {
+
+	foreach(keys(%event_channel_message)) {
+		&plugin_callback($_, $event_channel_message{$_}, ($nick, $channel, 'SAY', $text));
+	}
+
+    if ($text =~ /^\%/) {
 		my @command = split(/\s/, $text);
 		my $cmd = $command[0];
 		$cmd =~ s/^%//;
@@ -918,13 +995,13 @@ sub channel_message {
 			&plugin_callback($cmd, $event_plugin_call{$cmd}, ($nick, $channel, @command));
 		} else {
 			if($cmd =~ m/[a-z]/) {
-				$kernel->post(bot => privmsg => $channel, "Hmm... @command isn't supported. Try \%help");
+				&send_message($channel, "Hmm... @command isn't supported. Try \%help");
 			}
 			# otherwise, command has no letters in it, and therefore was probably a smile %-) (a very odd smile, sure, but whatever)
 		}
     } elsif ($text =~ /^hi,*\s+($alttag|$nickname)[!\.\?]*/i) {
 		&debug(3, "Greeting " . $nick . "...\n");
-		$kernel->post(bot => privmsg => $channel, &pick(@greeting) . $nick . "!");
+		&send_message($channel, &pick(@greeting) . $nick . "!");
     } elsif ($text =~ /^($chosen_nick|$alttag|$nickname)([,|:]\s+|[!\?]*\s*([;:=][\Wdpo]*)?$)|,\s+($chosen_nick|$alttag|$nickname)[,\.!\?]\s+|,\s+($chosen_nick|$alttag|$nickname)[!\.\?]*\s*([;:=][\Wdpo]*)?$/i) {
 		&debug(3, "Generating a reply for " . $nick . "...\n");
 		my @botreply = split(/__NEW__/, &buildreply($text));
@@ -932,22 +1009,19 @@ sub channel_message {
 		foreach $comment (@botreply) {
 			if ($comment =~ /__ACTION\s/) {
 				$comment =~ s/$&//;
-				$kernel->post(bot => privmsg => $channel, $queue) unless ($queue eq "");
-				$kernel->post(bot => ctcp => $channel, 'ACTION', $comment);
+				&send_message($channel, $queue) unless ($queue eq "");
+				&send_action($channel, $comment);
 				$queue = "";
 			} else {
 				$queue .= $comment . " ";
 			}
 		}
-		$kernel->post(bot => privmsg => $channel, $queue) unless ($queue eq "");
+		&send_message($channel, $queue) unless ($queue eq "");
 
     } elsif ($text !~ /^[;=:]/) {
 		&debug(3, "Learning from " . $nick . "...\n");
 		&buildrecords($text);
     }
-	foreach(keys(%event_channel_message)) {
-		&plugin_callback($_, $event_channel_message{$_}, ($nick, $channel, 'SAY', $text));
-	}
 }
 
 # CHANNEL_KICK: If the bot is kicked, rejoin the channel.  Also let
@@ -1073,7 +1147,7 @@ sub quit {
 		}
 	}
     $terminating = 1 unless $terminating == 2;
-    $kernel->call(bot => quit => "$project $version"
+    $kernel->post(bot => quit => "$project $version"
 				  . (($message ne "") ? ": $message" : ""));
     &debug(3, "Disconnecting from IRC... $message\n");
 }

@@ -20,10 +20,10 @@ package SimBot::plugin::services::undernet;
 
 # Start with the assumption X is online, we are not locked out, and
 # we are not logged in, and we are not shut up.
-$x_online   = 1;
-$logged_in  = 0;
-$locked_out = 0;
-$shut_up    = 0;
+my $x_online   = 1;
+my $logged_in  = 0;
+my $locked_out = 0;
+my $shut_up    = 0;
 
 # SERVICES_LOGIN: Here, we log into X if we have a services username and
 # password, since logging in would be tricky, at best, without them.
@@ -32,11 +32,11 @@ sub services_login {
     my ($kernel, undef, $nick) = @_;
     if (defined $nick) {
 	&SimBot::debug(3, "Setting masked user mode...\n");
-	$kernel->call(bot => mode => $nick, "+x");
+	$kernel->post(bot => mode => $nick, "+x");
     }
     if ($SimBot::services_pass && $SimBot::services_user) {
 	&SimBot::debug(3, "Logging into Channel Service as $SimBot::services_user...\n");
-	$kernel->call(bot => privmsg => "x\@channels.undernet.org", "login $SimBot::services_user $SimBot::services_pass");
+	&SimBot::send_message("x\@channels.undernet.org", "login $SimBot::services_user $SimBot::services_pass");
     }
 }
 
@@ -82,7 +82,7 @@ sub request_invite {
 	$locked_out = 1;
 	if($x_online && $logged_in) {
 	    &SimBot::debug(2, "Could not join.  Asking for invitation to $channel...\n");
-	    $kernel->post(bot => privmsg => "x", "invite $channel");
+	    &SimBot::send_message("x", "invite $channel");
 	} elsif ($x_online) {
 	    &services_login($kernel);
 	}
@@ -96,7 +96,7 @@ sub request_voice {
 	$shut_up = 1;
 	if($x_online && $logged_in) {
 	    &SimBot::debug(2, "Could not speak.  Asking for voice on $channel...\n");
-	    $kernel->post(bot => privmsg => "x", "voice $channel");
+	    &SimBot::send_message("x", "voice $channel");
 	    $shut_up = 0;
 	} elsif ($x_online) {
 	    &services_login($kernel);
@@ -128,13 +128,13 @@ sub process_notify {
 }
 
 # Register Plugin
-SimBot::plugin_register(plugin_id   => "services::undernet",
-			event_server_connect  => "services_login",
-			event_server_ison     => "process_notify",
-			event_private_notice  => "check_response",
-			event_channel_nojoin  => "request_invite",
-			event_channel_mejoin  => "process_join",
-			event_channel_novoice => "request_voice",
+&SimBot::plugin_register(plugin_id   => "services::undernet",
+						 event_server_connect  => "services_login",
+						 event_server_ison     => "process_notify",
+						 event_private_notice  => "check_response",
+						 event_channel_nojoin  => "request_invite",
+						 event_channel_mejoin  => "process_join",
+						 event_channel_novoice => "request_voice",
 
-			list_nicks_ison       => "X",
+						 list_nicks_ison       => "X",
 			);

@@ -33,7 +33,7 @@ use constant CONVERSION_BY
 # CONV_CURRENCY: exchanges currencies
 sub conv_currency {
     my ($kernel, $nick, $channel, $command, $Amount, $From, $To) = @_;
-    SimBot::debug(3, "Received currency conversion command from $nick to convert $Amount from $From to $To\n");
+    &SimBot::debug(3, "Received currency conversion command from $nick to convert $Amount from $From to $To\n");
     my $retval = '';
 
     my $ua = new LWP::UserAgent;
@@ -44,7 +44,7 @@ sub conv_currency {
     my $grab = GET REFERER;
     my $reply = $ua->request($grab);
     if (!$reply->is_success) {
-        $kernel->post(bot => privmsg => $channel,
+        &SimBot::send_message($channel,
                         "$nick: Couldn't contact XE.net."
                         . $reply->status_line);
         return;
@@ -66,7 +66,7 @@ sub conv_currency {
 
     if($#_ == 0){
         # Country lookup
-        # crysflame++ for the space fix. 
+        # crysflame++ for the space fix.
         $retval = '';
         foreach my $Found (grep /$From/i, keys %CurrLookup){
             $Found =~ s/,/ uses/g;
@@ -81,7 +81,7 @@ sub conv_currency {
         $Amount =~ s/[,.](\d\d)$/\01$1/;
         $Amount =~ s/[,.]//g;
         $Amount =~ s/\01/./;
-    
+
         # Get the exact currency abbreviations
         my $newFrom = &GetAbb($From, %CurrLookup);
         my $newTo = &GetAbb($To, %CurrLookup);
@@ -108,42 +108,42 @@ sub conv_currency {
 
                 $html =~ m|</A> as of (\d{4}\.\d\d.\d\d\s\d\d:\d\d:\d\d\s\S+)|;
                 $When = $1;
-                
+
                 $html =~ m|(\d+\.\d+) $From|;
                 $Cfrom = $1;
-                
+
                 $html =~ m|(\d+\.\d+) $To|;
                 $Cto = $1;
-                
+
                 if ($When) {
-                    $kernel->post(bot => privmsg => $channel,
+                    &SimBot::send_message($channel,
                         "$nick: " . CONVERSION_BY);
-                    $kernel->post(bot => privmsg => $channel,
+                    &SimBot::send_message($channel,
                         "$nick: $Cfrom ($Currencies{$From}) makes ".
                         "$Cto ($Currencies{$To})"); # ." ($When)\n";
                 } else {
-                    $kernel->post(bot => privmsg => $channel,
+                    &SimBot::send_message($channel,
                         "$nick: I got some error trying that.");
                 }
             } else {                                        # Oh dear.
-                $kernel->post(bot => privmsg => $channel,
+                &SimBot::send_message($channel,
                     "$nick: I got some error trying that: "
                     . $res->status_line);
             }
         }else{
-            $kernel->post(bot => privmsg => $channel,
-                qq($nick: I don't know about "$From" as a currency.))
+            &SimBot::send_message($channel,
+			    qq($nick: I don't know about "$From" as a currency.))
                  if( ! exists $Currencies{$From} );
-            $kernel->post(bot => privmsg => $channel,
+            &SimBot::send_message($channel,
                 qq($nick: I don't know about "$To" as a currency.))
-                 if( ! exists $Currencies{$To} );
+				if( ! exists $Currencies{$To} );
         }
     }
 }
 
 sub GetAbb {
     my($LookFor, %Hash) = @_;
-    
+
     my $Found = (grep /$LookFor/i, keys %Hash)[0];
     $Found =~ m/\((\w\w\w)\)/;
     return $1;
@@ -155,13 +155,13 @@ while(<DATA>) {
     $tld2country{$tld} = $country;
 }
 
-SimBot::plugin_register(
-    plugin_id   => 'currency',
-    plugin_desc => 'Converts between currencies. Give it <number> <from> <to>, where from and to are countries or currency codes.',
-    modules     => 'LWP::UserAgent,HTTP::Request::Common',
-    
-    event_plugin_call   => 'conv_currency',
-);
+&SimBot::plugin_register(
+						 plugin_id   => 'currency',
+						 plugin_desc => 'Converts between currencies. Give it <number> <from> <to>, where from and to are countries or currency codes.',
+						 modules     => 'LWP::UserAgent,HTTP::Request::Common',
+
+						 event_plugin_call   => 'conv_currency',
+						 );
 
 __DATA__
 AF	AFGHANISTAN 

@@ -27,22 +27,22 @@ sub roll_dice {
         $numSides = $2;
     }
     if($numDice == 0) {
-        $kernel->post(bot => privmsg => $channel, "$nick: I can't roll zero dice!");
-    } elsif($numDice > 100000000000000) {
-        $kernel->post(bot => privmsg => $channel, "$nick: I can't even count that high!");
+        &SimBot::send_message($channel, "$nick: I can't roll zero dice!");
+	} elsif($numDice > 100000000000000) {
+        &SimBot::send_message($channel, "$nick: I can't even count that high!");
     } elsif($numDice > 100) {
-        $kernel->post(bot => ctcp => $channel, 'ACTION', "drops $numDice ${numSides}-sided dice on the floor, trying to roll them for ${nick}.");
+        &SimBot::send_action($channel, "drops $numDice ${numSides}-sided dice on the floor, trying to roll them for ${nick}.");
     } elsif($numSides == 0) {
-        $kernel->post(bot => ctcp => $channel, 'ACTION', "rolls $numDice zero-sided " . (($numDice==1) ? 'die' : 'dice') . " for ${nick}: " . (($numDice==1) ? "it doesn't" : "they don't") . ' land, having no sides to land on.');
+        &SimBot::send_action($channel, "rolls $numDice zero-sided " . (($numDice==1) ? 'die' : 'dice') . " for ${nick}: " . (($numDice==1) ? "it doesn't" : "they don't") . ' land, having no sides to land on.');
     } elsif($numSides > 1000) {
-        $kernel->post(bot => privmsg => $channel, "$nick: The numbers on the dice are so small that I can't read them!");
+        &SimBot::send_message($channel, "$nick: The numbers on the dice are so small that I can't read them!");
     } else {
         my @rolls = ();
         for(my $x=0;$x<$numDice;$x++) {
             push(@rolls, int rand($numSides)+1);
         }
 
-        $kernel->post(bot => ctcp => $channel, 'ACTION', "rolls $numDice ${numSides}-sided " . (($numDice==1) ? 'die' : 'dice') . " for ${nick}: " . join(' ', @rolls));
+        &SimBot::send_action($channel, "rolls $numDice ${numSides}-sided " . (($numDice==1) ? 'die' : 'dice') . " for ${nick}: " . join(' ', @rolls));
     }
 }
 
@@ -50,21 +50,21 @@ package SimBot::plugin::flip;
 
 sub flip_coin {
     my ($kernel, $nick, $channel) = @_;
-    $kernel->post(bot => ctcp => $channel, 'ACTION', "flips a coin for $nick: "
+    &SimBot::send_action($channel, "flips a coin for $nick: "
         . ((int rand(2)==0) ? 'heads' : 'tails'));
 }
 
 # Register Plugins
-SimBot::plugin_register(plugin_id   => "roll",
-			plugin_desc => "Rolls dice. You can specify how many dice, and how many sides, in the format 3D6.",
-			modules     => "",
+&SimBot::plugin_register(plugin_id   => "roll",
+						 plugin_desc => "Rolls dice. You can specify how many dice, and how many sides, in the format 3D6.",
+						 modules     => "",
 
-			event_plugin_call => "roll_dice",
-			);
+						 event_plugin_call => "roll_dice",
+						 );
 
-SimBot::plugin_register(plugin_id   => "flip",
-			plugin_desc => "Flips a coin.",
-			modules     => "",
+&SimBot::plugin_register(plugin_id   => "flip",
+						 plugin_desc => "Flips a coin.",
+						 modules     => "",
 
-			event_plugin_call => "flip_coin",
-			);
+						 event_plugin_call => "flip_coin",
+						 );

@@ -25,23 +25,23 @@ $std_backlog = 10;
 # SEND_RECAP: Sends a backlog of chat to the inquiring user.
 sub send_recap {
     my ($kernel, $nick, $channel, undef, $lines) = @_;
-    SimBot::debug(3, "Received recap command from $nick... backlog is " . ($#backlog+1) . " lines, user wants " . (defined $lines ? $lines : $std_backlog) ." lines.\n");
+    &SimBot::debug(3, "Received recap command from $nick... backlog is " . $#backlog . " lines, user wants " . (defined $lines ? $lines : $std_backlog) ." lines.\n");
     if ($#backlog + 1 < 1) {
-	$kernel->post(bot => notice => $nick, "I haven't seen enough chat yet to provide a useful recap.");
-    } elsif (defined $lines && ($lines < 1 || $lines > $max_backlog)) {
-	$kernel->post(bot => notice => $nick, "I can only display between 1 and $max_backlog lines of recap.");
-    } else {
-	if (!defined $lines) {
-	    $lines = $std_backlog;
+		&SimBot::send_notice($nick, "I haven't seen enough chat yet to provide a useful recap.");
+	} elsif (defined $lines && ($lines < 1 || $lines > $max_backlog)) {
+		&SimBot::send_notice($nick, "I can only display between 1 and $max_backlog lines of recap.");
+	} else {
+		if (!defined $lines) {
+			$lines = $std_backlog;
+		}
+		if ($#backlog < $lines) {
+			&SimBot::send_notice($nick, "Note: I have not seen as many lines of chat as you requested.  I'll show you everything I've got.");
+			$lines = $#backlog;
+		}
+		for(my $i=($#backlog)-$lines; $i < $#backlog; $i++) {
+			&SimBot::send_notice($nick, $backlog[$i]);
+		}
 	}
-	if ($#backlog + 1 < $lines) {
-	    $kernel->post(bot => notice => $nick, "Note: I have seen as many lines of chat as you requested.  I'll show you everything I've got.");
-	    $lines = $#backlog + 1;
-	}
-	for(my $i=($#backlog+1)-$lines; $i <= $#backlog; $i++) {
-	    $kernel->post(bot => notice => $nick, $backlog[$i]);
-	}
-    }
 }
 
 # RECORD_RECAP: Puts stuff in the backlog!
@@ -50,31 +50,33 @@ sub record_recap {
     my ($sec, $min, $hour) = localtime(time);
     my $line = sprintf("[%02d:%02d:%02d] ", $hour, $min, $sec);
     if ($doing eq 'SAY') {
-	$line .= "<$nick> $content";
+		$line .= "<$nick> $content";
     } elsif ($doing eq 'ACTION') {
-	$line .= "* $nick $content";
+		$line .= "* $nick $content";
     } elsif ($doing eq 'KICKED') {
-	$line .= "$target kicked $nick from $channel" . ($content ? " ($content)" : "");
+		$line .= "$target kicked $nick from $channel" . ($content ? " ($content)" : "");
     } elsif ($doing eq 'TOPIC') {
-	if ($content) {
-	    $line .= "$nick changed the topic of $channel to: $content";
-	} else {
-	    $line .= "$nick unset the topic of $channel.";
-	}
+		if ($content) {
+			$line .= "$nick changed the topic of $channel to: $content";
+		} else {
+			$line .= "$nick unset the topic of $channel.";
+		}
     }
     push(@backlog, $line);
-    while ($#backlog >= $max_backlog) {
-	shift(@backlog);
+    while ($#backlog > $max_backlog) {
+		shift(@backlog);
     }
-    SimBot::debug(4, "Recorded a line for recap... backlog is " . ($#backlog+1) . " lines.\n");
+    &SimBot::debug(4, "Recorded a line for recap... backlog is " . $#backlog . " lines.\n");
 }
 
 # Register Plugin
-SimBot::plugin_register(plugin_id   => "recap",
-			plugin_desc => "Privately recaps up to $max_backlog lines of chat backlog. The default is to recap $std_backlog lines.",
-			event_plugin_call     => "send_recap",
-			event_channel_kick    => "record_recap",
-			event_channel_message => "record_recap",
-			event_channel_action  => "record_recap",
-			event_channel_topic   => "record_recap",
-			);
+&SimBot::plugin_register(plugin_id   => "recap",
+						 plugin_desc => "Privately recaps up to $max_backlog lines of chat backlog. The default is to recap $std_backlog lines.",
+						 event_plugin_call         => "send_recap",
+						 event_channel_kick        => "record_recap",
+						 event_channel_message     => "record_recap",
+						 event_channel_message_out => "record_recap",
+						 event_channel_action      => "record_recap",
+						 event_channel_action_out  => "record_recap",
+						 event_channel_topic       => "record_recap",
+						 );

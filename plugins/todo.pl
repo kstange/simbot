@@ -20,7 +20,7 @@ package SimBot::plugin::todo;
 
 @todo = (
 	 "1) %delete: allow users to delete words used less than x times",
-	 "2) %recap: handle more events, including text from self to channel",
+	 "2) %recap: handle more events including channel modes and notices",
 	 "3) detect and remove orphaned and dead end words",
 	 "4) perform automatic database backups",
 	 "--- Increment version to 6.0 beta (then final) here ---",
@@ -31,22 +31,22 @@ package SimBot::plugin::todo;
 # PRINT_TODO: Prints todo list privately to the user.
 sub print_todo {
     my ($kernel, $nick) = @_;
-    SimBot::debug(3, "Received todo command from " . $nick . ".\n");
+    &SimBot::debug(3, "Received todo command from " . $nick . ".\n");
     if (@todo) {
-	foreach(@todo) {
-	    $kernel->post(bot => privmsg => $nick, $_);
-	}
+		foreach(@todo) {
+			&SimBot::send_message($nick, $_);
+		}
     } else {
-	$kernel->post(bot => privmsg => $nick, "Request some features!  My todo list is empty!");
+		&SimBot::send_message($nick, "Request some features!  My todo list is empty!");
     }
 }
 
 # Register Plugin
-SimBot::plugin_register(plugin_id   => "todo",
-			plugin_desc => "Where the hell am I going?",
-			modules     => "",
+&SimBot::plugin_register(plugin_id   => "todo",
+						 plugin_desc => "Where the hell am I going?",
+						 modules     => "",
 
-			event_plugin_call => "print_todo",
-			);
+						 event_plugin_call => "print_todo",
+						 );
 
 

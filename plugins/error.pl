@@ -26,13 +26,13 @@ sub random_error {
     my $error = &SimBot::pick(@lines);
     chomp($error);
     $error =~ s/\$nick/$nick/g;
-    $kernel->post(bot => privmsg => $channel, $error);
+    &SimBot::send_message($channel, $error);
 }
 
 # Register Plugin
-SimBot::plugin_register(plugin_id   => "error",
-			plugin_desc => "Prints out a random error message.",
-			modules     => "",
+&SimBot::plugin_register(plugin_id   => "error",
+						 plugin_desc => "Prints out a random error message.",
+						 modules     => "",
 
-			event_plugin_call => "random_error",
-			);
+						 event_plugin_call => "random_error",
+						 );
