@@ -1,3 +1,13 @@
+Version 6.0 alpha: (21 Jul 2004)
+	* simbot.pl:
+	  - Added numberize function which converts written out numbers like
+	    "two thousand" into digits, like 2000.
+	  - The %help command works again, instead of  calling the %stats
+	    function.
+	* plugins/nlp.pl:
+	  - We now use the new numberize function, so that natural language
+	    parsing can understand numbers more completely.
+
 Version 6.0 alpha: (14 Jul 2004)
 	* simbot.pl:
 	  - query_userhost_mask can now be used by plugins to watch for

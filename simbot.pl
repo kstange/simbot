@@ -45,7 +45,8 @@ no strict 'refs';
 
 # Variables we want to use without an explicit package name
 use vars qw( %conf %chat_words $chosen_nick $chosen_server $alarm_sched_60
-			 %plugin_desc %hostmask_cache);
+			 %plugin_desc %hostmask_cache
+			 );
 
 # Error Descriptions
 use constant ERROR_DESCRIPTIONS
@@ -60,6 +61,29 @@ use constant VERBOSE => 3;
 use constant PROJECT => "SimBot";
 # Software Version
 use constant VERSION => "6.0 alpha";
+
+
+our %numbers_groups = (
+					   trillion => 1000000000000, billion       => 1000000000,
+					   million  => 1000000,       thousand      => 1000,
+					   hundred  => 100,           "hundred and" => 100,
+					   );
+
+our %numbers_tens   = (
+					   twenty => 20, thirty => 30,  forty => 40,  fifty => 50,
+					   sixty => 60,  seventy => 70, eighty => 80, ninety => 90,
+					   );
+
+our %numbers_other  = (
+					   zero => 0,          a => 1,            ten => 10,
+					   eleven => 11,       twelve => 12,      thirteen => 13,
+					   fourteen => 14,     fifteen => 15,     sixteen => 16,
+					   seventeen => 17,    eighteen => 18,    nineteen => 19,
+					   );
+
+our %numbers_digits = (one => 1, two => 2,   three => 3, four => 4, five => 5,
+					   six => 6, seven => 7, eight => 8, nine => 9,
+					   );
 
 # ****************************************
 # ************ Start of Script ***********
@@ -89,16 +113,16 @@ $SIG{'USR2'} = 'SimBot::reload';
 ### Plugin Events ###
 # Plugin events get params:
 #  (kernel)
-our %event_plugin_load     = ();
-our %event_plugin_reload   = ();
-our %event_plugin_unload   = ();
+our %event_plugin_load         = ();
+our %event_plugin_reload       = ();
+our %event_plugin_unload       = ();
 # Call event gets params:
 #  (kernel, from, channel, command string)
-our %event_plugin_call     = ();
+our %event_plugin_call         = ();
 
 # Bot addressing gets params:
 #  (kernel, from, channel, text string)
-our %event_bot_addressed   = ();
+our %event_bot_addressed       = ();
 
 ### Channel Events ###
 # Channel events get params:
@@ -133,19 +157,20 @@ our %event_private_notice_out  = (); # eventname = NOTICE (text)
 ### Server Events ###
 # Server events get params:
 #  (kernel, server, nickname, params)
-our %event_server_connect  = (); # ()
-our %event_server_ison     = (); # (nicks list...)
-our %event_server_nick     = (); # (new nickname)
+our %event_server_connect      = (); # ()
+our %event_server_ison         = (); # (nicks list...)
+our %event_server_nick         = (); # (new nickname)
 
 ### Function Queries ###
 # Function queries get params:
 #  (kernel, params)
-our %query_word_score      = (); # (text)
-our %query_userhost_mask   = (); # (user@host)
+our %query_word_score          = (); # (text)
+our %query_userhost_mask       = (); # (user@host)
 
-our @list_nicks_ison       = (
-							  option('global', 'nickname'),
-							  );
+
+our @list_nicks_ison           = (
+								  option('global', 'nickname'),
+								  );
 
 ### Stock IRC Operations ###
 # Your services plugin will probably want to override these, however
@@ -191,7 +216,7 @@ our %commands = (
 &plugin_register(plugin_id   => "help",
 				 plugin_desc => "Shows this information.",
 
-				 event_plugin_call     => \&print_stats,
+				 event_plugin_call     => \&print_help,
 				 );
 
 # Register the delete plugin only if the option is enabled
@@ -392,6 +417,49 @@ sub parse_style {
 
 
     return $_;
+}
+
+# NUMBERIZE: Find all the word-based numbers in a string and replacement
+#            with digit-based numbers.
+sub numberize {
+	my $string = $_[0];
+	debug(4, "numberize: new string: $string\n");
+	my $tmatch = "(" . join("|", keys(%numbers_tens)) . ")";
+	my $omatch = "(" . join("|", keys(%numbers_other)) . ")";
+	my $dmatch = "(" . join("|", keys(%numbers_digits)) . ")";
+	while ($string =~ /\b($tmatch[-]$dmatch)\b/) {
+		my $match = $1;
+		my $value = ($numbers_tens{$2} + $numbers_digits{$3});
+		$string  =~ s/$match/$value/g;
+		debug(4, "numberize: tens-ones: $string\n");
+	}
+	while ($string =~ /\b($tmatch|$omatch|$dmatch)\b/) {
+		my $match = $1;
+		my $value = (defined $numbers_tens{$match} ? $numbers_tens{$match} :
+					 (defined $numbers_other{$match} ? $numbers_other{$match} :
+					  $numbers_digits{$match}));
+		$string  =~ s/$match/$value/g;
+		debug(4, "numberize: numbers: $string\n");
+	}
+
+	foreach my $match ("hundred and", "hundred", "thousand", "million", "billion", "trillion") {
+		while ($string =~ /\b$match\b/) {
+			my $value = $numbers_groups{$match};
+			my $left  = "$`";
+			my $right = "$'";
+			if ($left  =~ s/([\s-]*)([0-9]+)\s*$/$1/) {
+				$value *= $2 if $2;
+			}
+			if($right =~ s/^\s*([0-9]+)([\s-]*)/$2/) {
+				$value += $1;
+			}
+			$string = "$left$value$right";
+			debug(4, "numberize: groups: $string\n");
+		}
+	}
+
+	debug(4, "numberize: final: $string\n");
+	return $string;
 }
 
 # TIMEAGO: Returns a string of how long ago something happened

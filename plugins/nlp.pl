@@ -234,6 +234,10 @@ sub process_nlp {
 		# one matches.  We pass every single type of match we find back to
 		# the plugin's call function once we've checked them all, so it can
 		# decide which information is relevant or has the highest priority.
+
+		# Convert word-form numbers into digit-based numbers:
+		$text = &SimBot::numberize($text);
+
 		foreach my $plugin (@matches) {
 			my @params = ();
 			foreach my $format (@{${SimBot::hash_plugin_nlp_formats}{$plugin}}) {
@@ -256,7 +260,7 @@ sub process_nlp {
 				# a decimal number
 				$format =~ s/\{d\}/\\d+\\.?\\d*/g;
 				# a quantity (a number, a decimal number, or some named values)
-				$format =~ s/\{q\}/(\\d+\\.?\\d*|couple|couple of|handful of|all|every|all the|no|some|few|a|an|the|many|several|plenty of|lot of|lots of|copious|excessive|$verbmatch)/g;
+				$format =~ s/\{q\}/(\\d+\\.?\\d*|couple|couple of|handful of|all|every|all the|no|some|few|an|the|many|several|plenty of|lot of|lots of|copious|excessive|$verbmatch)/g;
 				# x wordlike characters (a single word of length x)
 				$format =~ s/\{w(\d+)\}/\\w{$1}/g;
 				# one or more word-like characters ( a single word)
