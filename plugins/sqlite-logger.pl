@@ -25,6 +25,7 @@
 #
 # TODO:
 #   * make 'before that' work with %log last
+#   * see comment at about line 452
 #
 
 
@@ -447,7 +448,20 @@ sub access_log {
             # add today's lines and today's nicks.
             
             &SimBot::send_message($channel, $response);
-        }
+        } else {
+            # try to look up the nickname
+            # retrieve some basic stats on it.
+            # first seen time, last seen time
+            # line count
+            # kicked count, kicking count
+            # "is a nightowl" if some percent of logged days
+            #   contains at least one line between midnight and 5?
+            # "graveyard shift", "morning crew" similar?
+            # "is a yeller" if some percentage of lines are all caps?
+            # "is verbose" if most lines are long?
+            # "1z l4m3" if uses l4m3r sp33k? (probably too hard to
+            #    look up.
+            
     } else {
         &SimBot::send_message($channel, "$nick: Sorry, I do not understand that.");
     }
