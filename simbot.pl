@@ -452,6 +452,33 @@ sub cleanup_seen {
 }
 ### END seen stuff
 
+### BEGIN dice
+$plugin{'%roll'} = "roll_dice";
+$plugin_desc{'%roll'} = 'Rolls dice. You can specify how many dice, and how many sides, in the format 3D6.';
+
+sub roll_dice {
+    my $numDice = 2;
+    my $numSides = 6;
+    my ($nick, undef, $dice) = @_;
+    if($dice =~ m/(\d*)[Dd](\d+)/) {
+        $numDice = ($1 ? $1 : 1);
+        $numSides = $2;
+    }
+    my @rolls;
+    for(my $x=0;$x<$numDice;$x++) {
+        push(@rolls, int rand($numSides)+1);
+    }
+    if($numDice == 0) {
+        $kernel->post(bot => privmsg => $channel, "$nick: I can't roll zero dice!");
+    } elsif($numSides == 0) {
+        $kernel->post(bot => ctcp => $channel, 'action', "rolls $numDice zero-sided " . (($numDice==1) ? 'die' : 'dice') . " for ${nick}: " . (($numDice==1) ? "it doesn't" : "they don't") . ' land, having no sides to land on.');
+    } else {
+        $kernel->post(bot => ctcp => $channel, 'action', "rolls $numDice ${numSides}-sided " . (($numDice==1) ? 'die' : 'dice') . " for ${nick}: " . join(' ', @rolls));
+    }
+}
+
+### END dice
+
 # GET_WX: Fetches a METAR report and gives a few weather conditions
 sub get_wx {
     my ($nick, undef, $station) = @_;
