@@ -28,8 +28,9 @@
 # TODO:
 #   * locally cache reports, don't rerequest more than once an hour
 #     SQLite maybe?
-#   * Known stations searching. (%weather ny should be able to list stations
-#     in NY. %weather massena, ny should get the weather for KMSS)
+#   * Known stations searching. (%weather ny should be able to list
+#     stations in NY. %weather massena, ny should get the weather for
+#     KMSS)
 #   * Augment known stations with data from
 #     http://www.nws.noaa.gov/data/current_obs/index.xml
 #   * Find a way to convert zip codes to lat/long, use to find closest
@@ -124,10 +125,10 @@ sub do_wx {
     if(length($station) != 4) {
         # Whine and bail
         &SimBot::send_message(&SimBot::option('network', 'channel'),
-							  "$nick: "
-							  . ($station ? STATION_LOOKS_WRONG
-							              : STATION_UNSPECIFIED)
-							  . FIND_STATION_AT);
+                              "$nick: "
+                              . ($station ? STATION_LOOKS_WRONG
+                                          : STATION_UNSPECIFIED)
+                              . FIND_STATION_AT);
         return;
     }
 
@@ -157,13 +158,14 @@ sub do_wx {
     
     # do we have a station name?
     unless($stationNames{$station}) {
-        &SimBot::debug(4, "weather: Station name not found, looking it up\n");
+        &SimBot::debug(4,
+            "weather: Station name not found, looking it up\n");
         my $url =
             'http://weather.noaa.gov/cgi-bin/nsd_lookup.pl?station='
             . $station;
         my $request = HTTP::Request->new(GET => $url);
         $kernel->post('wxua' => 'request', 'got_station_name',
-		              $request, "$nick!$station!$metar_only");
+                      $request, "$nick!$station!$metar_only");
         # We're done here - got_station_name will handle requesting
         # the weather
         return;
@@ -181,10 +183,15 @@ sub do_wx {
 sub got_station_name {
     my ($kernel, $request_packet, $response_packet)
         = @_[KERNEL, ARG0, ARG1];
-    my ($nick, $station, $metar_only) = (split(/!/, $request_packet->[1], 3));
+    my ($nick, $station, $metar_only)
+        = (split(/!/, $request_packet->[1], 3));
     my $response = $response_packet->[0];
 
-    if (!$response->is_error && $response->content !~ /The supplied value is invalid/ && $response->content !~ /No station matched the supplied identifier/) {
+    if (!$response->is_error
+        && $response->content !~ /The supplied value is invalid/
+        && $response->content !~ /No station matched the supplied identifier/)
+    {
+        
         $response->content =~ m|Station Name:.*?<B>(.*?)\s*</B>|s;
         my $name = $1;
         $response->content =~ m|State:.*?<B>(.*?)\s*</B>|s;
@@ -202,7 +209,7 @@ sub got_station_name {
         . $station . '.TXT';
     my $request = HTTP::Request->new(GET=>$url);
     $kernel->post('wxua' => 'request', 'got_wx',
-				  $request, "$nick!$station!$metar_only");
+                  $request, "$nick!$station!$metar_only");
 }
 
 sub got_wx {
@@ -224,7 +231,9 @@ sub got_wx {
         if ($response->code eq '404') {
             &SimBot::send_message(&SimBot::option('network', 'channel'), "$nick: Sorry, there is no METAR report available matching \"$station\". " . FIND_STATION_AT);
         } else {
-            &SimBot::send_message(&SimBot::option('network', 'channel'), "$nick: " . CANNOT_ACCESS);
+            &SimBot::send_message(
+                &SimBot::option('network', 'channel'),
+                "$nick: " . CANNOT_ACCESS);
         }
         return;
     }
@@ -236,14 +245,19 @@ sub got_wx {
 
     if($metar_only) {
         &SimBot::send_message(&SimBot::option('network', 'channel'),
-            "$nick: METAR report for " . (defined $stationNames{$station} ? $stationNames{$station} : $station) .  " is $raw_metar.");
+            "$nick: METAR report for "
+            . (defined $stationNames{$station}
+               ? $stationNames{$station}
+               : $station)
+            .  " is $raw_metar.");
         return;
     }
 
     my $wind_mph;
             
     my $remarks;
-    ($raw_metar, undef, $remarks) = $raw_metar =~ m/^(.*?)( RMK (.*))?$/;
+    ($raw_metar, undef, $remarks)
+        = $raw_metar =~ m/^(.*?)( RMK (.*))?$/;
     $raw_metar =~ s|/////KT|00000KT|;
     &SimBot::debug(5, "weather: Reduced METAR is " . $raw_metar . "\n");
 
@@ -251,13 +265,20 @@ sub got_wx {
     $m->metar($raw_metar);
 
     # Let's form a response!
-	if (!defined $m->{date_time}) {
-		# Something is very weird about this METAR.  It has no date, so we
-		# are probably not going to get anything useful out of it.
-		&SimBot::send_message(&SimBot::option('network', 'channel'),
-			"$nick: The METAR report for " . (defined $stationNames{$station} ? $stationNames{$station} : $station) .  " didn't make any sense to me.  Try " . &SimBot::option('global', 'command_prefix') . "metar $station if you want to try parsing it yourself.");
-		return;
-	}
+    if (!defined $m->{date_time}) {
+        # Something is very weird about this METAR.  It has no date,
+        # so we are probably not going to get anything useful out of
+        # it.
+        &SimBot::send_message(&SimBot::option('network', 'channel'),
+            "$nick: The METAR report for "
+                . (defined $stationNames{$station}
+                   ? $stationNames{$station}
+                   : $station) 
+                .  " didn't make any sense to me.  Try "
+                . &SimBot::option('global', 'command_prefix')
+                . "metar $station if you want to try parsing it yourself.");
+        return;
+    }
 
 	$m->{date_time} =~ m/(\d\d)(\d\d)(\d\d)Z/;
 	my $time = "$2:$3";
@@ -280,12 +301,12 @@ sub got_wx {
 
             # This nonsense checks to see if we have a temperature in
             # the report that Geo::METAR is too stupid to see.
-
             my $temp_c = (defined $m->TEMP_C ? $m->TEMP_C : $1);
             $temp_c =~ s/M/-/;
-            my $temp_f = (defined $m->TEMP_F ? $m->TEMP_F : (9/5)*$temp_c+32);
+            my $temp_f = (defined $m->TEMP_F ? $m->TEMP_F
+                          : (9/5)*$temp_c+32);
 
-            my $temp = $temp_f . '°F (' . int($temp_c) . '°C)';
+            my $temp = $temp_f . '¡F (' . int($temp_c) . '¡C)';
             push(@reply_with, $temp);
 
             # this nonsense checks for the odd wind declaration NZSP
@@ -305,7 +326,7 @@ sub got_wx {
                                 + 0.4275 * $temp_f * ($wind_mph ** 0.16);
                 my $windchill_c = ($windchill - 32) * (5/9);
                 push(@reply_with,
-                    sprintf('a wind chill of %.1f°F (%.1f°C)',
+                    sprintf('a wind chill of %.1f¡F (%.1f¡C)',
                     $windchill, $windchill_c));
             }
 
@@ -331,7 +352,7 @@ sub got_wx {
 
                     my $heatindex_c = ($heatindex - 32) * (5/9);
                     push(@reply_with,
-                        sprintf('a heat index of %.1f°F (%.1f°C)',
+                        sprintf('a heat index of %.1f¡F (%.1f¡C)',
                                 $heatindex, $heatindex_c));
                 }
             }
@@ -352,8 +373,8 @@ sub got_wx {
 
         push(@reply_with, @{$m->WEATHER});
         my @sky = @{$m->SKY};
-# Geo::METAR returns sky conditions that can't be plugged into sentences nicely
-# let's clean them up.
+# Geo::METAR returns sky conditions that can't be plugged into sentences 
+# nicely, let's clean them up.
         for(my $x=0;$x<=$#sky;$x++) {
             $sky[$x] = lc($sky[$x]);
             $sky[$x] =~ s/solid overcast/overcast/;
@@ -366,8 +387,8 @@ sub got_wx {
         if($remarks) {
             # remarks are often not very easy to parse, but we can try.
 
-            # Tornado and similar wx... I hope people don't rely on simbot
-            # for tornado warnings.
+            # Tornado and similar wx... I hope people don't rely on
+            # simbot for tornado warnings.
             if($remarks =~ m/(TORNADO|FUNNEL CLOUD|WATERSPOUT)( (B|E(\d\d)?\d\d))?( (\d+) (N|NE|E|SE|S|SW|W|NW))?/) {
                 my ($cond, $dist, $dir) = ($1, $5, $6);
                 $cond = lc($cond);
@@ -472,8 +493,8 @@ sub got_xml {
 	# HTTP 301 redirection if we have a similar METAR ID with only one
 	# suitable alternative.  I have a feeling that if NOAA is trying to
 	# give us a 3xx response, it'll be for a different report than the
-	# user asked for, so we're going to trust the user knows what he wants
-	# rather than letting NOAA's web server decide for him.
+	# user asked for, so we're going to trust the user knows what he
+	# wants rather than letting NOAA's web server decide for him.
 	if ($response->code eq '404' || $response->code =~ /^3/) {
 		&SimBot::debug(3,
 					   "weather: Couldn't get XML weather for $station; falling back to METAR.\n");
