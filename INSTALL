@@ -3,9 +3,9 @@ SimBot Installation
 ================================================
 
 SimBot itself requires no compilation of software.  The perl script
-comes ready to run with only minor changes to the config.pl file.
+comes ready to run with only minor changes to the config.ini file.
 
-You should copy the config.default.pl file to config.pl and customize
+You should copy the config.default.ini file to config.ini and customize
 the copy.  Keep the file in the same directory where you have the
 simbot.pl script installed.  The installation directory is completely
 up to you and is mostly irrelevant.

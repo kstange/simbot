@@ -18,9 +18,12 @@
 
 package SimBot::plugin::recap;
 
-@backlog = ();
-$max_backlog = 30;
-$std_backlog = 10;
+use strict;
+use warnings;
+
+our @backlog = ();
+our $max_backlog = 30;
+our $std_backlog = 10;
 
 # SEND_RECAP: Sends a backlog of chat to the inquiring user.
 sub send_recap {

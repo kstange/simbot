@@ -127,9 +127,10 @@ sub cleanup_info {
 #   nothing
 sub handle_chat {
     my(undef, $nick, $channel, undef, $content) = @_;
-    my($person_being_referenced, $being_addressed, $is_query); 
+    my($person_being_referenced, $being_addressed, $is_query);
     
-    if($content =~ s/^${SimBot::cmd_prefix}info ?//o) {
+	my $prefix = SimBot::option('global', 'command_prefix');
+    if($content =~ s/^${prefix}info +//o) {
         $being_addressed = 1;
     }
     
@@ -141,7 +142,7 @@ sub handle_chat {
         $person_being_referenced = $1;
     }
     if($being_addressed) {
-        $person_being_referenced = $SimBot::nickname;
+        $person_being_referenced = &SimBot::option('global', 'nickname');
 #    } elsif($person_being_addressed =~ m/$SimBot::nickname/g) {
 #        $being_addressed = 1;
     }
@@ -203,12 +204,13 @@ sub handle_chat {
             if   ($keyFlags & FACT_ARE)         { $isare = 'are';       }
             elsif($keyFlags & FACT_SEE_OTHER)   { $isare = 'is aka';    }
             
-            &SimBot::send_message($channel, 
+            &SimBot::send_message($channel,
                 &parse_message(&SimBot::pick(BUT_X_IS_Y), $nick,
                                $key, $isare, $oldFactoid))
                 if $being_addressed;
         }
     } elsif($content =~ m{([\'\w\s]+?) (is|are) ((aka|also) )?([\'\w\s]+)}i) {
+		no warnings;
         my ($key, $isare, $akaalso, $factoid) = (lc($1), $2, $4, $5);
         
         my $flags=0;
@@ -217,9 +219,9 @@ sub handle_chat {
         if   ($being_addressed)     { $flags |= BEING_ADDRESSED;    }
         
 
-        foreach(@SimBot::chat_ignore) {
+        foreach(&SimBot::option_list('filters')) {
             if($content =~ /$_/) {
-                &SimBot::send_message($channel, 
+                &SimBot::send_message($channel,
                     &parse_message(&SimBot::pick(I_CANNOT), $nick))
                     if $being_addressed;
                 return;
@@ -303,8 +305,9 @@ sub handle_query {
                     # or we are preferring non-URLs, and the factoid is
                     
                     splice(@factoids, $i, 1); # remove it
+					$i--;
                 }
-            }
+			}
             # if we lost all of the factoids, let's get the list back
             if(!@factoids) { @factoids = split(/\|\|/, $info{$query}); }
         }

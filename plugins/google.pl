@@ -18,6 +18,9 @@
 
 package SimBot::plugin::find;
 
+use strict;
+use warnings;
+
 # GOOGLE_FIND: Prints a URL returned by google's I'm Feeling Lucky.
 sub google_find {
     my ($kernel, $nick, $channel, @terms) = @_;
@@ -37,7 +40,7 @@ sub google_find {
     $query =~ s/\s/+/g;
     my $url = "http://www.google.com/search?q=" . $query . "&btnI=1&safe=active";
     my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
-    $useragent->agent("$SimBot::project/1.0");
+    $useragent->agent(SimBot::PROJECT . "/" . SimBot::VERSION);
     $useragent->timeout(5);
     my $request = HTTP::Request->new(GET => $url);
     my $response = $useragent->request($request);

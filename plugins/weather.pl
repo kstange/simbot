@@ -30,8 +30,9 @@
 #
 
 package SimBot::plugin::weather;
-use warnings;
+
 use strict;
+use warnings;
 
 # declare globals
 use vars qw( %stationNames );
@@ -40,7 +41,7 @@ use vars qw( %stationNames );
 # to weather requests.
 use constant STATION_LOOKS_WRONG =>
     'That doesn\'t look like a METAR station. ';
-    
+
 use constant STATION_UNSPECIFIED =>
     'Please provide a METAR station ID. ';
 
@@ -80,7 +81,7 @@ sub get_wx {
         . " for $station\n");
 
     my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
-    $useragent->agent("$SimBot::project/1.0");
+    $useragent->agent(SimBot::PROJECT . "/" . SimBot::VERSION);
     $useragent->timeout(5);
     my $request = HTTP::Request->new(GET => $url);
     my $response = $useragent->request($request);
@@ -100,7 +101,7 @@ sub get_wx {
 		my $url = 'http://weather.noaa.gov/cgi-bin/nsd_lookup.pl?station='
 			. $station;
 		my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
-		$useragent->agent("$SimBot::project/1.0");
+		$useragent->agent(SimBot::PROJECT . "/" . SimBot::VERSION);
 		$useragent->timeout(5);
 		my $request = HTTP::Request->new(GET => $url);
 		my $response = $useragent->request($request);

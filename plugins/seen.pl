@@ -31,7 +31,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 =cut
 
 package SimBot::plugin::seen;
+
 use warnings;
+use strict;
+
+use vars qw( %seenData );
 
 # MESSUP_SEEN: Opens the seen database for use
 sub messup_seen {

@@ -1,3 +1,15 @@
+Version 6.0 alpha: (27 Feb 2004)
+	* *.pl:
+	   - All files now use perl's strict mode, which should mean our code
+	     is absolutely perfect. :P
+	* config.default.ini:
+	   - We now use a plain text file (not a script file) for configuration
+	     this is safer because no one can break the bot by putting bad
+	     code in the config file.
+	* plugins/error.pl:
+	   - the %list command is now in the error plugin instead of directly
+	     inside the main script.
+
 Version 6.0 alpha: (26 Feb 2004)
 	* simbot.pl:
 	   - Added a new configuration option that allows you to change the

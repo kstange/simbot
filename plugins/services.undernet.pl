@@ -18,25 +18,31 @@
 
 package SimBot::plugin::services::undernet;
 
+use warnings;
+use strict;
+
 # Start with the assumption X is online, we are not locked out, and
 # we are not logged in, and we are not shut up.
-my $x_online   = 1;
-my $logged_in  = 0;
-my $locked_out = 0;
-my $shut_up    = 0;
+our $x_online   = 1;
+our $logged_in  = 0;
+our $locked_out = 0;
+our $shut_up    = 0;
 
 # SERVICES_LOGIN: Here, we log into X if we have a services username and
 # password, since logging in would be tricky, at best, without them.
 # We also set the +x mode to mask our hostname for some added security.
 sub services_login {
     my ($kernel, undef, $nick) = @_;
+	my $user = &SimBot::option('services', 'user');
+	my $pass = &SimBot::option('services', 'pass');
+
     if (defined $nick) {
 	&SimBot::debug(3, "Setting masked user mode...\n");
 	$kernel->post(bot => mode => $nick, "+x");
     }
-    if ($SimBot::services_pass && $SimBot::services_user) {
-	&SimBot::debug(3, "Logging into Channel Service as $SimBot::services_user...\n");
-	&SimBot::send_message("x\@channels.undernet.org", "login $SimBot::services_user $SimBot::services_pass");
+    if ($pass && $user) {
+	&SimBot::debug(3, "Logging into Channel Service as $user...\n");
+	&SimBot::send_message("x\@channels.undernet.org", "login $user $pass");
     }
 }
 
@@ -50,10 +56,10 @@ sub check_response {
 	    $logged_in = 1;
 	    $x_online = 1;
 	    if ($locked_out) {
-		&request_invite($kernel, undef, $SimBot::channel);
+		&request_invite($kernel, undef, &SimBot::option('network', 'channel'));
 	    }
 	    if ($shut_up) {
-		&request_voice($kernel, undef, $SimBot::channel);
+		&request_voice($kernel, undef, &SimBot::option('network', 'channel'));
 	    }
 	} elsif ($text =~ /AUTHENTICATION FAILED as /) {
 	    &SimBot::debug(2, "Channel Service reports login failure.\n");
@@ -78,7 +84,7 @@ sub check_response {
 # from X.
 sub request_invite {
     my ($kernel, undef, $channel) = @_;
-    if ($SimBot::services_pass) {
+    if (&SimBot::option('services', 'pass')) {
 	$locked_out = 1;
 	if($x_online && $logged_in) {
 	    &SimBot::debug(2, "Could not join.  Asking for invitation to $channel...\n");
@@ -92,7 +98,7 @@ sub request_invite {
 # REQUEST_VOICE: If the bot was not able to speak, request a voice from X.
 sub request_voice {
     my ($kernel, undef, $channel) = @_;
-    if ($SimBot::services_pass) {
+    if (&SimBot::option('services', 'pass')) {
 	$shut_up = 1;
 	if($x_online && $logged_in) {
 	    &SimBot::debug(2, "Could not speak.  Asking for voice on $channel...\n");

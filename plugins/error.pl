@@ -18,6 +18,9 @@
 
 package SimBot::plugin::error;
 
+use strict;
+use warnings;
+
 sub random_error {
     my ($kernel, $nick, $channel) = @_;
     open(FILE, "errors.db");
@@ -29,10 +32,30 @@ sub random_error {
     &SimBot::send_message($channel, $error);
 }
 
+sub random_quip {
+    my ($nick, $channel) = @_[1,2];
+    &SimBot::debug(3, "Received list command from " . $nick . ".\n");
+    my @reply = (
+				 "$nick: HER R TEH FIL3Z!!!! TEH PR1Z3 FOR U! KTHXBYE",
+				 "$nick: U R L33T H4X0R!",
+				 "$nick: No files for you!",
+				 "$nick: Sorry, I have reached my piracy quota for this century.  Please return in " . (100 - ((localtime(time))[5] % 100)) . " years.",
+				 "$nick: The FBI thanks you for your patronage.",
+				 "$nick: h4x0r5 0n teh yu0r pC? oh nos!!! my megahurtz haev been stoeled!!!!!111 safely check yuor megahurtz with me, free!",
+				 );
+    &SimBot::send_message($channel, &SimBot::pick(@reply));
+}
+
 # Register Plugin
 &SimBot::plugin_register(plugin_id   => "error",
 						 plugin_desc => "Prints out a random error message.",
 						 modules     => "",
 
 						 event_plugin_call => \&random_error,
+						 );
+
+&SimBot::plugin_register(plugin_id   => "list",
+						 modules     => "",
+
+						 event_plugin_call => \&random_quip,
 						 );

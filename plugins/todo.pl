@@ -18,7 +18,10 @@
 
 package SimBot::plugin::todo;
 
-@todo = (
+use strict;
+use warnings;
+
+our @todo = (
 	 "1) %delete: allow users to delete words used less than x times",
 	 "2) %recap: handle more events including channel modes and notices",
 	 "3) detect and remove orphaned and dead end words",

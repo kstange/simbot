@@ -18,13 +18,16 @@
 
 package SimBot::plugin::define;
 
+use strict;
+use warnings;
+
 # LOOK UP: Prints a defintion to the channel.
 sub look_up {
     my ($kernel, $nick, $channel, $command, $term, $dictionary) = @_;
 	$dictionary = 'jargon' if (!defined $dictionary);
 
 	my $dict = Net::Dict->new("pan.alephnull.com",
-							  Client  => "$SimBot::project $SimBot::version",
+							  Client => SimBot::PROJECT . " " . SimBot::VERSION,
 							  );
 
 	my %dbs = $dict->dbs();
