@@ -43,8 +43,10 @@ sub get_wx {
 
         # Geo::METAR has issues not ignoring the remarks section of the
         # METAR report. Let's strip it out.
-        $raw_metar =~ s/^(.*?) RMK .*$/$1/;
         SimBot::debug(3, "METAR is " . $raw_metar . "\n");
+        $raw_metar =~ s/^(.*?) RMK .*$/$1/;
+        $raw_metar =~ s|/////KT|00000KT|;
+        SimBot::debug(3, "Reduced METAR is " . $raw_metar . "\n");
 	$m->metar($raw_metar);
 
 	# We can translate ID to Name! :)
