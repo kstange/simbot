@@ -40,7 +40,7 @@ sub send_recap {
 		}
 	}
 
-    &SimBot::debug(3, "recap: Got a request from $nick for $lines lines. The backlog is " . $#backlog . " lines.\n");
+    &SimBot::debug(3, "recap: Got a request from $nick for $lines lines. The backlog is " . ($#backlog + 1) . " lines.\n");
     if (defined $lines && $lines =~ /^[^0-9]+$/) {
 		&SimBot::send_message($channel, "Try using numbers.  I can't count to $lines!");
 	} elsif ($#backlog + 1 < 1) {
@@ -104,7 +104,7 @@ sub record_recap {
     while ($#backlog > MAX_BACKLOG) {
 		shift(@backlog);
     }
-    &SimBot::debug(4, "recap: Recorded a line. Backlog is " . $#backlog . " lines.\n");
+    &SimBot::debug(4, "recap: Recorded a line. Backlog is " . ($#backlog + 1) . " lines.\n");
 }
 
 sub nick_change {

@@ -1,3 +1,8 @@
+Version 6.0 alpha: (02 Nov 2004)
+	* plugins/rss.pl:
+	  - We now trap XML parse errors so that we don't crash if the parsing
+	    of a feed fails completely.
+
 Version 6.0 alpha: (20 Oct 2004)
 	* simbot.pl:
 	  - Added the ability to connect on non-standard ports.

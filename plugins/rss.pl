@@ -137,13 +137,14 @@ sub do_rss {
 			} else {
 				&SimBot::debug(4,
 				        "rss:   loading up to date cache of $curFeed\n");
-				$rss->parsefile($file);
-				if(defined $rss->{'items'}->[0]->{'guid'}) {
-					$mostRecentPost{$curFeed}
-					   = $rss->{'items'}->[0]->{'guid'};
-				} else {
-					$mostRecentPost{$curFeed}
-					   = $rss->{'items'}->[0]->{'link'};
+				if(eval { $rss->parsefile($file); }) {
+					if(defined $rss->{'items'}->[0]->{'guid'}) {
+						$mostRecentPost{$curFeed}
+						= $rss->{'items'}->[0]->{'guid'};
+					} else {
+						$mostRecentPost{$curFeed}
+						= $rss->{'items'}->[0]->{'link'};
+					}
 				}
 			}
         }
@@ -190,7 +191,10 @@ sub got_response {
 		return;
 	} elsif($announce_feed{$curFeed} && -e $file) {
 
-		$rss->parsefile($file);
+		if (!eval { $rss->parsefile($file); }) {
+			&SimBot::debug(1, "rss:  Parse error in $file\n");
+			return;
+		}
 
 		if (defined $mostRecentPost{$curFeed}) {
 			foreach my $item (@{$rss->{'items'}}) {
@@ -258,7 +262,7 @@ sub latest_headlines {
                 my $mtime = (stat($file))[9];
                 $request->if_modified_since($mtime);
             }
-            
+
             $kernel->post( 'ua' => 'request', 'got_response',
                             $request, "$feed!!$nick");
         } else {
@@ -289,7 +293,11 @@ sub announce_top {
 	my $file = "caches/${feed}.xml";
     if(-e $file) {
 		$rss = new XML::RSS;
-		$rss->parsefile("caches/${feed}.xml");
+		if (!eval { $rss->parsefile($file); }) {
+			&SimBot::debug(1, "rss:  Parse error in $file\n");
+			&SimBot::send_message($channel, "$nick: I have no idea what's going on with the $feed feed because the file I got didn't make sense to me.  If the feed owner corrects the feed, you should be able to ask me again later.");
+			return;
+		}
 
 		$title = $rss->{'channel'}->{'title'};
 		if($title =~ m/Slashdot Journals/) {
