@@ -413,7 +413,41 @@ sub access_log {
                 "$nick: Nothing matched your query.");
             return;
         }
-
+    } elsif($query =~ m/^stats/) {
+        my $statnick = $args[0];
+        
+        if(!defined $statnick) {
+            # no nick specified, so how 'bout some generic stats?
+            my $tmp_query;
+            my $chan_id = &get_nickchan_id(&SimBot::option('network','channel'));
+            
+            $tmp_query = $dbh->prepare(
+                'SELECT time FROM chatlog'
+                . ' WHERE channel_id = ?'
+                . ' ORDER BY time'
+                . ' LIMIT 1');
+            $tmp_query->execute($chan_id);
+            my $start_date = localtime(($tmp_query->fetchrow_array())[0]);
+            $tmp_query->finish;
+            
+            $tmp_query = $dbh->prepare(
+                'SELECT count() FROM chatlog'
+                . ' WHERE channel_id = ?'
+            );
+            $tmp_query->execute($chan_id);
+            my $log_size = ($tmp_query->fetchrow_array())[0];
+            $tmp_query->finish;
+            
+            my $response =
+                "$nick: I have been logging since $start_date."
+                . " I have seen $log_size lines.";
+                
+                # I have seen $log_size lines and $nick_count nicks.";
+            
+            # add today's lines and today's nicks.
+            
+            &SimBot::send_message($channel, $response);
+        }
     } else {
         &SimBot::send_message($channel, "$nick: Sorry, I do not understand that.");
     }
