@@ -256,7 +256,7 @@ sub process_nlp {
 				# a decimal number
 				$format =~ s/\{d\}/\\d+\\.?\\d*/g;
 				# a quantity (a number, a decimal number, or some named values)
-				$format =~ s/\{q\}/(\\d+\\.?\\d*|all|every|all the|no|some|few|a|an|the|many|several|plenty of|lot of|lots of|copious|excessive|$verbmatch)/g;
+				$format =~ s/\{q\}/(\\d+\\.?\\d*|couple|couple of|handful of|all|every|all the|no|some|few|a|an|the|many|several|plenty of|lot of|lots of|copious|excessive|$verbmatch)/g;
 				# x wordlike characters (a single word of length x)
 				$format =~ s/\{w(\d+)\}/\\w{$1}/g;
 				# one or more word-like characters ( a single word)

@@ -89,6 +89,9 @@ sub nlp_match {
 	my %quantities = (
 					  "some", "4",
 					  "few", "3",
+					  "couple", "2",
+					  "couple of", "2",
+					  "handful of", "10",
 					  "a", "1",
 					  "no", "0",
 					  "an", "1",
@@ -102,7 +105,7 @@ sub nlp_match {
 					  "excessive", "1000",
 					  "every", "100000000000001",
 					  "all the", "100000000000001",
-					  "all", "10000000000001",
+					  "all", "100000000000001",
 					  );
 	my $qmatch = "(" . join("|", keys(%quantities)) . ")";
 	$qmatch = qr/$qmatch/i;
