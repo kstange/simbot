@@ -37,11 +37,17 @@ use warnings;
 # The weather, more or less!
 use Geo::METAR;
 
+use POE;
+
 # Fetching from URLs is better with LWP!
-use LWP::UserAgent;
+#use LWP::UserAgent;
+# and even better with PoCo::Client::HTTP!
+use POE::Component::Client::HTTP;
+use HTTP::Request::Common qw(GET POST);
+use HTTP::Status;
 
 # declare globals
-use vars qw( %stationNames );
+use vars qw( %stationNames $session );
 
 # These constants define the phrases simbot will use when responding
 # to weather requests.
@@ -55,22 +61,58 @@ use constant FIND_STATION_AT => 'You can look up station IDs at <http://www.nws.
 
 use constant CANNOT_ACCESS => 'Sorry; I could not access NOAA.';
 
-### get_wx
-# Fetches a METAR report and sends to the channel the weather conditions
-#
-# Arguments:
-#   undef
-#   $nick:      nickname of the person requesting the weather
-#   $channel:   channel the chat was in
-#   $command:   m/.weather/ or m/.metar/
-#   $station:   the station ID
-# Returns:
-#   nothing
-sub get_wx {
-    my (undef, $nick, $channel, $command, $station) = @_;
+
+### cleanup_wx
+# This method is run when SimBot is exiting. We save the station names
+# cache here.
+sub cleanup_wx {
+		&SimBot::debug(3, "Saving station names\n");
+		dbmclose(%stationNames);
+}
+
+### messup_wx
+# This method is run when SimBot is loading. We load the station names
+# cache here. We also start our own POE session so we can wait for NOAA
+# instead of giving up quickly so as to not block simbot
+sub messup_wx {
+    &SimBot::debug(3, "Loading station names...\n");
+    dbmopen (%stationNames, 'metarStationNames', 0664) || &SimBot::debug(2, "Could not open cache.  Names will not be stored for future sessions.\n");
+    
+    $session = POE::Session->create(
+        inline_states => {
+            _start          => \&bootstrap,
+            _stop           => sub { warn "WX session stopping"; },
+            do_wx           => \&do_wx,
+            got_wx          => \&got_wx,
+            got_station_name => \&got_station_name,
+            shutdown        => \&shutdown,
+        }
+    );
+    POE::Component::Client::HTTP->spawn
+        ( Alias => 'wxua',
+          Timeout => 120,
+        );
+    1;
+}
+
+sub bootstrap {
+    # Let's set an alias so our session will hang around
+    # instead of just leaving since it has nothing to do
+    $_[KERNEL]->alias_set('wx_session');
+}
+
+### do_wx
+# this is called when POE tells us someone wants weather
+sub do_wx {
+    my  ($kernel, $nick, $station, $metar_only) = 
+      @_[KERNEL,  ARG0,  ARG1,     ARG2];
+    
+    &SimBot::debug(3, 'Received weather command from ' . $nick
+        . " for $station\n");
+        
     if(length($station) != 4) {
         # Whine and bail
-        &SimBot::send_message($channel,
+        &SimBot::send_message(&SimBot::option('network', 'channel'),
 							  "$nick: "
 							  . ($station ? STATION_LOOKS_WRONG
 							              : STATION_UNSPECIFIED)
@@ -79,61 +121,86 @@ sub get_wx {
     }
 
     $station = uc($station);
-    my $url =
-        'http://weather.noaa.gov/pub/data/observations/metar/stations/'
-        . $station . '.TXT';
 
-    &SimBot::debug(3, 'Received weather command from ' . $nick
-        . " for $station\n");
-
-    my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
-    $useragent->agent(SimBot::PROJECT . "/" . SimBot::VERSION);
-    $useragent->timeout(5);
-    my $request = HTTP::Request->new(GET => $url);
-    my $response = $useragent->request($request);
-    if ($response->is_error) {
-        if ($response->code eq '404') {
-            &SimBot::send_message($channel, "$nick: Sorry, there is no METAR report available matching \"$station\". " . FIND_STATION_AT);
-        } else {
-            &SimBot::send_message($channel, "$nick: " . CANNOT_ACCESS);
-        }
-        return;
-    }
-    my (undef, $raw_metar) = split(/\n/, $response->content);
-
-    # We can translate ID to Name! :)
+    # first off, do we have a station name?
     unless($stationNames{$station}) {
         &SimBot::debug(3, "Station name not found, looking it up\n");
 		my $url = 'http://weather.noaa.gov/cgi-bin/nsd_lookup.pl?station='
 			. $station;
-		my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
-		$useragent->agent(SimBot::PROJECT . "/" . SimBot::VERSION);
-		$useragent->timeout(5);
 		my $request = HTTP::Request->new(GET => $url);
-		my $response = $useragent->request($request);
-
-		if (!$response->is_error && $response->content !~ /The supplied value is invalid/ && $response->content !~ /No station matched the supplied identifier/) {
-            $response->content =~ m|Station Name:.*?<B>(.*?)\s*</B>|s;
-            my $name = $1;
-            $response->content =~ m|State:.*?<B>(.*?)\s*</B>|s;
-            my $state = ($1 eq $name ? undef : $1);
-            $response->content =~ m|Country:.*?<B>(.*?)\s*</B>|s;
-            my $country = $1;
-            $stationNames{$station} = "$name, "
-                                      . ($state ? "$state, " : "")
-                                      . "$country ($station)";
-        }
-    }
-
-    # If the user asked for a metar, we'll give it to them now!
-    if ($command =~ /^.metar$/) {
-        &SimBot::send_message($channel, "$nick: METAR report for " . (defined $stationNames{$station} ? $stationNames{$station} : $station) .  " is $raw_metar.");
+		$kernel->post('wxua' => 'request', 'got_station_name',
+		              $request, "$nick!$station");
+        # We're done here - got_station_name will handle request
+        # the weather
         return;
     }
+    # we already have the station name... let's request the weather
+    
+    my $url =
+        'http://weather.noaa.gov/pub/data/observations/metar/stations/'
+        . $station . '.TXT';
+    my $request = HTTP::Request->new(GET=>$url);
+    $kernel->post('wxua' => 'request', 'got_wx',
+                            $request, "$nick!$station!$metar_only");
+}
 
+sub got_station_name {
+    my ($kernel, $request_packet, $response_packet)
+        = @_[KERNEL, ARG0, ARG1];
+    my ($nick, $station) = (split(/!/, $request_packet->[1], 2));
+    my $response = $response_packet->[0];
+    
+    if (!$response->is_error && $response->content !~ /The supplied value is invalid/ && $response->content !~ /No station matched the supplied identifier/) {
+        $response->content =~ m|Station Name:.*?<B>(.*?)\s*</B>|s;
+        my $name = $1;
+        $response->content =~ m|State:.*?<B>(.*?)\s*</B>|s;
+        my $state = ($1 eq $name ? undef : $1);
+        $response->content =~ m|Country:.*?<B>(.*?)\s*</B>|s;
+        my $country = $1;
+        $stationNames{$station} = "$name, "
+                                  . ($state ? "$state, " : "")
+                                  . "$country ($station)";
+    }
+    &SimBot::debug(3, "Got station name for $station\n");
+    # ok, now we have the station name... let's request the weather
+    my $url =
+        'http://weather.noaa.gov/pub/data/observations/metar/stations/'
+        . $station . '.TXT';
+    my $request = HTTP::Request->new(GET=>$url);
+    $kernel->post('wxua' => 'request', 'got_wx',
+                            $request, "$nick!$station");
+}
+
+sub got_wx {
+    my ($kernel, $request_packet, $response_packet)
+        = @_[KERNEL, ARG0, ARG1];
+    my ($nick, $station, $metar_only)
+        = (split(/!/, $request_packet->[1], 3));
+    my $response = $response_packet->[0];
+    
+    &SimBot::debug(3, 'Got weather for ' . $nick
+        . " for $station\n");
+    
+    if ($response->is_error) {
+        if ($response->code eq '404') {
+            &SimBot::send_message(&SimBot::option('network', 'channel'), "$nick: Sorry, there is no METAR report available matching \"$station\". " . FIND_STATION_AT);
+        } else {
+            &SimBot::send_message(&SimBot::option('network', 'channel'), "$nick: " . CANNOT_ACCESS);
+        }
+        return;
+    }
+    my (undef, $raw_metar) = split(/\n/, $response->content);
+    
     # Geo::METAR has issues not ignoring the remarks section of the
     # METAR report. Let's strip it out.
     &SimBot::debug(3, "METAR is " . $raw_metar . "\n");
+    
+    if($metar_only) {
+        &SimBot::send_message(&SimBot::option('network', 'channel'),
+            "$nick: METAR report for " . (defined $stationNames{$station} ? $stationNames{$station} : $station) .  " is $raw_metar.");
+        return;
+    }
+    
     my $remarks;
     ($raw_metar, undef, $remarks) = $raw_metar =~ m/^(.*?)( RMK (.*))?$/;
 #    $raw_metar =~ s/^(.*?) RMK .*$/$1/;
@@ -295,23 +362,7 @@ sub get_wx {
     }
     $reply .= '.';
 
-    &SimBot::send_message($channel, "$nick: $reply");
-}
-
-### cleanup_wx
-# This method is run when SimBot is exiting. We save the station names
-# cache here.
-sub cleanup_wx {
-		&SimBot::debug(3, "Saving station names\n");
-		dbmclose(%stationNames);
-}
-
-### messup_wx
-# This method is run when SimBot is loading. We load the station names
-# cache here.
-sub messup_wx {
-    &SimBot::debug(3, "Loading station names...\n");
-    dbmopen (%stationNames, 'metarStationNames', 0664) || &SimBot::debug(2, "Could not open cache.  Names will not be stored for future sessions.\n");
+    &SimBot::send_message(&SimBot::option('network', 'channel'), "$nick: $reply");
 }
 
 sub nlp_match {
@@ -330,11 +381,17 @@ sub nlp_match {
 	}
 
 	if (defined $station) {
-		&get_wx($kernel, $nick, $channel, " weather", $station);
+		&new_get_wx($kernel, $nick, $channel, " weather", $station);
 		return 1;
 	} else {
 		return 0;
 	}
+}
+
+sub new_get_wx {
+    my ($kernel, $nick, $channel, $command, $station) = @_;
+    $kernel->post($session => 'do_wx', $nick, $station, 
+                            ($command =~ /^.metar$/ ? 1 : 0));
 }
 
 # Register Plugins
@@ -342,7 +399,7 @@ sub nlp_match {
 						 plugin_id   => "weather",
 						 plugin_desc => "Gets a weather report for the given station.",
 
-						 event_plugin_call    => \&get_wx,
+						 event_plugin_call    => \&new_get_wx,
 						 event_plugin_load    => \&messup_wx,
 						 event_plugin_unload  => \&cleanup_wx,
 
@@ -361,6 +418,6 @@ sub nlp_match {
 						 plugin_id   => "metar",
 						 plugin_desc => "Gives a raw METAR report for the given station.",
 
-						 event_plugin_call   => \&get_wx,
+						 event_plugin_call   => \&new_get_wx,
 
 						 );
