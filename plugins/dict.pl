@@ -26,8 +26,11 @@ use Net::Dict;
 
 # LOOK UP: Prints a defintion to the channel.
 sub look_up {
-    my ($kernel, $nick, $channel, $command, $term, $dictionary) = @_;
-	$dictionary = 'jargon' if (!defined $dictionary);
+    my ($kernel, $nick, $channel, $command) = @_;
+	my $line = join(' ', @_[ 4 .. $#_ ]);
+	$line =~ /^\"?(.+?)\"?( in (\w+))?$/i;
+	my $term = $1;
+	my $dictionary = $3;
 
 	my $dict = Net::Dict->new("pan.alephnull.com",
 							  Client => SimBot::PROJECT . " " . SimBot::VERSION,
@@ -36,24 +39,33 @@ sub look_up {
 	my %dbs = $dict->dbs();
 
 	if (!defined $term) {
-		&SimBot::send_message($channel, "$nick: Please specify which word you want defined. If you wish, you can specify one of " . join(", ", keys(%dbs)) . " after the word to indicate which dictionary to use. Otherwise, the Jargon File will be searched.");
+		&SimBot::send_message($channel, "$nick: Please specify which word you want defined. If you wish, you can specify 'in' and one of " . join(", ", keys(%dbs)) . ", after the word to indicate which dictionary to use.  By default, the first match in any dictionary will be used.");
 		return;
 	}
 
 	my $found = 0;
-	foreach (keys(%dbs)) {
-		if ($_ eq $dictionary) {
-			$found = 1;
-			last;
+	if (defined $dictionary) {
+		foreach (keys(%dbs)) {
+			if ($_ eq $dictionary) {
+				$found = 1;
+				last;
+			}
 		}
 	}
 
-	if($found) {
+	if(!defined $dictionary || $found) {
 		&SimBot::debug(3, "Received define command from " . $nick . ".\n");
+		my $def;
 
-		my $def = $dict->define($term, ($dictionary));
+		if (defined $dictionary) {
+			$def = $dict->define($term, ($dictionary));
+		} else {
+			$def = $dict->define($term);
+		}
+
 		if (@{$def} != 0) {
 			my $definition = ${${$def}[0]}[1];
+			$dictionary = ${${$def}[0]}[0];
 			$definition =~ s/\s+/ /g;
 
 			if (length($definition) > 400 && $command !~ /_private$/) {
@@ -64,16 +76,16 @@ sub look_up {
 				&SimBot::send_message($channel, "$nick: From the $dbs{$dictionary}: $definition");
 			}
 		} else {
-			&SimBot::send_message($channel, "$nick: I could not find a definition for $term in the $dbs{$dictionary}.");
+			&SimBot::send_message($channel, "$nick: I could not find a definition for $term in " . (defined $dictionary ? "the $dbs{$dictionary}" : "any available dictionaries") . ".");
 		}
 	} else {
-		&SimBot::send_message($channel, "$nick: There is no such dictionary available. Try one of " . join(", ", keys(%dbs)) . ".");
+		&SimBot::send_message($channel, "$nick: There is no dictionary called '$dictionary' available. Try one of " . join(", ", keys(%dbs)) . ".");
 	}
 }
 
 # Register Plugin
 &SimBot::plugin_register(plugin_id   => "define",
-						 plugin_desc => "Defines the term. Defaults to Jargon.  Follow a term by a dictionary name to search an alternate dictionary.",
+						 plugin_desc => "Defines the term. Follow a term by 'in' and a dictionary name to search an alternate dictionary.",
 
 						 event_plugin_call => \&look_up,
 						 );

@@ -1,3 +1,12 @@
+Version 6.0 alpha: (02 Mar 2004)
+	* plugins/dict.pl:
+	   - Changed the dictionary plugin to try to find a definition for
+	     the requested word in any available dictionary unless otherwise
+	     specified.  The command language now uses the key "in" to separate
+	     the term from the dictionary.  If you want to look up a term
+	     that contains the word "in", you can quote the term with double
+	     quotes.
+
 Version 6.0 alpha: (01 Mar 2004)
 	* plugins/recap.pl:
 	   - Added all the remaining events to recap: channel modes, quit,
