@@ -287,7 +287,7 @@ POE::Session->new
 	( _start           => \&make_connection,
 	  irc_disconnected => \&reconnect,
 	  irc_socketerr    => \&reconnect,
-	  irc_error        => \&server_error      # server wants to yell at us.
+	  irc_error        => \&server_error,     # server wants to yell at us.
 	  irc_433          => \&pick_new_nick,    # nickname in use
 	  irc_001          => \&server_connect,   # connected
 	  irc_303          => \&server_ison,      # check ison reply
