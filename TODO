@@ -41,4 +41,4 @@ General
 
 Wish List
 ======================
-- MySQL logger plugin. Could retrieve logs between certain times on demand. Allow for seen to filter out certain events on demand. Statistics.
+- MySQL logger plugin. Could retrieve logs between certain times on demand. Allow for seen to filter out certain events on demand. Statistics. (Partially complete. Transition to SQLite.)
