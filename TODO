@@ -33,6 +33,8 @@ General Targets
 - Improve data storage format.
 - Implement a logger plugin.
 - RSS plugin desperately needs too handle all links/guids changing
+- Currency plugin needs to be thrown out.
+- Weather plugin needs to stop using Geo::METAR.
 - Plugin loader needs to be rewritten completely.
 - Make sentence generation bonus __BEGIN/__END as sentence gets longer to reduce the chance of (but not obliterate) excessively long sentences.
 
