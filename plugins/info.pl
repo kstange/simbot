@@ -183,8 +183,9 @@ sub handle_chat {
         &handle_query($2, $nick, $channel, $person_being_referenced,
                       ($being_addressed ? BEING_ADDRESSED : 0)
                       | PREFER_LOCATION);
-    } elsif($content =~ m{([\'\-\w\s]+) is[\s\w]* (also )?(\w+://\S+)}i) {
+    } elsif($content =~ m{([\'\-\w\s]+) is( also)?[\s\w]* (\w+://\S+)}i) {
         # looks like a URL to me!
+        warn;
         my ($key, $also, $factoid) = (lc($1), $2, $3);
         
         my $flags = FACT_URL;
@@ -208,6 +209,9 @@ sub handle_chat {
                 &parse_message(&SimBot::pick(BUT_X_IS_Y), $nick,
                                $key, $isare, $oldFactoid))
                 if $being_addressed;
+        } else {
+            $info{$key} = "$flags|$factoid";
+            &report_learned($channel, $nick, $key, $factoid, $flags);
         }
     } elsif($content =~ m{([\'\-\w\s]+?) (is|are) ((aka|also) )?([\'\-\w\s]+)}i) {
 		no warnings;
