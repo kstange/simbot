@@ -57,7 +57,7 @@ foreach (<CONFIG>) {
 				push(@{$conf{'filters'}}, qr/$2/i);
 				debug(4, "$section: loaded match filter for $2\n");
 			} elsif ($1 eq "word") {
-				push(@{$conf{'filters'}}, qr/(^|\b)$2(\b|$)/i);
+				push(@{$conf{'filters'}}, qr/(^|\b)\Q$2\E(\b|$)/i);
 				debug(4, "$section: loaded word filter for $2\n");
 			} else {
 				debug(4, "$section: saw unknown filter type $1\n");
