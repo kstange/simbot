@@ -75,7 +75,7 @@ sub check_response {
 			$x_online = 1;
 			&services_login($kernel);
 		} else {
-			&SimBot::debug(3, "Channel Service message: $text\n");
+			&SimBot::debug(4, "Channel Service message: $text\n");
 		}
     }
 }
