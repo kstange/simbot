@@ -72,7 +72,6 @@ use constant FIND_STATION_AT => 'You can look up station IDs at http://www.nws.n
 
 use constant CANNOT_ACCESS => 'Sorry; I could not access NOAA.';
 
-
 ### cleanup_wx
 # This method is run when SimBot is exiting. We save the station names
 # cache here.
@@ -454,86 +453,92 @@ sub got_xml {
         = (split(/!/, $request_packet->[1], 2));
     my $response = $response_packet->[0];
 
-    if ($response->is_error) {
-        if ($response->code eq '404') {
-            &SimBot::debug(3, 
-                "weather: Couldn't get XML weather for $station, falling back on METAR.\n");
-                # do we have a station name?
-            unless($stationNames{$station}) {
-                &SimBot::debug(4, "weather: Station name not found, looking it up\n");
-                my $url =
-                    'http://weather.noaa.gov/cgi-bin/nsd_lookup.pl?station='
-                    . $station;
-                my $request = HTTP::Request->new(GET => $url);
-                $kernel->post('wxua' => 'request', 'got_station_name',
-	        	              $request, "$nick!$station!0");
-                # We're done here - got_station_name will handle
-                # requesting the weather
-                return;
-            }
-            # we already have the station name... let's request the
-            # weather
-            
-            my $url =
-                'http://weather.noaa.gov/pub/data/observations/metar/stations/'
-                . $station . '.TXT';
-            my $request = HTTP::Request->new(GET=>$url);
-            $kernel->post('wxua' => 'request', 'got_wx',
-                            $request, "$nick!$station!0");
-        } else {
-            &SimBot::send_message(&SimBot::option('network', 'channel'), "$nick: " . CANNOT_ACCESS);
-        }
+	# NOAA tries to be very helpful by offering a "did you mean?" list
+	# returning an HTTP 300 response, instead of a 404 error.  This is
+	# annoying when we are not a human being.  It also means we get an
+	# HTTP 301 redirection if we have a similar METAR ID with only one
+	# suitable alternative.  I have a feeling that if NOAA is trying to
+	# give us a 3xx response, it'll be for a different report than the
+	# user asked for, so we're going to trust the user knows what he wants
+	# rather than letting NOAA's web server decide for him.
+	if ($response->code eq '404' || $response->code =~ /^3/) {
+		&SimBot::debug(3,
+					   "weather: Couldn't get XML weather for $station; falling back to METAR.\n");
+		my $url =
+			'http://weather.noaa.gov/pub/data/observations/metar/stations/'
+			. $station . '.TXT';
+		my $request = HTTP::Request->new(GET=>$url);
+		$kernel->post('wxua' => 'request', 'got_wx',
+					  $request, "$nick!$station!0");
         return;
-    }
+	} elsif ($response->is_error) {
+		&SimBot::debug(3, "weather: Couldn't get XML weather for $station: " . $response->code . " " . $response->message . "\n");
+		&SimBot::send_message(&SimBot::option('network', 'channel'), "$nick: " . CANNOT_ACCESS);
+        return;
+	}
+
     &SimBot::debug(4, 'weather: Got XML weather for ' . $nick
         . " for $station\n");
     my $raw_xml = $response->content;
-    
-    my $cur_obs = XMLin($raw_xml, SuppressEmpty => 1);
-    
-    my $u_time     = $cur_obs->{'observation_time'};
-    my $location   = $cur_obs->{'location'};
-    my $weather    = $cur_obs->{'weather'};
-    my $temp       = $cur_obs->{'temperature_string'};
-    my $rhumid     = $cur_obs->{'relative_humidity'};
-    my $wdir       = $cur_obs->{'wind_dir'};
-    my $wmph       = $cur_obs->{'wind_mph'};
-    my $wgust      = $cur_obs->{'wind_gust_mph'};
-    my $hidx       = $cur_obs->{'heat_index_string'};
-    my $wchill     = $cur_obs->{'windchill_string'};
-    my $visibility = $cur_obs->{'visibility'};
-    
-    my $msg = 'As reported ';
-    my @reply_with;
-    
-    if(defined $u_time) {
+	my $cur_obs;
+
+	# If this XML feed is unparsable, METAR /may/ be more useful.
+	# Hey, it sure beats die().
+	if (!eval { $cur_obs = XMLin($raw_xml, SuppressEmpty => 1); }) {
+		&SimBot::debug(3, "weather: XML parse error for $station; falling back to METAR.\n");
+		&SimBot::debug(4, "weather: XML parser failure: $@");
+		my $url =
+			'http://weather.noaa.gov/pub/data/observations/metar/stations/'
+			. $station . '.TXT';
+		my $request = HTTP::Request->new(GET=>$url);
+		$kernel->post('wxua' => 'request', 'got_wx',
+					  $request, "$nick!$station!0");
+		return;
+	}
+
+	my $u_time     = $cur_obs->{'observation_time'};
+	my $location   = $cur_obs->{'location'};
+	my $weather    = $cur_obs->{'weather'};
+	my $temp       = $cur_obs->{'temperature_string'};
+	my $rhumid     = $cur_obs->{'relative_humidity'};
+	my $wdir       = $cur_obs->{'wind_dir'};
+	my $wmph       = $cur_obs->{'wind_mph'};
+	my $wgust      = $cur_obs->{'wind_gust_mph'};
+	my $hidx       = $cur_obs->{'heat_index_string'};
+	my $wchill     = $cur_obs->{'windchill_string'};
+	my $visibility = $cur_obs->{'visibility'};
+
+	my $msg = 'As reported ';
+	my @reply_with;
+
+	if(defined $u_time) {
         $u_time =~ s/Last Updated on //;
         $msg .= 'on ' . $u_time . ' ';
     }
-    
+
     if(defined $location)   { $msg .= 'at ' . $location; }
     else                    { $msg .= 'at ' . $station; }
-    
+
     $msg .= ' it is ';
-    
+
     if(defined $weather && $weather !~ m/(Not Applicable|na)/i)
         { $msg .= lc($weather) . ' and '; }
     if(defined $temp)       { $msg .= $temp; }
-    
+
     $msg .= ', with';
-    
+
     if(defined $hidx && $hidx !~ m/Not Applicable/i) {
         push(@reply_with, "a heat index of $hidx");
     }
-    
+
     if(defined $wchill && $wchill !~ m/Not Applicable/i) {
         push(@reply_with, "a wind chill of $wchill");
     }
-    
+
     if(defined $rhumid && $rhumid != 0) {
         push(@reply_with, "${rhumid}% humidity");
     }
-    
+
     if(defined $wmph) {
         my $mmsg;
         $mmsg = "$wmph MPH winds from the $wdir";
@@ -541,11 +546,11 @@ sub got_xml {
             { $mmsg .= " gusting to $wgust MPH"; }
         push(@reply_with, $mmsg);
     }
-    
+
     if(defined $visibility && $visibility !~ m/Not Applicable/i) {
         push(@reply_with, "$visibility visibility");
     }
-    
+
     my $sep;
     if($#reply_with == 1) {
         $sep = ' and ';
@@ -554,7 +559,7 @@ sub got_xml {
         $reply_with[-1] = 'and ' . $reply_with[-1];
     }
     $msg .= ' ' . join($sep, @reply_with);
-    
+
     &SimBot::send_message(&SimBot::option('network', 'channel'),
         "$nick: $msg");
 }
