@@ -1,8 +1,8 @@
 Version 6.0 alpha: (26 Jul 2004)
 	* plugins/rss.pl:
 	  - Added natural language data for getting RSS feeds. (Vincent Gevers)
-	  - Added delay option, which determines how often the plugin checks
-	    for RSS updates.  Unset, it defaults to 1 hour. (Vincent Gevers)
+	  - Added expire option, which determines how often the plugin wants to
+	    fetch RSS updates.  Unset, it defaults to 1 hour. (Vincent Gevers)
 	* plugins/nlp.pl:
 	  - Added an event, event_plugin_nlp_call to allow plugins to specify
 	    which function to call, instead of hardcoding it to try nlp_match
