@@ -106,6 +106,7 @@ sub nlp_match {
 					  "every", "100000000000001",
 					  "all the", "100000000000001",
 					  "all", "100000000000001",
+					  "0", "0",
 					  );
 	my $qmatch = "(" . join("|", keys(%quantities)) . ")";
 	$qmatch = qr/$qmatch/i;
