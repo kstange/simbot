@@ -9,9 +9,10 @@
 #   * XML::RSS
 #   * POE::Component::Client::HTTP
 #   * HTML::Entities
+#   * DBI, DBM::SQLite
 #
 # COPYRIGHT:
-#   Copyright (C) 2004, Pete Pearson <http://fourohfour.info/>
+#   Copyright (C) 2004-05, Pete Pearson <http://fourohfour.info/>
 #
 #   This program is free software; you can redistribute it and/or modify
 #   under the terms of the GNU General Public License as published by
@@ -28,8 +29,9 @@
 #   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 # TODO:
-#   * Find a better way to detect new posts in feeds
 #   * Make rss feed IDs case insensitive
+#   * clean up old posts from the cache
+#   * Atom feeds
 #
 
 package SimBot::plugin::rss;
@@ -42,30 +44,136 @@ use POE;
 use POE::Component::Client::HTTP;
 use HTTP::Request::Common qw(GET POST);
 use HTTP::Status;
-use vars qw( %mostRecentPost %feeds %announce_feed $session );
+use DBI;
+use vars qw( %mostRecentPost $session $dbh $get_all_feeds_info_query
+    $get_feed_info_query $get_feed_by_id_query $get_headline_query
+    $insert_headline_query $update_headline_query
+    $update_feed_title_query $done_initial_update);
 use Encode;
 
 use constant CHANNEL => &SimBot::option('network', 'channel');
 use constant FEED_TITLE_STYLE => &SimBot::option('plugin.rss','title_style');
 use constant EXPIRE => (&SimBot::option('plugin.rss', 'expire') ?
-						&SimBot::option('plugin.rss', 'expire') : 3600);
-
+                            &SimBot::option('plugin.rss', 'expire') : 1500);
+#3600
 ### messup_rss
 # This runs when simbot loads. We need to make sure we know the most
 # recent post on each feed at this time so when we update we can
 # announce only new stuff.
 sub messup_rss {
-    foreach my $cur_feed
-            (&SimBot::options_in_section('plugin.rss.feeds')) {
-        $feeds{$cur_feed}=&SimBot::option('plugin.rss.feeds',
-                                          $cur_feed);
-        $announce_feed{$cur_feed} = 0;
+    # create our cache database
+    $dbh = DBI->connect('dbi:SQLite:dbname=caches/rss','','',
+        { RaiseError => 1, AutoCommit => 0 })
+        or die;
+    
+    # let's create the table. If this fails, we don't care, as it
+    # probably already exists
+    {
+        local $dbh->{RaiseError}; # let's not die on errors
+        local $dbh->{PrintError}; # and let's be quiet
+        $dbh->do(<<EOT);
+CREATE TABLE headlines (
+    id INTEGER PRIMARY KEY,
+    feed_id INTEGER,
+    time INTEGER,
+    guid STRING,
+    title STRING,
+    url STRING
+);
+EOT
+        $dbh->do(<<EOT);
+CREATE TABLE feeds (
+    id INTEGER PRIMARY KEY,
+    name STRING,
+    key STRING,
+    last_update INTEGER,
+    url STRING,
+    announce INTEGER
+);
+EOT
+        
+        $dbh->do(<<EOT);
+CREATE UNIQUE INDEX feedkey
+    ON feeds (key);
+EOT
+
+        $dbh->do(<<EOT);
+CREATE TRIGGER delheadlines
+    BEFORE DELETE ON feeds
+    FOR EACH ROW
+    BEGIN
+        DELETE FROM headlines WHERE feed_id = old.id;
+    END;
+EOT
     }
+    
+    $get_feed_info_query = $dbh->prepare(
+        'SELECT * FROM feeds WHERE key = ?'
+    );
+    $get_feed_by_id_query = $dbh->prepare(
+        'SELECT * FROM feeds WHERE id = ?'
+    );
+    $get_all_feeds_info_query = $dbh->prepare(
+        'SELECT * FROM feeds'
+    );
+    $get_headline_query = $dbh->prepare(
+        'SELECT * FROM headlines WHERE feed_id = ? AND (guid = ? OR url = ?)'
+    );
+    $insert_headline_query = $dbh->prepare(
+        'INSERT INTO headlines (feed_id, time, guid, title, url)'
+        . ' VALUES (?, ?, ?, ?, ?)'
+    );
+    $update_feed_title_query = $dbh->prepare(
+        'UPDATE feeds SET name = ?, last_update = ? WHERE id = ?'
+    );
+    my (%feeds, %announce_feed);
+    my $update_feed_query = $dbh->prepare(
+        'UPDATE feeds SET url = ?, announce = ? WHERE id = ?'
+    );
+    my $insert_feed_query = $dbh->prepare(
+        'INSERT INTO feeds (key, url, announce) VALUES (?, ?, ?)'
+    );
+    
     foreach my $cur_feed
             (split(/,/, &SimBot::option('plugin.rss', 'announce'))) {
         $announce_feed{$cur_feed} = 1;
     }
-
+    foreach my $cur_feed
+            (&SimBot::options_in_section('plugin.rss.feeds')) {
+        $feeds{$cur_feed}=1;
+        $get_feed_info_query->execute($cur_feed);
+        
+        if(my $id = ($get_feed_info_query->fetchrow_array)[0]) {
+            # feed is already in the table, let's update it
+            $update_feed_query->execute(
+                &SimBot::option('plugin.rss.feeds', $cur_feed),
+                (defined $announce_feed{$cur_feed} ? 1 : 0),
+                $id
+            );
+        } else {
+            # we need to add the feed
+            $insert_feed_query->execute(
+                $cur_feed,
+                &SimBot::option('plugin.rss.feeds', $cur_feed),
+                (defined $announce_feed{$cur_feed} ? 1 : 0)
+            );
+        }
+    }
+    
+    my $delete_feed_query = $dbh->prepare(
+        'DELETE FROM feeds WHERE id = ?'
+    );
+    
+    $get_all_feeds_info_query->execute;
+    while(my ($id, undef, $key) = $get_all_feeds_info_query->fetchrow_array) {
+        unless(defined $feeds{$key}) {
+            # the feed isn't in the config file. Let's remove it.
+            $delete_feed_query->execute($id);
+        }
+    }
+    
+    $dbh->commit;
+    
     POE::Component::Client::HTTP->spawn
 		( Alias => 'ua',
 		  Timeout => 120,
@@ -83,6 +191,7 @@ sub messup_rss {
             shutdown        => \&shutdown,
         }
     );
+    
     1;
 }
 
@@ -107,50 +216,30 @@ sub do_rss {
     my $rss = new XML::RSS;
     &SimBot::debug(3, "rss: Updating cache...\n");
 
-    foreach my $curFeed (keys %feeds) {
-		if($announce_feed{$curFeed}) {
-			my $mtime = 0;
-			$request = HTTP::Request->new(GET => $feeds{$curFeed});
-            $file = "caches/${curFeed}.xml";
-			if(-e $file) {
-                $mtime = (stat($file))[9];
-                $request->if_modified_since($mtime);
-            }
-			# Fetch the file when one of the following is true:
-			#  - We are scheduled to update all files (not initial
-			#    fetch).
-			#  - The file we have is expired.
-			#  - We have no cached version of this file.
-			if (defined $mostRecentPost{$curFeed} ||
-				!-e $file || $mtime + EXPIRE <= time) {
-				$kernel->post( 'ua' => 'request', 'got_response',
-							   $request, $curFeed);
+    $get_all_feeds_info_query->execute;
+    while(my ($id, undef, $key, $last_update, $url, $announce)
+        = $get_all_feeds_info_query->fetchrow_array) {
+        
+        # if we aren't announcing the feed, we'll fetch it when
+        # someone asks for it.
+        if(!$announce) { next; } 
 
-			# If the file we have is not expired, we still need to find
-			# the most recent post so we have a reference point for later
-			# updates. This should only run if all of these conditions
-			# are met:
-			#  - We have a cached version of this file.
-			#  - The file we have is not expired.
-			#  - We have not yet found the most recent post (initial
-			#    fetch).
-			} else {
-				&SimBot::debug(4,
-				        "rss:   loading up to date cache of $curFeed\n");
-				if(eval { $rss->parsefile($file); }) {
-					if(defined $rss->{'items'}->[0]->{'guid'}) {
-						$mostRecentPost{$curFeed}
-						= $rss->{'items'}->[0]->{'guid'};
-					} else {
-						$mostRecentPost{$curFeed}
-						= $rss->{'items'}->[0]->{'link'};
-					}
-				} else {
-					&SimBot::debug(1, "rss:  Parse error in $file: $@");
-				}
-			}
+        $request = HTTP::Request->new(GET => $url);
+        if(defined $last_update) {
+            $request->if_modified_since($last_update);
+        }
+        
+        # if our cache is out of date, update it.
+        if($last_update + EXPIRE <= time) {
+            unless(defined $done_initial_update) {
+                $id .= '!!-';
+            }
+            $kernel->post('ua' => 'request', 'got_response',
+                $request, $id);
         }
     }
+    $done_initial_update = 1;
+
     $kernel->delay(do_rss => EXPIRE);
 }
 
@@ -160,77 +249,84 @@ sub do_rss {
 sub got_response {
     my ($kernel, $request_packet, $response_packet)
         = @_[ KERNEL, ARG0, ARG1 ];
-    my (@newPosts, $title, $link, $file);
-    my ($curFeed, $nick) = split(/!!/, $request_packet->[1]);
+    my (@newPosts);
+    my ($id, $nick) = split(/!!/, $request_packet->[1]);
     my $response = $response_packet->[0];
     my $rss = new XML::RSS;
-    $file = "caches/${curFeed}.xml";
+    
     &SimBot::debug((($response->code >= 400) ? 1 : 4),
-				   "rss:   fetching feed for $curFeed: "
+				   "rss:   fetching feed for $id: "
 				   . $response->status_line . "\n");
 
+    $get_feed_by_id_query->execute($id);
+    my (undef, $feed_name, $key, $last_update, $feed_url, $announce)
+        = $get_feed_by_id_query->fetchrow_array;
+
     if($response->code == RC_NOT_MODIFIED) {
-        # File wasn't modified. We touch the file so we don't
-        # request it again for an hour
-        my $now = time;
-        utime($now, $now, $file);
+        # File wasn't modified. We update the modified time...
+        $last_update = time;
     } elsif($response->is_success) {
-        if(open(OUT, ">$file")) {
-            print OUT $response->content;
-            close(OUT);
-        } else {
-            &SimBot::debug(1,
-                    "rss:  Could not open $file for writing: $!\n");
-            if(defined $nick) {
-                &SimBot::send_message(CHANNEL, "$nick: Sorry, an error has occurred. Please ask the bot's administrator to look in the console for the error message.");
-            }
-            return;
-        }
-	}
-
-    if(defined $nick) {
-        $kernel->yield('announce_top', $curFeed, $nick, CHANNEL);
-		return;
-	} elsif($announce_feed{$curFeed} && -e $file) {
-
-		if (!eval { $rss->parsefile($file); }) {
-			&SimBot::debug(1, "rss:  Parse error in $file: $@");
+        $last_update = time;
+        if (!eval { $rss->parse($response->content); }) {
+			&SimBot::debug(1, "rss:  Parse error in $key: $@");
 			return;
-		}
-
-		if (defined $mostRecentPost{$curFeed}) {
-			foreach my $item (@{$rss->{'items'}}) {
-				if((defined $item->{'guid'}
-				    && $item->{'guid'} eq $mostRecentPost{$curFeed})
-				   || $item->{'link'} eq $mostRecentPost{$curFeed}) {
-					last;
-				} else {
-					($link, $title) = &get_link_and_title($item);
-
-					push(@newPosts, "$title  $link");
-				}
-			}
-		}
-		if(defined $rss->{'items'}->[0]->{'guid'}) {
-			$mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'guid'};
-		} else {
-			$mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
-		}
-
-		if(@newPosts) {
-			$title = $rss->{'channel'}->{'title'};
-			if($title =~ m/Slashdot Journals/) {
-				$title = $rss->{'channel'}->{'description'};
-			}
-			&SimBot::send_message(CHANNEL,
-			  &SimBot::parse_style(&colorize_feed($title)
-				            . " has been updated! Here's what's new:"));
-			foreach(@newPosts) {
-				&SimBot::send_message(CHANNEL, $_);
-			}
-		}
-	}
-
+        }
+        foreach my $item (@{$rss->{'items'}}) {
+            no warnings qw( uninitialized );
+            
+            my ($url, $title) = &get_link_and_title($item);
+                
+            $get_headline_query->execute($id, $item->{'guid'},
+                                        $url);
+            if(my ($hid, undef, $time, $guid, undef, undef)
+                = $get_headline_query->fetchrow_array) {
+                # well, the headline's been seen already.
+                # let's update it in case anything changed.
+                $guid = $item->{'guid'};
+                ($url, $title) = &get_link_and_title($item);
+                
+                # FIXME: update headline
+            } else {
+                # we haven't seen this headline yet
+                # add it, then figure out if we should announce it.
+                $insert_headline_query->execute(
+                    $id,
+                    undef, # FIXME: time of headline
+                    $item->{'guid'},
+                    $title,
+                    $url
+                );
+                
+                if($announce) {
+                    push(@newPosts, "$title  $url");
+                }
+            }
+        }
+    }
+    $feed_name = $rss->{'channel'}->{'title'};
+    if($feed_name =~ m/Slashdot Journals/) {
+        $feed_name = $rss->{'channel'}->{'description'};
+    }
+        
+    $update_feed_title_query->execute($feed_name, $last_update, $id);
+    
+    $dbh->commit;
+    if(defined $nick) {
+        # either we are responding to someone's initial request
+        # or $nick is '-' and this is the initial cache update
+        if($nick ne '-') {
+            $kernel->yield('announce_top', $id, $nick, CHANNEL);
+        }
+        return;
+    }
+    if($announce && @newPosts) {
+        &SimBot::send_message(CHANNEL,
+          &SimBot::parse_style(&colorize_feed($feed_name)
+                        . " has been updated! Here's what's new:"));
+        foreach(@newPosts) {
+            &SimBot::send_message(CHANNEL, $_);
+        }
+    }
 }
 
 ### latest_headlines_stub
@@ -252,26 +348,26 @@ sub latest_headlines {
 
     &SimBot::debug(3, "rss: Got request from $nick" .
 				   (defined $feed ? " for $feed" : "") . "...\n");
-
-    if(defined $feed && defined $feeds{$feed}) {
-        my $file = "caches/${feed}.xml";
-        if(!-e $file || -M $file > (EXPIRE / 86400)) {
+    $get_feed_info_query->execute($feed);
+    
+    if(my ($id, undef, undef, $last_update, $url, undef)
+        = $get_feed_info_query->fetchrow_array) {
+        
+        # yay, we know about the feed
+        # is the cache up to date?
+        if(!defined $last_update || $last_update > time - EXPIRE) {
+            # cache is stale or missing
             &SimBot::debug(4, "rss: $feed is old or missing.\n");
-            # cache is stale or missing, we need to go fetch it
-            # before we announce anything.
-            my $request = HTTP::Request->new(GET => $feeds{$feed});
-            if(-e $file) {
-                my $mtime = (stat($file))[9];
-                $request->if_modified_since($mtime);
-            }
-
-            $kernel->post( 'ua' => 'request', 'got_response',
-                            $request, "$feed!!$nick");
+            my $request = HTTP::Request->new(GET => $url);
+            $request->if_modified_since($last_update);
+            
+            $kernel->post('ua' => 'request', 'got_response',
+                $request, "$id!!$nick");
         } else {
             &SimBot::debug(4,
                            "rss: $feed is up to date; Displaying.\n");
-            $kernel->post($session => 'announce_top', $feed, $nick,
-                          $channel);
+            $kernel->post($session => 'announce_top', $id, $nick,
+                        $channel);
         }
     } else {
         &SimBot::debug(4, "rss: No feed matched request.\n");
@@ -279,8 +375,10 @@ sub latest_headlines {
             . ($feed ? "I have no feed $feed."
                      : "What feed do you want latest posts from?")
             . ' Try one of:';
-        foreach(sort keys %feeds) {
-            $message .= " $_";
+        $get_all_feeds_info_query->execute;
+        while(my $key = ($get_all_feeds_info_query->fetchrow_array)[2])
+        {
+            $message .= " $key";
         }
         &SimBot::send_message($channel, $message);
     }
@@ -290,36 +388,35 @@ sub latest_headlines {
 # Called when someone requests the top few headlines for a feed, and
 # we already have an up to date cache
 sub announce_top {
-    my ($feed, $nick, $channel) = @_[ ARG0, ARG1, ARG2 ];
+    my ($id, $nick, $channel) = @_[ ARG0, ARG1, ARG2 ];
     my ($rss, $link, $title, $item);
-	my $file = "caches/${feed}.xml";
-    if(-e $file) {
-		$rss = new XML::RSS;
-		if (!eval { $rss->parsefile($file); }) {
-			&SimBot::debug(1, "rss:  Parse error in $file: $@");
-			&SimBot::send_message($channel, "$nick: I have no idea what's going on with the $feed feed because the file I got didn't make sense to me.  If the feed owner corrects the feed, you should be able to ask me again later.");
-			return;
-		}
-
-		$title = $rss->{'channel'}->{'title'};
-		if($title =~ m/Slashdot Journals/) {
-			$title = $rss->{'channel'}->{'description'};
-		}
-		&SimBot::send_message($channel, &SimBot::parse_style(
-			 "$nick: Here are the latest posts to "
-			 . &colorize_feed($title) . ':'));
-		for(my $i=0;
-			$i <= ($#{$rss->{'items'}} < 2 ? $#{$rss->{'items'}} : 2);
-			$i++)
-		{
-			$item = ${$rss->{'items'}}[$i];
-			($link, $title) = &get_link_and_title($item);
-
-			&SimBot::send_message($channel, "$title  $link");
-		}
-	} else {
-		&SimBot::send_message($channel, "$nick: $feed is unavailable.  The feed seems to be down and I don't have an old copy to show you.");
-	}
+	
+    my $get_top_headlines_query = $dbh->prepare(
+        'SELECT title, url FROM headlines'
+        . ' WHERE feed_id = ?'
+        . ' LIMIT 3'
+    );
+    $get_top_headlines_query->execute($id);
+	
+	$get_feed_by_id_query->execute($id);
+	my $feed_name = ($get_feed_by_id_query->fetchrow_array)[1];
+	
+	my @posts;
+	
+    while(my ($title, $url) = $get_top_headlines_query->fetchrow_array)
+    {
+        push(@posts, "$title  $url");
+    }
+    if(@posts) {
+        &SimBot::send_message(CHANNEL,
+            &SimBot::parse_style("$nick: Here are the latest posts to "
+                . &colorize_feed($feed_name) . ':'));
+        foreach(@posts) {
+            &SimBot::send_message(CHANNEL, $_);
+        }
+    } else {
+        &SimBot::send_message(CHANNEL, "$nick: Hmm... That feed seems to be empty!");
+    }
 }
 
 sub colorize_feed {
