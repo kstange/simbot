@@ -31,6 +31,7 @@ our @todo = (
 			 "6) Standardize and clean up the debug output",
 			 "7) Crush evil bugs!",
 			 "--- Increment version to 6.0 final here ---",
+			 "- allow the user to specify a custom data directory",
 			 "- use POE better, blocking less and using more events",
 			 "- eventually recognize the possibility for joining 2+ channels",
 			 "- implement authentication for bot administration",
