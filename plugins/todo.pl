@@ -28,7 +28,7 @@ our @todo = (
 			 "4) ban KewlioMZX from reading the todo list :P",
 			 "--- Increment version to 6.0 beta here ---",
 			 "5) Polish the documentation (what documentation?)",
-			 "6) Make sure the stock release is littered with our own stuff",
+			 "6) Make sure the stuff in cvs isn't littered with our own stuff",
 			 "7) Crush evil bugs!",
 			 "--- Increment version to 6.0 final here ---",
 			 "- eventually recognize the possibility for joining 2+ channels",
