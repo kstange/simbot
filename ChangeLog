@@ -1,3 +1,8 @@
+Version 6.0 alpha: (31 Jul 2004)
+	* plugins/dice.pl:
+	  - Added a %rps command, which makes the bot play the Rock, Paper,
+	    Scissors games.
+
 Version 6.0 alpha: (26 Jul 2004)
 	* simbot.pl:
 	  - Added send_pieces_with_notice to allow large blocks of text to be

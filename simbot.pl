@@ -205,7 +205,7 @@ our %commands = (
 if(option('chat','snooze') !~ m/always|never/) {
     &plugin_register(plugin_id   => "snooze",
 		     plugin_desc => "Toggles snooze mode which prevents recording"
-		     . "and responding to chat. Commands are still processed.",
+		     . " and responding to chat. Commands are still processed.",
 		     
 		     event_plugin_call     => \&set_snooze,
 		     );

@@ -4,8 +4,8 @@
 # DESCRIPTION:
 #   Every IRC needs to be able to roll some dice of arbitrary sides for its
 #   regulars, and SimBot is no exception. Responds to '%roll' with a pair of
-#   6 sided dice, or to '%roll xdy' with x y-sided dice. It can
-#   also flip a coin with '%flip'.
+#   6 sided dice, or to '%roll xdy' with x y-sided dice. It can also flip a
+#   coin with '%flip' and play "rock, paper, scissors, with '%rps.'
 #
 # COPYRIGHT:
 #   Copyright (C) 2003-04, Pete Pearson
@@ -32,6 +32,26 @@ package SimBot::plugin::roll;
 
 use strict;
 use warnings;
+
+# Jeers for Rock Paper Scissors
+use constant RPS_JEER => (
+						  'Oh, the horror!',
+						  'Your luck won\'t hold up forever!',
+						  'I\'ll beat you next time.',
+						  'Damn!',
+						  'Don\'t let the success go to your head!',
+						  'I will reign victorious... later.',
+						  );
+
+# Cheers for Rock Paper Scissors
+use constant RPS_CHEER => (
+						   'In your face!',
+						   'I\'m on a roll.',
+						   'Behold my awesome power!',
+						   'Victory is mine!',
+						   'I am the RPS grand master!',
+						   'You shall not defeat me!',
+						   );
 
 sub roll_dice {
     my $numDice = 2;
@@ -78,6 +98,42 @@ sub flip_coin {
 		&SimBot::send_action($channel, "flips " .
 							 ($number > 1 ? "$number coins" : "a coin") .
 							 " for $nick: " . $text);
+	}
+}
+
+sub rps_shoot {
+    my ($kernel, $nick, $channel, undef, $object) = @_;
+	$object = lc($object);
+	my $text;
+	if (!defined $object) {
+		&SimBot::send_message($channel, "$nick: Well?  Rock, paper, or scissors?");
+	} elsif ($object =~ /^(rock|paper|scissors)$/) {
+		my $pick = &SimBot::pick(('rock', 'paper','scissors'));
+		$text = "$nick: I picked: $pick. ";
+		if ($pick eq $object) {
+			$text .= "It's a draw! Try again!";
+		} elsif ($object eq "rock") {
+			if ($pick eq "scissors") {
+				$text .= "Your rock smashed my scissors. " . &SimBot::pick(RPS_JEER) . " You win!";
+			} elsif ($pick eq "paper") {
+				$text .= "My paper covered your rock. " . &SimBot::pick(RPS_CHEER) . " I win!";
+			}
+		} elsif ($object eq "paper") {
+			if ($pick eq "rock") {
+				$text .= "Your paper covered my rock. " . &SimBot::pick((RPS_JEER)) . " You win!";
+			} elsif ($pick eq "scissors") {
+				$text .= "My scissors cut your paper. " . &SimBot::pick((RPS_CHEER)) . " I win!";
+			}
+		} elsif ($object eq "scissors") {
+			if ($pick eq "paper") {
+				$text .= "Your scissors cut my paper. " . &SimBot::pick((RPS_JEER)) . " You win!";
+			} elsif ($pick eq "rock") {
+				$text .= "My rock smashed your scissors. " . &SimBot::pick((RPS_CHEER)) . " I win!";
+			}
+		}
+		&SimBot::send_message($channel, $text);
+	} else {
+		&SimBot::send_message($channel, "$nick: You have been disqualified for bringing your $object to a rock, paper, scissors game!  You forfeit!  I win!");
 	}
 }
 
@@ -189,4 +245,9 @@ sub nlp_match {
 						 ["you-must", "you-should", "you-may",
 						  "what-if", "how-about", "i-need",
 						  "i-want", "would-you", "command",],
+						 );
+
+&SimBot::plugin_register(plugin_id   => "rps",
+						 plugin_desc => "Pick rock, paper or scissors.",
+						 event_plugin_call => \&rps_shoot,
 						 );
