@@ -1,3 +1,9 @@
+Version 6.0 alpha: (23 Feb 2004)
+    * plugins/info.pl:
+       - Infobot style sentence learning. Tries to learn x (is/are) y
+         from chat it sees or explicit setting with %info.
+         Factoid retrieval is only through %info currently.
+
 Version 6.0 alpha: (20 Feb 2004)
 	* plugins/dict.pl:
 	   - New plugin allows users to request definitions using the DICT
