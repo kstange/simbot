@@ -243,7 +243,7 @@ sub handle_chat {
         # refuse to learn it. If we are being addressed, we give a
         # nondescript error message.
         foreach(&SimBot::option_list('filters')) {
-            if($content =~ /$_/) {
+            if($content =~ /$_/i) {
                 &SimBot::send_message($channel,
                     &parse_message(&SimBot::pick(I_CANNOT), $nick))
                     if $being_addressed;
