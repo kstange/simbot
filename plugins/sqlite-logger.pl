@@ -416,11 +416,11 @@ sub access_log {
         }
     } elsif($query =~ m/^stats/) {
         my $statnick = $args[0];
+        my $chan_id = &get_nickchan_id(&SimBot::option('network','channel'));
         
         if(!defined $statnick) {
             # no nick specified, so how 'bout some generic stats?
             my $tmp_query;
-            my $chan_id = &get_nickchan_id(&SimBot::option('network','channel'));
             
             $tmp_query = $dbh->prepare(
                 'SELECT time FROM chatlog'
@@ -449,9 +449,35 @@ sub access_log {
             
             &SimBot::send_message($channel, $response);
         } else {
-            # try to look up the nickname
-            # retrieve some basic stats on it.
-            # first seen time, last seen time
+            my $statnick_id;
+            unless($statnick_id = &get_nickchan_id($statnick)) {
+                &SimBot::send_message($channel,
+                    "$nick: I do not know of a $statnick");
+                return;
+            }
+            
+            my $tmp_query = $dbh->prepare(
+                'SELECT time FROM chatlog'
+                . ' WHERE channel_id = ?'
+                . ' AND (source_nick_id = ?'
+                . ' OR target_nick_id = ?)'
+                . ' ORDER BY time'
+                . ' LIMIT 1');
+            $tmp_query->execute($chan_id, $statnick_id, $statnick_id);
+            my $first_date = localtime(($tmp_query->fetchrow_array())[0]);
+            $tmp_query->finish;
+            
+            $tmp_query = $dbh->prepare(
+                'SELECT time FROM chatlog'
+                . ' WHERE channel_id = ?'
+                . ' AND (source_nick_id = ?'
+                . ' OR target_nick_id = ?)'
+                . ' ORDER BY time DESC'
+                . ' LIMIT 1');
+            $tmp_query->execute($chan_id, $statnick_id, $statnick_id);
+            my $last_date = localtime(($tmp_query->fetchrow_array())[0]);
+            $tmp_query->finish;
+            
             # line count
             # kicked count, kicking count
             # "is a nightowl" if some percent of logged days
@@ -462,6 +488,11 @@ sub access_log {
             # "1z l4m3" if uses l4m3r sp33k? (probably too hard to
             #    look up.
             
+            my $response =
+                "$nick: I first saw $statnick on $first_date,"
+                . " and most recently on $last_date.";
+            &SimBot::send_message($channel, $response);
+        }
     } else {
         &SimBot::send_message($channel, "$nick: Sorry, I do not understand that.");
     }
