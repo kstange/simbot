@@ -133,7 +133,7 @@ $SIG{'USR2'} = 'SimBot::reload';
 # Private events get params:
 #  (kernel, from, eventname, text)
 %event_private_message = (); # eventname = PRIVMSG (text)
-%event_private_action  = (); # eventname = ACTION (text)
+%event_private_action  = (); # eventname = PRIVACTION (text)
 %event_private_notice  = (); # eventname = NOTICE (text)
 
 ### Server Events ###
@@ -142,6 +142,11 @@ $SIG{'USR2'} = 'SimBot::reload';
 %event_server_connect  = (); # ()
 %event_server_ping     = (); # ()
 %event_server_ison     = (); # (nicks list...)
+
+### Function Queries ###
+# Function queries get params:
+#  (kernel, params)
+%query_word_score      = (); # (text)
 
 @list_nicks_ison       = (
 			  $nickname,
@@ -420,8 +425,13 @@ sub plugin_register {
     if ($data{event_plugin_unload}) {
 	$event_plugin_unload{$data{plugin_id}} = $data{event_plugin_unload};
     }
+    if ($data{event_plugin_reload}) {
+	$event_plugin_unload{$data{plugin_id}} = $data{event_plugin_reload};
+    }
     foreach (keys(%data)) {
 	if ($_ =~ /^event_(channel|private|server)_.*/) {
+	    ${$_}{$data{plugin_id}} = $data{$_};
+	} elsif ($_ =~ /^query_.*/) {
 	    ${$_}{$data{plugin_id}} = $data{$_};
         } elsif ($_ =~ /^list_.*/) {
 	    my @list = split(/,\s*/, $data{$_});
@@ -435,8 +445,10 @@ sub plugin_register {
 sub plugin_callback {
     my ($plugin, $function, @params) = @_;
     if($plugin_type{$plugin} eq "EXT") {
+	debug(4, "Running callback to $function in $plugin.\n");
 	return &{"SimBot::plugin::$plugin\:\:$function"}($kernel, @params);
     } else {
+	debug(4, "Running callback to $function in $plugin (INTERNAL).\n");
 	return &{$function}($kernel, @params);
     }
 }
@@ -624,6 +636,7 @@ sub buildreply {
 			    $punc = $1;
 			    debug(3, "Using '$1' from __BEGIN\n");
 			}
+			last;
 		    }
 		}
 	    }
@@ -663,8 +676,8 @@ sub buildreply {
 		my $chcount = 0;
 		foreach (keys(%{$chat_words{$newword}})) {
 		    $chcount += $chat_words{$newword}{$_}[0];
-		    debug(4, "$chcount choices for next to $newword\n");
 		}
+		debug(4, "$chcount choices for next to $newword\n");
 		my $try = int(rand()*($chcount))+1;
 		foreach(sort {$a cmp $b} keys(%{$chat_words{$newword}})) {
 		    $try -= $chat_words{$newword}{$_}[0];
@@ -717,6 +730,10 @@ sub find_interesting_word {
             next;
         }
         $curWordScore = 5000;
+	foreach(keys(%query_word_score)) {
+	    $curWordScore += &plugin_callback($_, $query_word_score{$_}, ($curWord));
+	}
+
 	foreach $nextWord (keys(%{$chat_words{$curWord}})) {
 	    if($nextWord =~ /__[\.\?\!]?(END|BEGIN)$/) {
 		$curWordScore -= 1.8 * $chat_words{$curWord}{$nextWord}[1];
@@ -877,7 +894,7 @@ sub process_action {
     } else {
 	debug(4, "Received private action from $nick.\n");
 	foreach(keys(%event_private_action)) {
-	    &plugin_callback($_, $event_private_action{$_}, ($nick, 'ACTION', "$nick $text"));
+	    &plugin_callback($_, $event_private_action{$_}, ($nick, 'PRIVACTION', "$nick $text"));
 	}
     }
 }

@@ -4,7 +4,7 @@ Version 6.0 alpha: (11 Feb 2004)
 	   - Context is now detected and a sentence is generated from the
 	     middle outward to (possibly) end up on-topic. An interesting
 	     word is chosen from the original message based on a scoring
-	     system that will be expanded soon.
+	     system that can be extended through query_word_score callback.
 	   - New method for storing the database in memory (desperately
 	     needed to eliminate very slow scoring of interesting words).
 	     This new method also speeds up sentence generation a great

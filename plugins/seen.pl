@@ -39,7 +39,7 @@ sub get_seen {
         $doing = "($seenData)" if ($doing eq 'ACTION');
         $doing = qq(changing the topic to "$seenData")
             if ($doing eq 'TOPIC');
-            
+
         if($doing eq 'KICKED') {
             my ($kicker,$reason) = split(/!/, $seenData, 2);
             $doing = "getting kicked by $kicker ($reason)";
@@ -73,7 +73,11 @@ sub set_seen {
 # for seen, we give a 40 point bonus to words that are the
 # nicknames of people we have seen.
 sub score_word {
-    return 40 if defined $seenData{$_[0]};
+    if (defined $seenData{$_[1]}) {
+	&SimBot::debug(3, "$_[1]:+40 seen bonus ");
+	return 40;
+    }
+    &SimBot::debug(4, "$_[1]:no seen bonus ");
     return 0;
 }
 
