@@ -416,8 +416,8 @@ sub get_seen {
         $kernel->post(bot => privmsg => $channel, "$nick: There are many things I have seen. Perhaps you should ask for someone in particular?");
     } elsif(lc($person) eq lc($chosen_nick)) {
         $kernel->post(bot => ctcp => $channel, 'action', "waves $hisher hand in front of $hisher face. \"Yup,  I can see myself!\"");
-    } elsif($seenData{$person}) {
-        my ($when, $doing, $seenData) = split(/!/, $seenData{$person}, 3);
+    } elsif($seenData{lc($person)}) {
+        my ($when, $doing, $seenData) = split(/!/, $seenData{lc($person)}, 3);
         $doing = "saying \"$seenData\"" if($doing eq 'SAY');
         $doing = 'in a private message' if($doing eq 'PMSG');
         $doing = "($seenData)" if ($doing eq 'ACTION');
@@ -764,7 +764,7 @@ sub process_action {
     my ($nick) = split(/!/, $usermask);
     &debug(3, "Learning from " . $nick . "'s action...\n");
     &buildrecords($text,"ACTION");
-    &set_seen($nick, 'ACTION', "($nick $text)");
+    &set_seen($nick, 'ACTION', "$nick $text");
 }
 
 # PRCESS_PRIV: Handle private messages to the bot.
