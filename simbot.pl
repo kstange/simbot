@@ -270,6 +270,39 @@ sub hostmask {
     return "*!$user\@$host";
 }
 
+# PARSE_style: Parses a string for color codes
+# and turns them into color and style.
+sub parse_style {
+    $_ = $_[0];
+    # \003 begins a color. Avoid using black and white, as the window
+    # will likely be either white or black, and you don't know which
+    
+    s/%white%/\0030/g;           # white
+    s/%black%/\0031/g;           # black
+    s/%navy%/\0032/g;            # navy
+    s/%green%/\0033/g;           # green
+    s/%red%/\0034/g;             # red
+    s/%maroon%/\0035/g;          # maroon
+    s/%purple%/\0036/g;          # purple
+    s/%orange%/\0037/g;          # orange
+    s/%yellow%/\0038/g;          # yellow
+    s/%l(igh)?tgreen%/\0039/g;   # light green (ltgreen, lightgreen)
+    s/%teal%/\00310/g;           # teal
+    s/%cyan%/\00311/g;           # cyan
+    s/%blue%/\00312/g;           # blue
+    s/%magenta%/\00313/g;        # magenta
+    s/%gray%/\00314/g;           # gray
+    s/%silver%/\00315/g;         # silver
+    
+    s/%normal%/\017/g;           # normal - remove color and style
+    
+    s/%bold%/\002/g;             # bold
+    s/%u(nder)?line%/\037/g;     # underline (uline)
+    
+    
+    return $_;
+}
+
 # TIMEAGO: Returns a string of how long ago something happened
 sub timeago {
     my ($seconds, $minutes, $hours, $days, $weeks, $years);
@@ -973,10 +1006,10 @@ sub channel_message {
 		&plugin_callback($_, $event_channel_message{$_}, ($nick, $channel, 'SAY', $text));
 	}
 
-    if ($text =~ /^\%/) {
+    if ($text =~ /^\_/) {
 		my @command = split(/\s/, $text);
 		my $cmd = $command[0];
-		$cmd =~ s/^%//;
+		$cmd =~ s/^_//;
 		if ($event_plugin_call{$cmd}) {
 			&plugin_callback($cmd, $event_plugin_call{$cmd}, ($nick, $channel, @command));
 		} else {

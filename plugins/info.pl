@@ -28,7 +28,7 @@ use constant OK_LEARNED =>
 use constant OK_FORGOTTEN =>
     ('$nick: What were we talking about again?',
 	 '$nick: Information has been nullified!  Have a nice day.',
-	 '$nick: Done.  Wouldn\'t it be cool if _you_ could forget on demand?',
+	 '$nick: Done.  Wouldn\'t it be cool if %uline%you%uline% could forget on demand?',
 	 );
 use constant CANT_FORGET =>
     ('$nick: I don\'t know anything about $key.');
@@ -185,6 +185,8 @@ sub report_learned {
 
 sub parse_message {
     my ($message, $nick, $key, $isare, $factoid) = @_;
+    
+    $message = &SimBot::parse_style($message);
     
     $message =~ s/\$nick/$nick/;
     $message =~ s/\$key/$key/;
