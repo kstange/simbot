@@ -156,6 +156,13 @@ sub handle_chat {
 #        $being_addressed = 1;
     }
     
+    
+    if($SimBot::snooze && !$being_addressed) {
+        # SimBot's in snooze mode, and shouldn't learn and should avoid
+        # talking. Since we aren't being addressed, let's remain quiet
+        return;
+    }
+    
     # Let's expand all the pronouns in the chat so we can learn something
     # useful. Also, try to expand any lazy URLs.
     $content = &munge_pronouns($content, $nick, $person_being_referenced);
@@ -321,7 +328,6 @@ sub handle_query {
     if($addressed && !($flags & BEING_ADDRESSED)) {
         # Someone's being referenced, and it isn't us.
         # We should keep quiet.
-        # FIXME: This really should be elsewhere...
         return;
     }
     
