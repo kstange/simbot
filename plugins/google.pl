@@ -58,7 +58,6 @@ sub google_find {
 	    $kernel->post(bot => privmsg => $channel, "$nick: \"$term\" is $result");
 	} elsif ($response->content =~ m|No definitions were found for|) {
 	    $kernel->post(bot => privmsg => $channel, "$nick: Making up words again?");
- 
 	} else {
 	    $kernel->post(bot => privmsg => $channel, "$nick: Nothing was found.");
 	}
