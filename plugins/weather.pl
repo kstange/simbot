@@ -57,7 +57,7 @@ use constant STATION_LOOKS_WRONG =>
 use constant STATION_UNSPECIFIED =>
     'Please provide a METAR station ID. ';
 
-use constant FIND_STATION_AT => 'You can look up station IDs at <http://www.nws.noaa.gov/tg/siteloc.shtml>.';
+use constant FIND_STATION_AT => 'You can look up station IDs at http://www.nws.noaa.gov/tg/siteloc.shtml.';
 
 use constant CANNOT_ACCESS => 'Sorry; I could not access NOAA.';
 
@@ -335,7 +335,7 @@ sub got_wx {
                 push(@reply_with, $rmk);
             }
         
-            if($remarks =~ m/\bTS (VC )?(\S*)( MOV (N|NE|E|SE|S|SW|W|NW))?\b/) {
+            if($remarks =~ m/\bTS( VC)?( \S*?)?( MOV (N|NE|E|SE|S|SW|W|NW))?\b/) {
                 my ($in_vc, $in_dir, $mov_dir) = ($1, $2, $4);
                 my $rmk = 'thunderstorm ';
                 if(defined $in_vc)      { $rmk .= 'in the vicinity ';   }
