@@ -9,6 +9,9 @@ Version 6.0 alpha: (12 Feb 2004)
 	   - New plugin which recounts up to X lines of chat on demand. It's
 	     great for catching up on a conversation after joining.  The
 	     plugin is currently incomplete, but it is usable.
+	* plugins/currency.pl:
+	   - New plugin which does currency conversions when passed an amount
+	     and two currency abbreviations.
 
 Version 6.0 alpha: (11 Feb 2004)
 
