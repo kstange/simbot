@@ -701,6 +701,8 @@ sub build_records {
 			}
 		}
 
+		goto skiptosave if(!@sentence); # Yipes, a goto!
+
 		# Remove all characters that we don't like.  Right now we accept
 		# letters, numbers, international characters (ASCII), as well as:
 		# ', /, -, ., =, %, $, &, +, @
