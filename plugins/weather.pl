@@ -58,8 +58,10 @@ use POE::Component::Client::HTTP;
 use HTTP::Request::Common qw(GET POST);
 use HTTP::Status;
 
+use DBI;    # for sqlite database
+
 # declare globals
-use vars qw( %stationNames $session );
+use vars qw( $session $dbh );
 
 # These constants define the phrases simbot will use when responding
 # to weather requests.
@@ -78,8 +80,7 @@ use constant CANNOT_ACCESS => 'Sorry; I could not access NOAA.';
 # This method is run when SimBot is exiting. We save the station names
 # cache here.
 sub cleanup_wx {
-    &SimBot::debug(4, "weather: Closing station names cache...\n");
-    dbmclose(%stationNames);
+    $dbh->disconnect;
 }
 
 ### messup_wx
@@ -87,9 +88,42 @@ sub cleanup_wx {
 # cache here. We also start our own POE session so we can wait for NOAA
 # instead of giving up quickly so as to not block simbot
 sub messup_wx {
-    &SimBot::debug(3, "weather: Loading station names cache...\n");
-    dbmopen (%stationNames, 'metarStationNames', 0664) || &SimBot::debug(2, "weather: Could not open cache.  Names will not be stored for future sessions.\n");
+    # let's create our database
+    $dbh = DBI->connect('dbi:SQLite:dbname=caches/weather','','',
+        { RaiseError => 1, AutoCommit => 0 }) or die;
+        
+    # let's create the table. If this fails, we don't care, as it
+    # probably already exists
+    {
+        local $dbh->{RaiseError}; # let's not die on errors
+        local $dbh->{PrintError}; # and let's be quiet
+        
+        $dbh->do(<<EOT);
+CREATE TABLE stations (
+    id STRING UNIQUE,
+    name STRING,
+    state STRING,
+    country STRING,
+    latitude REAL,
+    longitude REAL,
+    url STRING
+);
 
+CREATE UNIQUE INDEX stationid
+    ON stations (id);
+EOT
+        # conditions will be cached in the database eventually
+        # add the conditions table here, and a trigger to delete
+        # cached conditions if the station is deleted.
+
+    }    
+
+    $dbh->commit;
+
+    POE::Component::Client::HTTP->spawn
+        ( Alias => 'wxua',
+          Timeout => 120,
+        );
     $session = POE::Session->create(
         inline_states => {
             _start          => \&bootstrap,
@@ -97,20 +131,24 @@ sub messup_wx {
             got_wx          => \&got_wx,
             got_xml         => \&got_xml,
             got_station_name => \&got_station_name,
+            got_station_list => \&got_station_list,
             shutdown        => \&shutdown,
         }
     );
-    POE::Component::Client::HTTP->spawn
-        ( Alias => 'wxua',
-          Timeout => 120,
-        );
     1;
 }
 
 sub bootstrap {
+    my $kernel = $_[KERNEL];
     # Let's set an alias so our session will hang around
     # instead of just leaving since it has nothing to do
-    $_[KERNEL]->alias_set('wx_session');
+    $kernel->alias_set('wx_session');
+    
+    # and let's go update our known stations list...
+    &SimBot::debug(3, "weather: Updating known stations...\n");
+    my $request = HTTP::Request->new(GET=>'http://www.nws.noaa.gov/data/current_obs/index.xml');
+    $kernel->post('wxua' => 'request', 'got_station_list',
+                $request);
 }
 
 ### do_wx
@@ -133,31 +171,31 @@ sub do_wx {
     }
 
     $station = uc($station);
-
-    # first off, is it a US station? If so, let's use the kick-ass
-    # XML report instead of the annoying METAR
-    # It is OK if this matches non-US sites, we'll figure that out
-    # when NOAA gives us a 404 and get the METAR instead.
-    # K... is the US,
-    # P... is Guam, Hawai'i, and Alaska
-    # T... is Puerto Rico and the Virgin Isl.
-    # NSTU is Pago Pago, American Samoa
-    if($station =~ m/^([KPT]...|NSTU)$/ && !$metar_only) {
-        &SimBot::debug(3, "weather: Appears to be a US station, using XML instead of METAR\n");
-        my $url = 'http://www.nws.noaa.gov/data/current_obs/'
-            . $station . '.xml';
+    
+    # Try to look up the station in the database.
+    # if it is there, check for a URL
+    # if there is no URL, it's metar, go do that
+    # if there is a URL, it's XML, go do that
+    # if it is not there, it's metar, go do that.
+    my $query = $dbh->prepare(
+        'SELECT name, url FROM stations'
+        . ' WHERE id = ?'
+    );
+    $query->execute($station);
+    my ($station_name, $url);
+    if((($station_name, $url) = $query->fetchrow_array)
+        && (defined $url)) {
         my $request = HTTP::Request->new(GET=>$url);
         $kernel->post('wxua' => 'request', 'got_xml',
-                $request, "$nick!$station");
+            $request, "$nick!$station");
         
-        # we're done here.
         return;
     }
-    
+
     # Damn, guess we need to parse METAR.
     
     # do we have a station name?
-    unless($stationNames{$station}) {
+    unless(defined $station_name) {
         &SimBot::debug(4,
             "weather: Station name not found, looking it up\n");
         my $url =
@@ -172,12 +210,71 @@ sub do_wx {
     }
     # we already have the station name... let's request the weather
 
-    my $url =
+    $url =
         'http://weather.noaa.gov/pub/data/observations/metar/stations/'
         . $station . '.TXT';
     my $request = HTTP::Request->new(GET=>$url);
     $kernel->post('wxua' => 'request', 'got_wx',
                             $request, "$nick!$station!$metar_only");
+}
+
+sub got_station_list {
+    my ($kernel, $request_packet, $response_packet)
+        = @_[KERNEL, ARG0, ARG1];
+        
+    my $response = $response_packet->[0];
+    
+    if($response->is_error) {
+        &SimBot::debug(3, "weather: Could not get station list!\n");
+        return;
+    }
+    my $xml;
+    if (!eval { $xml = XMLin($response->content, SuppressEmpty => 1); }) {
+		&SimBot::debug(3, "weather: XML parse error for stations list: $@\n");
+		return;
+    }
+    &SimBot::debug(3, "weather: Got station list.\n");
+    
+    my $update_station_query = $dbh->prepare(
+        'INSERT OR REPLACE INTO stations (id, name, state, country, latitude, longitude, url)'
+        . ' VALUES (?,?,?,?,?,?,?)');
+        
+    foreach my $cur_station (@{$xml->{'station'}}) {
+        no warnings qw( uninitialized );
+
+# NOAA seems to be inconsistant with how they represent
+# latitude and longitude. It appears to be degrees.minutes.seconds
+# but in some cases the number is X.Y . Is that X degrees, Y minutes,
+# and 0 seconds, or X.Y degrees?
+# I'll figure it out later... most stations just report NA anyway.
+#        my ($latitude, $dir)
+#            = $cur_station->{'latitude'}
+#              =~ m/([\d\.]+)([NS])/;
+#              
+#        if($dir eq 'S') {
+#            $latitude = $latitude * -1;
+#        }
+#        
+#        my $longitude;
+#        ($longitude, $dir)
+#            = $cur_station->{'longitude'}
+#              =~ m/([\d\.]+)([EW])/;
+#              
+#        if($dir eq 'W') {
+#            $longitude = $longitude * -1;
+#        }
+            
+        $update_station_query->execute(
+            $cur_station->{'station_id'},
+            $cur_station->{'station_name'},
+            $cur_station->{'state'},
+            'United States',
+            undef, #$latitude,
+            undef, #$longitude,
+            $cur_station->{'xml_url'}
+        );
+    }
+    $dbh->commit;
 }
 
 sub got_station_name {
@@ -198,9 +295,20 @@ sub got_station_name {
         my $state = ($1 eq $name ? undef : $1);
         $response->content =~ m|Country:.*?<B>(.*?)\s*</B>|s;
         my $country = $1;
-        $stationNames{$station} = "$name, "
-                                  . ($state ? "$state, " : "")
-                                  . "$country ($station)";
+        
+        my $update_station_query = $dbh->prepare(
+            'INSERT OR REPLACE INTO stations (id, name, state, country, latitude, longitude, url)'
+            . ' VALUES (?,?,?,?,?,?,?)');
+        $update_station_query->execute(
+            $station,
+            $name,
+            $state,
+            $country,
+            undef, #FIXME: lat
+            undef, #FIXME: long
+            undef # URL is undef for metar
+        );
+        $dbh->commit;
     }
     &SimBot::debug(4, "weather: Got station name for $station\n");
     # ok, now we have the station name... let's request the weather
@@ -243,13 +351,26 @@ sub got_wx {
     # METAR report. Let's strip it out.
     &SimBot::debug(4, "weather: METAR is " . $raw_metar . "\n");
 
+    my $station_name_query = $dbh->prepare(
+        'SELECT name, state, country FROM stations'
+        . ' WHERE id = ?');
+    $station_name_query->execute($station);
+    my $station_name;
+    if(my ($name, $state, $country)
+         = $station_name_query->fetchrow_array)
+    {
+        $station_name =
+            "${name}, "
+            . (defined $state ? "${state}, " : '')
+            . $country
+            . " (${station})";
+    } else {
+        $station_name = $station;
+    }
+    
     if($metar_only) {
         &SimBot::send_message(&SimBot::option('network', 'channel'),
-            "$nick: METAR report for "
-            . (defined $stationNames{$station}
-               ? $stationNames{$station}
-               : $station)
-            .  " is $raw_metar.");
+            "$nick: METAR report for $station_name is $raw_metar.");
         return;
     }
 
@@ -270,11 +391,7 @@ sub got_wx {
         # so we are probably not going to get anything useful out of
         # it.
         &SimBot::send_message(&SimBot::option('network', 'channel'),
-            "$nick: The METAR report for "
-                . (defined $stationNames{$station}
-                   ? $stationNames{$station}
-                   : $station) 
-                .  " didn't make any sense to me.  Try "
+            "$nick: The METAR report for $station_name didn't make any sense to me.  Try "
                 . &SimBot::option('global', 'command_prefix')
                 . "metar $station if you want to try parsing it yourself.");
         return;
@@ -284,9 +401,7 @@ sub got_wx {
 	my $time = "$2:$3";
 	my $day=$1;
 
-    my $reply = "As reported at $time GMT at " .
-		(defined $stationNames{$station} ? $stationNames{$station}
-		 : $station);
+    my $reply = "As reported at $time GMT at $station_name";
     my @reply_with;
 
     # There's no point in this exercise unless there's data in there
