@@ -286,7 +286,7 @@ POE::Component::IRC->new('bot');
 POE::Session->new
 	( _start           => \&make_connection,
 	  irc_disconnected => \&reconnect,
-	  irc_socketerr    => \&reconnect,
+	  irc_socketerr    => \&socket_error,
 	  irc_error        => \&server_error,     # server wants to yell at us.
 	  irc_433          => \&pick_new_nick,    # nickname in use
 	  irc_001          => \&server_connect,   # connected
@@ -1826,9 +1826,14 @@ sub quit {
 
 # SERVER_ERROR: The server's whining at us. We should listen.
 sub server_error {
-    &debug(1, $_[ARG0]);
+    &debug(1, "$_[ARG0]\n");
 }
 
+# SOCKET_ERROR: Spit out the error, then reconnect to IRC
+sub socket_error {
+    &debug(1, "$_[ARG0]\n");
+    &reconnect;
+}
 
 # RECONNECT: Reconnect to IRC when disconnected.
 sub reconnect {
