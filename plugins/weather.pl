@@ -41,28 +41,31 @@ sub get_wx {
 	my (undef, $raw_metar) = split(/\n/, $response->content);
 
 	# We can translate ID to Name! :)
-	my $url = 'http://weather.noaa.gov/cgi-bin/nsd_lookup.pl?station='
-	    . $station;
-	my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
-	$useragent->agent("$SimBot::project/1.0");
-	$useragent->timeout(5);
-	my $request = HTTP::Request->new(GET => $url);
-	my $response = $useragent->request($request);
-	my $station_name = $station;
-	if (!$response->is_error && $response->content !~ /The supplied value is invalid/ && $response->content !~ /No station matched the supplied identifier/) {
-	    $response->content =~ m|Station Name:.*?<B>(.*?)\s*</B>|s;
-	    my $name = $1;
-	    $response->content =~ m|State:.*?<B>(.*?)\s*</B>|s;
-	    my $state = ($1 eq $name ? undef : $1);
-	    $response->content =~ m|Country:.*?<B>(.*?)\s*</B>|s;
-	    my $country = $1;
-	    $station_name = "$name, " . ($state ? "$state, " : "")
-		. "$country ($station_name)";
-	}
+    unless($stationNames{$station}) {
+        SimBot::debug(3, "Station name not found, looking it up\n");
+    	my $url = 'http://weather.noaa.gov/cgi-bin/nsd_lookup.pl?station='
+    	    . $station;
+    	my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
+    	$useragent->agent("$SimBot::project/1.0");
+    	$useragent->timeout(5);          
+    	my $request = HTTP::Request->new(GET => $url);
+    	my $response = $useragent->request($request);
+#    	my $station_name = $station;     
+    	if (!$response->is_error && $response->content !~ /The supplied value is invalid/ && $response->content !~ /No station matched the supplied identifier/) {
+    	    $response->content =~ m|Station Name:.*?<B>(.*?)\s*</B>|s;
+    	    my $name = $1;               
+    	    $response->content =~ m|State:.*?<B>(.*?)\s*</B>|s;
+    	    my $state = ($1 eq $name ? undef : $1);
+    	    $response->content =~ m|Country:.*?<B>(.*?)\s*</B>|s;
+    	    my $country = $1;            
+    	    $stationNames{$station} = "$name, " . ($state ? "$state, " : "")
+    		. "$country ($station)";
+    	}
+    }
 
 	# If the user asked for a metar, we'll give it to them now!
 	if ($command =~ /^.metar$/) {
-	    $kernel->post(bot => privmsg => $channel, "$nick: METAR report for $station_name is $raw_metar.");
+	    $kernel->post(bot => privmsg => $channel, "$nick: METAR report for $stationNames{$station} is $raw_metar.");
 	    return;
 	}
 
@@ -79,7 +82,7 @@ sub get_wx {
 	# Let's form a response!
         $m->{date_time} =~ m/\d\d(\d\d)(\d\d)Z/;
         my $time = "$1:$2";
-	my $reply = "As reported at $time UTC at $station_name";
+	my $reply = "As reported at $time GMT at $stationNames{$station}";
 	my @reply_with;
 
 	# There's no point in this exercise unless there's data in there
@@ -158,6 +161,16 @@ sub get_wx {
     }
 }
 
+sub cleanup_wx {
+    SimBot::debug(3, "Saving station names\n");
+    dbmclose(%stationNames);
+}
+
+sub messup_wx {
+    SimBot::debug(3, "Loading station names...\n");
+    dbmopen (%stationNames, 'metarStationNames', 0664) || return 0;
+}
+
 package SimBot::plugin::metar;
 
 # GET_METAR: Asks the weather plugin to return the raw METAR report
@@ -170,7 +183,9 @@ SimBot::plugin_register(plugin_id   => "weather",
 			plugin_desc => "Gets a weather report for the given station.",
 			modules     => "Geo::METAR,LWP::UserAgent",
 
-			event_plugin_call => "get_wx",
+			event_plugin_call    => "get_wx",
+            event_plugin_load    => "messup_wx",
+			event_plugin_unload  => "cleanup_wx",
 			);
 
 SimBot::plugin_register(plugin_id   => "metar",
