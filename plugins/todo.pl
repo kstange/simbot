@@ -22,14 +22,13 @@ use strict;
 use warnings;
 
 our @todo = (
-			 "1) detect and remove orphaned and dead end words",
-			 "2) perform automatic database backups",
-			 "3) dalnet style services plugin",
-			 "4) ban KewlioMZX from reading the todo list :P",
+			 "1) perform automatic database backups",
+			 "2) dalnet style services plugin",
+			 "3) ban KewlioMZX from reading the todo list :P",
 			 "--- Increment version to 6.0 beta here ---",
-			 "5) Polish the documentation (what documentation?)",
-			 "6) Make sure the stuff in cvs isn't littered with our own stuff",
-			 "7) Crush evil bugs!",
+			 "4) Polish the documentation (what documentation?)",
+			 "5) Make sure the stuff in cvs isn't littered with our own stuff",
+			 "6) Crush evil bugs!",
 			 "--- Increment version to 6.0 final here ---",
 			 "- eventually recognize the possibility for joining 2+ channels",
 			 "- allow for media other than IRC (connection plugins)",

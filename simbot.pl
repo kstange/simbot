@@ -428,6 +428,8 @@ sub reload {
 # LOAD: This will load our rules.
 sub load {
 	my $rulefile = option('global', 'rules');
+	my ($lfound, $rfound);
+	my $deleted = 0;
     &debug(3, "Loading $rulefile... ");
     $loaded = 0;
     if(open(RULES, $rulefile)) {
@@ -441,6 +443,34 @@ sub load {
 		close(RULES);
 		&debug(3, "Rules loaded successfully!\n");
 		$loaded = 1;
+
+		&debug(3, "Checking for lost words... ");
+		foreach my $word (keys(%chat_words)) {
+			next if ($word =~ /^__[\!\?]?[A-Z]*$/);
+			$lfound = 0;
+			$rfound = 0;
+			foreach (keys(%{$chat_words{$word}})) {
+				# If we find out a word has any links to the right, we're good.
+				if (defined $chat_words{$word}{$_}[1] && $rfound == 0) {
+					$rfound = 1;
+				}
+				# If we find out a word has any links to the left, we're good.
+				if (defined $chat_words{$word}{$_}[0] && $lfound == 0) {
+					$lfound = 1;
+				}
+			}
+			if ($lfound == 0 || $rfound == 0) {
+				print "\n" if !$deleted;
+				$deleted = 1;
+				delete_word($word, 0);
+			}
+		}
+		if (!$deleted) {
+			&debug(3, "No lost words found!\n");
+		} else {
+			&debug(3, "All lost words removed successfully.\n");
+		}
+
     } elsif (!-e $rulefile) {
 		&debug(2, "File does not exist and will be created on save.\n");
 		$loaded = 1;
@@ -591,10 +621,10 @@ sub print_stats {
     }
 	&send_message($channel, "The most popular two word sequence (with more than 3 letters) is \"$wordpop\" which has been used $wordpopcount times.");
     if ($rcount > 0) {
-		&send_message($channel, "There are $rcount words that lead me to unexpected dead ends. They are: @rdeadwords");
+		&send_pieces($channel, "", "There are $rcount words that lead me to unexpected dead ends. They are: @rdeadwords");
     }
     if ($lcount > 0) {
-		&send_message($channel, "There are $lcount words that lead me to unexpected dead beginnings.  They are: @ldeadwords");
+		&send_pieces($channel, "", "There are $lcount words that lead me to unexpected dead beginnings.  They are: @ldeadwords");
     }
 }
 

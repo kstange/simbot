@@ -4,6 +4,9 @@ Version 6.0 alpha: (01 Mar 2004)
 	     join, part, and nick changes.
 	* simbot.pl:
 	   - Added an event for nick changes, since we needed it for recap.
+	   - Added a "lost word" check on startup.  This takes a little extra
+	     time, but it ensures that all words that aren't really usable
+	     are completely gone from the database.
 
 Version 6.0 alpha: (28 Feb 2004)
 	* plugins/rss.pl:
