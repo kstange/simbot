@@ -39,6 +39,7 @@ package SimBot::plugin::rss;
 
 use strict;
 use warnings;
+
 use XML::RSS;
 use HTML::Entities;
 use POE;
@@ -231,7 +232,8 @@ sub do_rss {
         }
         
         # if our cache is out of date, update it.
-        if($last_update + EXPIRE <= time) {
+        if(!defined $last_update
+            || $last_update + EXPIRE <= time) {
             unless(defined $done_initial_update) {
                 $id .= '!!-';
             }
@@ -406,6 +408,7 @@ sub announce_top {
 	
     while(my ($title, $url) = $get_top_headlines_query->fetchrow_array)
     {
+        Encode::_utf8_on($title);
         push(@posts, "$title  $url");
     }
     if(@posts) {
@@ -442,8 +445,9 @@ sub get_link_and_title {
     }
 
     $title = ($item->{'title'} ? $item->{'title'} : "");
+#    $title = Encode::decode_utf8($title);
     $title = HTML::Entities::decode($title);
-    $title = Encode::decode('utf8', $title);
+#    $title = Encode::decode('utf8', $title);
     $title =~ s/\t/  /g;
 
     return ($link, $title);
