@@ -45,7 +45,7 @@ no strict 'refs';
 
 # Variables we want to use without an explicit package name
 use vars qw( %conf %chat_words $chosen_nick $chosen_server $alarm_sched_60
-			 %plugin_desc );
+			 %plugin_desc %hostmask_cache);
 
 # Error Descriptions
 use constant ERROR_DESCRIPTIONS
@@ -257,6 +257,7 @@ POE::Session->new
 	  irc_433          => \&pick_new_nick,    # nickname in use
 	  irc_001          => \&server_connect,   # connected
 	  irc_303          => \&server_ison,      # check ison reply
+	  irc_352          => \&server_who,       # check who reply
 	  irc_nick         => \&server_nick_change,
 	  irc_msg          => \&private_message,
 	  irc_public       => \&channel_message,
@@ -305,18 +306,25 @@ sub pick {
 
 # HOSTMASK: Generates a 'type 3' hostmask from a nick!user@host address
 sub hostmask {
-    my ($nick, $user, $host) = split(/[@!]/, $_);
+    my ($nick, $user, $host) = split(/[@!]/, $_[0]);
 	if (!defined $user && !defined $host) {
-		# XXX: we need to try to lookup the user's hostmask here
-		$user = "*";
-		$host = "*";
-	} elsif ($host =~ /(\d{1,3}\.){3}\d{1,3}/) {
+		if (defined $hostmask_cache{$nick}) {
+			(undef, $user, $host) = split(/[@!]/, $hostmask_cache{$nick});
+		} else {
+			$user = "*";
+			$host = "*";
+		}
+	}
+
+	if ($host =~ /^(\d{1,3}\.){3}\d{1,3}$/) {
 		$host =~ s/(\.\d{1,3}){2}$/\.\*/;
-    } else {
+    } elsif ($host ne "*") {
 		$host =~ /^(.*)(\.\w*?\.[\w\.]{3,6})$/;
 		$host = "*$2";
     }
+
     $user =~ s/^~?/*/;
+	debug(4, "hostmask: returning type 3 hostmask: *!$user\@$host\n");
     return "*!$user\@$host";
 }
 
@@ -1340,6 +1348,14 @@ sub server_ison {
     }
 }
 
+# SERVER_WHO: Get the WHO command responses, which help us to keep track of
+# users' hostmasks.
+sub server_who {
+	my (undef, $user, $host, $server, $nick) = split(/ /, $_[ ARG1 ]);
+	$hostmask_cache{$nick} = "$nick!$user\@$host";
+	&debug(4, "Caching hostmask for $nick (" . $hostmask_cache{$nick} . ")\n");
+}
+
 # PROCESS_PING: Handle ping requests to the bot.
 sub process_ping {
     my ($nick) = split(/!/, $_[ARG0]);
@@ -1514,6 +1530,8 @@ sub channel_kick {
 		&debug(2, "Kicked from $chan... Attempting to rejoin!\n");
 		$kernel->post(bot => join => $chan);
     }
+	&debug(4, "Uncaching hostmask for $nick (" . $hostmask_cache{$nick} . ")\n");
+	delete $hostmask_cache{$nick};
 
     foreach(keys(%event_channel_kick)) {
 		&plugin_callback($_, $event_channel_kick{$_}, ($nick, $chan, 'KICKED', $reason, $kicker));
@@ -1542,15 +1560,19 @@ sub channel_nojoin {
 
 # CHANNEL_JOIN: Allow plugins to take actions on successful join attempt.
 sub channel_join {
-    my ($nick) = split(/!/, $_[ ARG0 ]);
+	my $hostmask = $_[ ARG0 ];
+    my ($nick) = split(/!/, $hostmask);
     my $chan = $_[ ARG1 ];
     if ($nick eq $chosen_nick) {
 		&debug(3, "Successfully joined $chan.\n");
+		$kernel->post(bot => who => $chan);
 		foreach(keys(%event_channel_mejoin)) {
 			&plugin_callback($_, $event_channel_mejoin{$_}, ($nick, $chan, 'JOINED'));
 		}
     } else {
 		&debug(4, "$nick has joined $chan.\n");
+		$hostmask_cache{$nick} = $hostmask;
+		&debug(4, "Caching hostmask for $nick (" . $hostmask_cache{$nick} . ")\n");
 		foreach(keys(%event_channel_join)) {
 			&plugin_callback($_, $event_channel_join{$_}, ($nick, $chan, 'JOINED'));
 		}
@@ -1563,6 +1585,8 @@ sub channel_part {
     my ($chan, $message) = split(/ :/, $_[ ARG1 ], 2);
     &debug(4, "$nick has parted $chan."
 		   . (defined $message ? " ($message)" : "") . "\n");
+	&debug(4, "Uncaching hostmask for $nick (" . $hostmask_cache{$nick} . ")\n");
+	delete $hostmask_cache{$nick};
     foreach(keys(%event_channel_part)) {
 		&plugin_callback($_, $event_channel_part{$_}, ($nick, $chan, 'PARTED', $message));
     }
@@ -1574,6 +1598,8 @@ sub channel_quit {
     my ($nick) = split(/!/, $_[ ARG0 ]);
     &debug(4, "$nick has quit IRC."
 		   . (defined $message ? " ($message)" : "") . "\n");
+	&debug(4, "Uncaching hostmask for $nick (" . $hostmask_cache{$nick} . ")\n");
+	delete $hostmask_cache{$nick};
     foreach(keys(%event_channel_quit)) {
 		&plugin_callback($_, $event_channel_quit{$_}, ($nick, undef, 'QUIT', $message));
     }
