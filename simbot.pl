@@ -32,7 +32,8 @@ use warnings;
 use strict;
 no strict 'refs';
 
-use vars qw( %conf %chat_words $chosen_nick $chosen_server $POE_SESSION );
+use vars qw( %conf %chat_words $chosen_nick $chosen_server $POE_SESSION
+			 $alarm_sched_60 );
 
 # Load the configuration file into memory.
 open(CONFIG, "./config.ini") || die("Your configuration file (config.ini) is missing.");
@@ -193,7 +194,6 @@ our %event_private_notice_out  = (); # eventname = NOTICE (text)
 # Server events get params:
 #  (kernel, server, nickname, params)
 our %event_server_connect  = (); # ()
-our %event_server_ping     = (); # ()
 our %event_server_ison     = (); # (nicks list...)
 
 ### Function Queries ###
@@ -258,7 +258,6 @@ POE::Session->new
 	  irc_socketerr    => \&reconnect,
 	  irc_433          => \&pick_new_nick,    # nickname in use
 	  irc_001          => \&server_connect,   # connected
-	  irc_ping         => \&server_ping,      # we can use this as a timer
 	  irc_303          => \&server_ison,      # check ison reply
 	  irc_msg          => \&private_message,
 	  irc_public       => \&channel_message,
@@ -281,6 +280,7 @@ POE::Session->new
 	  irc_ctcp_finger  => \&process_finger,
 	  irc_ctcp_ping    => \&process_ping,
 	  
+	  scheduler_60     => \&run_scheduler_60, # run events every 60 seconds
 	  cont_send_pieces => \&cont_send_pieces,
 	  quit_session     => \&quit_session,
 	  );
@@ -1006,10 +1006,10 @@ sub cont_send_pieces {
             unshift(@words, $nextWord);
             if(length($line) + length($curWord) <= 440) {
                 $line .= ' ' . $curWord;
-                $kernel->yield('cont_send_pieces', $dest, $prefix,
+                $kernel->delay('cont_send_pieces', .5, $dest, $prefix,
                                join(' ', @words));
             } else {
-                $kernel->yield('cont_send_pieces', $dest, $prefix,
+                $kernel->delay('cont_send_pieces', .5, $dest, $prefix,
                                ("$curWord\n" . join(' ', @words)));
             }
             last;
@@ -1020,7 +1020,7 @@ sub cont_send_pieces {
             # tell POE to run cont_send_pieces again with the remaining
             # words.
             unshift(@words, $curWord);
-            $kernel->yield('cont_send_pieces', $dest, $prefix,
+            $kernel->delay('cont_send_pieces', .5, $dest, $prefix,
                             join(' ', @words));
             last;
         }
@@ -1034,6 +1034,10 @@ sub cont_send_pieces {
 # log the bot into channel services.
 sub server_connect {
 	my $channel = option('network', 'channel');
+
+	# Start the 60 second scheduler
+	$alarm_sched_60 = $kernel->delay_set('scheduler_60', 60);
+
     &debug(3, "Setting invisible user mode...\n");
     $kernel->post(bot => mode => $chosen_nick, "+i");
     foreach(keys(%event_server_connect)) {
@@ -1043,13 +1047,11 @@ sub server_connect {
     $kernel->post(bot => join => $channel);
 }
 
-# SERVER_PING: Allow for certain processes to be run on a regular IRC event,
-# the ping event.
-sub server_ping {
-    foreach(keys(%event_server_ping)) {
-		&plugin_callback($_, $event_server_ping{$_}, ($chosen_server, $chosen_nick));
-    }
+# RUN_SCHEDULER_60: Runs events every 60 seconds.
+sub run_scheduler_60 {
+	my $kernel = $_[ KERNEL ];
     $kernel->post(bot => ison => @list_nicks_ison);
+	$alarm_sched_60 = $kernel->delay_set('scheduler_60', 60);
 }
 
 # SERVER_ISON: Process the ISON reply from the server.  We'll use this to
@@ -1082,10 +1084,11 @@ sub process_ping {
     my ($nick) = split(/!/, $_[ARG0]);
     my $text = $_[ ARG2 ];
     &debug(3, "Received ping request from " . $nick . ".\n");
-    $kernel->post(bot => ctcpreply => $nick, 'PING ' . $text);
+	# We want this reply to be delivered with some urgency.
+    $kernel->call(bot => ctcpreply => $nick, 'PING ' . $text);
 }
 
-# PROCESS_FINGER: Handle ping requests to the bot.
+# PROCESS_FINGER: Handle finger requests to the bot.
 sub process_finger {
     my ($nick) = split(/!/, $_[ARG0]);
     my $reply = "I have no fingers.  Please try again.";
@@ -1093,7 +1096,7 @@ sub process_finger {
     $kernel->post(bot => ctcpreply => $nick, 'FINGER ' . $reply);
 }
 
-# PROCESS_TIME: Handle ping requests to the bot.
+# PROCESS_TIME: Handle time requests to the bot.
 sub process_time {
     my ($nick) = split(/!/, $_[ARG0]);
     my $reply = localtime(time);
@@ -1101,7 +1104,7 @@ sub process_time {
     $kernel->post(bot => ctcpreply => $nick, 'TIME ' . $reply);
 }
 
-# PROCESS_VERSION: Handle ping requests to the bot.
+# PROCESS_VERSION: Handle version requests to the bot.
 sub process_version {
     my ($nick) = split(/!/, $_[ARG0]);
     my $reply = `uname -s -r -m`;
@@ -1400,6 +1403,7 @@ sub quit {
 
 # RECONNECT: Reconnect to IRC when disconnected.
 sub reconnect {
+	$kernel->alarm_remove($alarm_sched_60);
     if ($terminating >= 1) {
 		&debug(2, "Disconnected!\n");
 		$kernel->post(bot => unregister => "all");
