@@ -33,7 +33,7 @@ sub get_wx {
     SimBot::debug(3, 'Received weather command from ' . $nick .
 	   " for $station\n");
     my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
-    $useragent->agent("$project/1.0");
+    $useragent->agent("$SimBot::project/1.0");
     $useragent->timeout(5);
     my $request = HTTP::Request->new(GET => $url);
     my $response = $useragent->request($request);
@@ -47,46 +47,97 @@ sub get_wx {
         SimBot::debug(3, "METAR is " . $raw_metar . "\n");
 	$m->metar($raw_metar);
 
+	# We can translate ID to Name! :)
+	my $url = 'http://weather.noaa.gov/cgi-bin/nsd_lookup.pl?station='
+	    . $station;
+	my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
+	$useragent->agent("$SimBot::project/1.0");
+	$useragent->timeout(5);
+	my $request = HTTP::Request->new(GET => $url);
+	my $response = $useragent->request($request);
+
+	my $station_name = $station;
+	if (!$response->is_error) {
+	    $response->content =~ m|Station Name:.*?<B>(.*?)\s*</B>|s;
+	    my $name = $1;
+	    $response->content =~ m|State:.*?<B>(.*?)\s*</B>|s;
+	    my $state = ($1 eq $name ? undef : $1);
+	    $response->content =~ m|Country:.*?<B>(.*?)\s*</B>|s;
+	    my $country = $1;
+	    $station_name = "$name, " . ($state ? "$state, " : "")
+		. "$country ($station_name)";
+	}
+
 	# Let's form a response!
         $m->{date_time} =~ m/\d\d(\d\d)(\d\d)Z/;
         my $time = "$1:$2";
-	my $reply = "As reported at $time UTC at $station it is ";
+	my $reply = "As reported at $time UTC at $station_name";
 	my @reply_with;
-	$reply .= $m->TEMP_F . '°F (' . int($m->TEMP_C) . '°C) ' if defined $m->TEMP_F;
 
-        if($m->TEMP_F <= 40 && $m->WIND_MPH > 5) {
-            my $windchill = 35.74 + (0.6215 * $m->TEMP_F)
-                - 35.75 * ($m->WIND_MPH ** 0.16)
-                + 0.4275 * $m->TEMP_F * ($m->WIND_MPH ** 0.16);
-            my $windchill_c = ($windchill - 32) * (5/9);
-            push(@reply_with, sprintf('a wind chill of %.1f°F (%.1f°C)', $windchill, $windchill_c));
-        }
+	# There's no point in this exercise unless there's data in there
+	if ($raw_metar =~ /NIL$/) {
+	    $reply .= " there is no data available";
+	} else {
+	    # Temperature and related details *only* if we have a temperature!
+	    if (defined $m->TEMP_C || $raw_metar =~ m|(M?\d\d)/|) {
+		# We have a temp, "it is"
+		$reply .= " it is ";
 
-        my $humidity = 100 * ( ( (112 - (0.1 * $m->TEMP_C) + $m->C_DEW) /
-                                 (112 + (0.9 * $m->TEMP_C)) ) ** 8 );
-        push(@reply_with, sprintf('%d', $humidity) . '% humidity');
+		# This nonsense checks to see if we have a temperature in the
+		# report that Geo::METAR is too stupid to see.
+		my $temp_c = (defined $m->TEMP_C ? $m->TEMP_C : $1);
+		$temp_c =~ s/M/-/;
+		my $temp_f = (defined $m->TEMP_F ? $m->TEMP_F : (9/5)*$temp_c+32);
 
-	if($m->WIND_MPH) {
-	    my $tmp = int($m->WIND_MPH) . ' mph winds';
-            $tmp .= ' from the ' . $m->WIND_DIR_ENG if defined $m->WIND_DIR_ENG;
-	    push(@reply_with, $tmp);
-	}
+		my $temp = $temp_f . '°F (' . int($temp_c) . '°C)';
+		push(@reply_with, $temp);
 
-        push(@reply_with, @{$m->WEATHER});
-        my @sky = @{$m->SKY};
+		if($temp_f <= 40 && $m->WIND_MPH > 5) {
+		    my $windchill = 35.74 + (0.6215 * $temp_f)
+			- 35.75 * ($m->WIND_MPH ** 0.16)
+			+ 0.4275 * $temp_f * ($m->WIND_MPH ** 0.16);
+		    my $windchill_c = ($windchill - 32) * (5/9);
+		    push(@reply_with, sprintf('a wind chill of %.1f°F (%.1f°C)', $windchill, $windchill_c));
+		}
+
+		# Humidity, only if we have a dewpoint!
+		if (defined $m->C_DEW) {
+		    my $humidity = 100 * ( ( (112 - (0.1 * $temp_c) + $m->C_DEW)
+					     / (112 + (0.9 * $temp_c)) ) ** 8 );
+		    push(@reply_with, sprintf('%d', $humidity) . '% humidity');
+		}
+	    } else {
+		# We have no temp, "there are" (winds|skies)
+		$reply .= " there are ";
+	    }
+
+	    if($m->WIND_MPH) {
+		my $tmp = int($m->WIND_MPH) . ' mph';
+		if ($m->WIND_DIR_ENG) {
+		    $tmp .= ' winds from the ' . $m->WIND_DIR_ENG;
+		} else {
+		    $tmp .= ' variable winds';
+		}
+		push(@reply_with, $tmp);
+	    }
+
+	    push(@reply_with, @{$m->WEATHER});
+	    my @sky = @{$m->SKY};
 # Geo::METAR returns sky conditions that can't be plugged into sentences nicely
 # let's clean them up.
-        for(my $x=0;$x<=$#sky;$x++) {
-            $sky[$x] = lc($sky[$x]);
-            $sky[$x] =~ s/solid overcast/overcast/;
-            $sky[$x] =~ s/sky clear/clear skies/;
+	    for(my $x=0;$x<=$#sky;$x++) {
+		$sky[$x] = lc($sky[$x]);
+		$sky[$x] =~ s/solid overcast/overcast/;
+		$sky[$x] =~ s/sky clear/clear skies/;
 
-            $sky[$x] =~ s/(broken|few|scattered) at/$1 clouds at/;
-        }
+		$sky[$x] =~ s/(broken|few|scattered) at/$1 clouds at/;
+	    }
 
-        push(@reply_with, @sky);
+	    push(@reply_with, @sky);
 
-        $reply .= "with " . join(', ', @reply_with) if @reply_with;
+	    $reply .= shift(@reply_with);
+	    $reply .= " with " . join(', ', @reply_with) if @reply_with;
+	}
         $reply .= '.';
 
 	$kernel->post(bot => privmsg => $channel, "$nick: $reply");

@@ -1,6 +1,19 @@
+Version 6.0 alpha: (15 Dec 2003)
+
+	* plugins/weather.pl:
+	   - Added support for fetching station names, if available.
+	   - We also now work around the fact that Geo::METAR is unable to
+	     see a temperature report when there's no dewpoint.
+	   - We deal with the possible case that there's no temperature in the
+	     report in a way that makes some amount of grammatical sense.
+	   - We also deal with variable winds (if there's no english name and
+	     there is a windspeed, it's got to be variable).
+	   - We deal slight chance that the METAR report is coming up as NIL,
+	     because Geo:METAR assumes that to be a windspeed.
+
 Version 6.0 alpha: (14 Dec 2003)
 
-	* added: google plugin now supports define: queries
+	* plugins/google.pl: google plugin now supports define: queries
 
 Version 6.0 alpha: (12 Dec 2003)
 	* added: plugins are now out on their own with a partial implementation
