@@ -1,0 +1,47 @@
+================================================
+SimBot Installation
+================================================
+
+SimBot itself requires no compilation of software.  The perl script
+comes ready to run with only minor changes to the config.pl file.
+
+You should copy the config.default.pl file to config.pl and customize
+the copy.  Keep the file in the same directory where you have the
+simbot.pl script installed.  The installation directory is completely
+up to you and is mostly irrelevant.
+
+You need the following Perl modules installed before SimBot will
+function correctly:
+
+	POE::Component::IRC
+	libwwwperl (LWP)
+
+This, of course, requires that you have Perl installed.
+
+Both of these modules are available in the CPAN repository, so you
+can install them in most Perl installations by running:
+
+	perl -MCPAN -e shell;
+
+This will take you into the Perl module installation tool.  To
+install the most recent version of each module, type:
+
+	install POE::Component::IRC LWP
+
+CPAN will do what it needs to install the necessary package and
+you'll be on your way.  If you are unsure how to answer the
+questions it asks, it is generally safe to accept the defaults,
+which are indicated in square brackets after the question, and
+can be accepted by pressing Enter.
+
+Once you have installed the script and customized the configuration
+to your liking, cd to the proper directory and start the bot using
+the command:
+
+	perl ./simbot.pl
+
+Or set the script executable and run it:
+
+	./simbot.pl
+
+
