@@ -823,10 +823,10 @@ sub channel_message {
 	if ($event_plugin_call{$cmd}) {
 	    &plugin_callback($cmd, $event_plugin_call{$cmd}, ($nick, $channel, @command));
 	} else {
-		if(@command =~ m/[a-z]/) {
+		if($cmd =~ m/[a-z]/) {
 			$kernel->post(bot => privmsg => $channel, "Hmm... @command isn't supported. Try \%help");
 		}
-		# otherwise, command has no letters in it, and therefore was probably a smile %-)
+		# otherwise, command has no letters in it, and therefore was probably a smile %-) (a very odd smile, sure, but whatever)
 	}
     } elsif ($text =~ /^hi,*\s+($alttag|$nickname)[!\.\?]*/i) {
 	&debug(3, "Greeting " . $nick . "...\n");
