@@ -1,3 +1,11 @@
+Version 6.0 alpha: (10 Jul 2004)
+	* rss.pl:
+	   - Settings are now in config.ini instead of hard coded in the
+	     script. Finally.
+	* info.pl:
+	   - We now honor snooze, the info plugin shouldn't learn or respond
+	     when SimBot is snoozing unless addressed.
+
 Version 6.0 alpha: (09 Jul 2004)
 	* simbot.pl:
 	   - Added a means to override standard IRC commands like kick, op,
