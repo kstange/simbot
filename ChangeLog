@@ -1,10 +1,17 @@
 Version 6.0 alpha: (10 Jul 2004)
-	* rss.pl:
+	* simbot.pl:
+	   - SimBot now caches hostmasks for users when they enter the channel
+	     and uncaches them when they leave.
+	   - The hostmask utility function should now work for nicknames, as
+	     well as actual hostmasks.
+	* plugins/rss.pl:
 	   - Settings are now in config.ini instead of hard coded in the
 	     script. Finally.
-	* info.pl:
+	* plugins/info.pl:
 	   - We now honor snooze, the info plugin shouldn't learn or respond
 	     when SimBot is snoozing unless addressed.
+	* plugins/services.undernet.pl:
+	   - Bans are now passed to Channel Service.
 
 Version 6.0 alpha: (09 Jul 2004)
 	* simbot.pl:

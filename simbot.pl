@@ -308,12 +308,17 @@ sub pick {
 sub hostmask {
     my ($nick, $user, $host) = split(/[@!]/, $_[0]);
 	if (!defined $user && !defined $host) {
-		if (defined $hostmask_cache{$nick}) {
-			(undef, $user, $host) = split(/[@!]/, $hostmask_cache{$nick});
+		if (defined &get_hostmask($nick)) {
+			(undef, $user, $host) = split(/[@!]/, &get_hostmask($nick));
 		} else {
 			$user = "*";
 			$host = "*";
 		}
+	}
+
+	if ($user ne "*") {
+		$nick = "*";
+		$user =~ s/^~?/*/;
 	}
 
 	if ($host =~ /^(\d{1,3}\.){3}\d{1,3}$/) {
@@ -323,9 +328,24 @@ sub hostmask {
 		$host = "*$2";
     }
 
-    $user =~ s/^~?/*/;
-	debug(4, "hostmask: returning type 3 hostmask: *!$user\@$host\n");
-    return "*!$user\@$host";
+	debug(4, "hostmask: returning type 3 hostmask: $nick!$user\@$host\n");
+    return "$nick!$user\@$host";
+}
+
+# SET_HOSTMASK: Caches a new hostmask for a nickname
+sub set_hostmask {
+	my ($nick, $mask) = @_;
+	if (defined $mask) {
+		$hostmask_cache{lc($nick)} = $mask;
+	} else {
+		delete $hostmask_cache{lc($nick)};
+	}
+}
+
+# GET_HOSTMASK: Returns the hostmask for a nickname
+sub get_hostmask {
+	my $nick = lc($_[0]);
+	return (defined $hostmask_cache{$nick} ? $hostmask_cache{$nick} : undef);
 }
 
 # PARSE_style: Parses a string for color codes
@@ -1352,8 +1372,8 @@ sub server_ison {
 # users' hostmasks.
 sub server_who {
 	my (undef, $user, $host, $server, $nick) = split(/ /, $_[ ARG1 ]);
-	$hostmask_cache{$nick} = "$nick!$user\@$host";
-	&debug(4, "Caching hostmask for $nick (" . $hostmask_cache{$nick} . ")\n");
+	&set_hostmask($nick, "$nick!$user\@$host");
+	&debug(4, "Caching hostmask for $nick (" . &get_hostmask($nick) . ")\n");
 }
 
 # PROCESS_PING: Handle ping requests to the bot.
@@ -1530,8 +1550,8 @@ sub channel_kick {
 		&debug(2, "Kicked from $chan... Attempting to rejoin!\n");
 		$kernel->post(bot => join => $chan);
     }
-	&debug(4, "Uncaching hostmask for $nick (" . $hostmask_cache{$nick} . ")\n");
-	delete $hostmask_cache{$nick};
+	&debug(4, "Uncaching hostmask for $nick (" . &get_hostmask($nick) . ")\n");
+	&set_hostmask($nick, undef);
 
     foreach(keys(%event_channel_kick)) {
 		&plugin_callback($_, $event_channel_kick{$_}, ($nick, $chan, 'KICKED', $reason, $kicker));
@@ -1560,9 +1580,10 @@ sub channel_nojoin {
 
 # CHANNEL_JOIN: Allow plugins to take actions on successful join attempt.
 sub channel_join {
-	my $hostmask = $_[ ARG0 ];
-    my ($nick) = split(/!/, $hostmask);
+    my ($nick) = split(/!/, $_[ ARG0 ]);
+	&set_hostmask($nick, $_[ ARG0 ]);
     my $chan = $_[ ARG1 ];
+
     if ($nick eq $chosen_nick) {
 		&debug(3, "Successfully joined $chan.\n");
 		$kernel->post(bot => who => $chan);
@@ -1571,12 +1592,12 @@ sub channel_join {
 		}
     } else {
 		&debug(4, "$nick has joined $chan.\n");
-		$hostmask_cache{$nick} = $hostmask;
-		&debug(4, "Caching hostmask for $nick (" . $hostmask_cache{$nick} . ")\n");
 		foreach(keys(%event_channel_join)) {
 			&plugin_callback($_, $event_channel_join{$_}, ($nick, $chan, 'JOINED'));
 		}
     }
+
+	&debug(4, "Caching hostmask for $nick (" . &get_hostmask($nick) . ")\n");
 }
 
 # CHANNEL_PART: Allow plugins to take actions when a user parts the channel.
@@ -1585,8 +1606,8 @@ sub channel_part {
     my ($chan, $message) = split(/ :/, $_[ ARG1 ], 2);
     &debug(4, "$nick has parted $chan."
 		   . (defined $message ? " ($message)" : "") . "\n");
-	&debug(4, "Uncaching hostmask for $nick (" . $hostmask_cache{$nick} . ")\n");
-	delete $hostmask_cache{$nick};
+	&debug(4, "Uncaching hostmask for $nick (" . &get_hostmask($nick) . ")\n");
+	&set_hostmask($nick, undef);
     foreach(keys(%event_channel_part)) {
 		&plugin_callback($_, $event_channel_part{$_}, ($nick, $chan, 'PARTED', $message));
     }
@@ -1598,8 +1619,8 @@ sub channel_quit {
     my ($nick) = split(/!/, $_[ ARG0 ]);
     &debug(4, "$nick has quit IRC."
 		   . (defined $message ? " ($message)" : "") . "\n");
-	&debug(4, "Uncaching hostmask for $nick (" . $hostmask_cache{$nick} . ")\n");
-	delete $hostmask_cache{$nick};
+	&debug(4, "Uncaching hostmask for $nick (" . &get_hostmask($nick) . ")\n");
+	&set_hostmask($nick, undef);
     foreach(keys(%event_channel_quit)) {
 		&plugin_callback($_, $event_channel_quit{$_}, ($nick, undef, 'QUIT', $message));
     }

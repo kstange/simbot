@@ -75,7 +75,7 @@ sub check_response {
 			$x_online = 1;
 			&services_login($kernel);
 		} else {
-			&SimBot::debug(4, "Channel Service message: $text\n");
+			&SimBot::debug(3, "Channel Service message: $text\n");
 		}
     }
 }
@@ -133,10 +133,30 @@ sub process_notify {
     $x_online = $found;
 }
 
+# KICK_USER: Kicks a user through Channel Service.
 sub kick_user {
     my (undef, $channel, $user, $message) = @_;
 	&SimBot::debug(3, "Asking Channel Service to kick $user from $channel ($message)...\n");
 	&SimBot::send_message("x", "kick $channel $user $message");
+}
+
+# BAN_USER: Kickbans a user through Channel Service.
+sub ban_user {
+    my (undef, $channel, $user, $time, $message) = @_;
+	my $hours = int($time / 3600);
+	&SimBot::debug(3, "Asking Channel Service to ban $user (" .
+				   &SimBot::hostmask($user) .
+				   ") from $channel ($message)...\n");
+	&SimBot::send_message("x", "ban $channel " . &SimBot::hostmask($user) . " $hours 75 $message");
+}
+
+# UNBAN_USER: Unbans a user through Channel Service.
+sub unban_user {
+    my (undef, $channel, $user, $message) = @_;
+	&SimBot::debug(3, "Asking Channel Service to unban $user (" .
+				   &SimBot::hostmask($user) .
+				   ") from $channel...\n");
+	&SimBot::send_message("x", "unban $channel " . &SimBot::hostmask($user));
 }
 
 # Register Plugin
@@ -152,5 +172,7 @@ sub kick_user {
 			);
 
 # Override Default Command Operations
-$SimBot::commands{kick} = \&kick_user;
+$SimBot::commands{kick}  = \&kick_user;
+$SimBot::commands{ban}   = \&ban_user;
+$SimBot::commands{unban} = \&unban_user;
 
