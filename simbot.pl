@@ -540,7 +540,7 @@ sub get_wx {
     if(length($station) != 4) {
 	# Whine and bail
 	$kernel->post(bot => privmsg => $channel,
-               "$nick: That doesn't look like a METAR station. You can look up station IDs at <http://www.nws.noaa.gov/tg/siteloc.shtml>.");
+               "$nick: " . ($station ? "That doesn't look like a METAR station. " : 'Please provide a METAR station ID. ') . 'You can look up station IDs at <http://www.nws.noaa.gov/tg/siteloc.shtml>.');
 	return;
     }
     $station = uc($station);
