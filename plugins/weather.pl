@@ -134,7 +134,9 @@ sub get_wx {
     # Geo::METAR has issues not ignoring the remarks section of the
     # METAR report. Let's strip it out.
     &SimBot::debug(3, "METAR is " . $raw_metar . "\n");
-    $raw_metar =~ s/^(.*?) RMK .*$/$1/;
+    my $remarks;
+    ($raw_metar, undef, $remarks) = $raw_metar =~ m/^(.*?)( RMK (.*))?$/;
+#    $raw_metar =~ s/^(.*?) RMK .*$/$1/;
     $raw_metar =~ s|/////KT|00000KT|;
     &SimBot::debug(3, "Reduced METAR is " . $raw_metar . "\n");
 
@@ -228,6 +230,65 @@ sub get_wx {
         }
 
         push(@reply_with, @sky);
+        
+        if($remarks) {
+            if($remarks =~ m/(TORNADO|FUNNEL CLOUD|WATERSPOUT)( (B|E(\d\d)?\d\d))?( (\d+) (N|NE|E|SE|S|SW|W|NW))?/) {
+                my ($cond, $dist, $dir) = ($1, $5, $6);
+                $cond = lc($cond);
+                
+                my $rmk = $cond;
+                if($dist) { $rmk .= " $dist mi to the $dir"; }
+                
+                push(@reply_with, $rmk);
+            }
+            
+            if($remarks =~ m/((OCNL|FRQ|CONS) )?LTG(CG|IC|CC|CA)*( (OHD|VC|DSNT))?( (N|NE|E|SE|S|SW|W|NW))?/) {
+                my ($freq, $loc, $dir) = ($2, $5, $7);
+                my $rmk;
+                
+                if(defined $freq) {
+                    $freq =~ s{OCNL}{occasional};
+                    $freq =~ s{FRQ} {frequent};
+                    $freq =~ s{CONS}{continuous};
+                    $rmk = "$freq ";
+                }
+                
+                if(defined $loc && $loc =~ m/DSNT/)
+                    { $rmk .= 'distant '; }
+                    
+                $rmk .= 'lightning';
+                
+                if(defined $loc) {
+                    $loc =~ s{OHD} {overhead};
+                    $loc =~ s{VC}  {in the vicinity};
+                    
+                    $rmk .= " $loc";
+                }
+                
+                if(defined $dir)
+                    { $rmk .= " to the $dir"; }
+                
+                push(@reply_with, $rmk);
+            }
+        
+            if($remarks =~ m/TS (N|NE|E|SE|S|SW|W|NW)( MOV (N|NE|E|SE|S|SW|W|NW))?/) {
+                my $rmk = "thunderstorm to the $1";
+                if(defined $3)
+                    { $rmk .= " moving $3"; }
+                push(@reply_with, $rmk);
+            }
+            
+            if($remarks =~ m/PRES(R|F)R/) {
+                push(@reply_with, 'pressure '
+                    . ($1 eq 'R' ? 'rising' : 'falling')
+                    . ' rapidly');
+            }
+            
+            if($remarks =~ m|SNINCR (\d+)/(\d+)|) {
+                push(@reply_with,
+                    qq[snow increasing rapidly ($1" in last hr)]);
+            }
+        }
 
         $reply .= shift(@reply_with);
         $reply .= ' with ' . join(', ', @reply_with) if @reply_with;
