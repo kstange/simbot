@@ -1,43 +1,43 @@
-Version 6.0 alpha: (04 Dec 2004)
-   * plugins/sqlite-logger.pl:
-      - New plugin! Logs all chat to a SQLite database. Supports
-        %log recap and %log seen commands. Recap is intelligent, only
-        recaps what you actually missed. Seen supports the special
-        phrase 'before that' to look for the previous match. You can
-        also provide one or more of say, action, join, part, quit, kick,
-        mode, topic after the nickname to look up to limit to those
-        events. recap and seen should eventually replace the %recap and
-        %seen plugins.
+Version 1.0 alpha: (04 Dec 2004)
+	* plugins/sqlite-logger.pl:
+	  - New plugin! Logs all chat to a SQLite database. Supports
+	    %log recap and %log seen commands. Recap is intelligent, only
+	    recaps what you actually missed. Seen supports the special
+	    phrase 'before that' to look for the previous match. You can
+	    also provide one or more of say, action, join, part, quit, kick,
+	    mode, topic after the nickname to look up to limit to those
+	    events. recap and seen should eventually replace the %recap and
+	    %seen plugins.
 
-Version 6.0 alpha: (28 Nov 2004)
+Version 1.0 alpha: (28 Nov 2004)
 	* plugins/tinyurl.pl:
 	  - New plugin! Looks for TinyURLs in chat, and announces where
 	    they point. No more stealth afiliate links!
 
-Version 6.0 alpha: (02 Nov 2004)
+Version 1.0 alpha: (02 Nov 2004)
 	* plugins/rss.pl:
 	  - We now trap XML parse errors so that we don't crash if the parsing
 	    of a feed fails completely.
 
-Version 6.0 alpha: (20 Oct 2004)
+Version 1.0 alpha: (20 Oct 2004)
 	* simbot.pl:
 	  - Added the ability to connect on non-standard ports.
 	* plugins/rss.pl:
 	  - Added complaining and bailing if the RSS feed cannot be written
 	    to disk.
 
-Version 6.0 alpha: (05 Sep 2004)
+Version 1.0 alpha: (05 Sep 2004)
 	* simbot.pl:
 	  - Added command line options --debug and --config to override the
 	    default configuration file and debug level for the session.
 	  - Added ANSI colors to output messages.
 
-Version 6.0 alpha: (31 Jul 2004)
+Version 1.0 alpha: (31 Jul 2004)
 	* plugins/dice.pl:
 	  - Added a %rps command, which makes the bot play the Rock, Paper,
 	    Scissors games.
 
-Version 6.0 alpha: (26 Jul 2004)
+Version 1.0 alpha: (26 Jul 2004)
 	* simbot.pl:
 	  - Added send_pieces_with_notice to allow large blocks of text to be
 	    broken up and sent by notice instead of normal messages.
@@ -54,7 +54,7 @@ Version 6.0 alpha: (26 Jul 2004)
 	    which function to call, instead of hardcoding it to try nlp_match
 	    in the plugin's namespace.
 
-Version 6.0 alpha: (25 Jul 2004)
+Version 1.0 alpha: (25 Jul 2004)
 	* plugins/services.dalnet.pl:
 	  - New services plugin designed to function with DALnet's chanserv.
 	    (Vincent Gevers)
@@ -62,7 +62,7 @@ Version 6.0 alpha: (25 Jul 2004)
 	  - New services plugin designed to work with a more generic
 	    chanserv-based IRC network.  (Vincent Gevers)
 
-Version 6.0 alpha: (21 Jul 2004)
+Version 1.0 alpha: (21 Jul 2004)
 	* simbot.pl:
 	  - Added numberize function which converts written out numbers like
 	    "two thousand" into digits, like 2000.
@@ -72,13 +72,13 @@ Version 6.0 alpha: (21 Jul 2004)
 	  - We now use the new numberize function, so that natural language
 	    parsing can understand numbers more completely.
 
-Version 6.0 alpha: (14 Jul 2004)
+Version 1.0 alpha: (14 Jul 2004)
 	* simbot.pl:
 	  - query_userhost_mask can now be used by plugins to watch for
 	    important user@host configurations and modify them instead of
 	    normal processing.
 
-Version 6.0 alpha: (13 Jul 2004)
+Version 1.0 alpha: (13 Jul 2004)
 	* plugins/dict.pl:
 	  - %define_private command is gone, replaced with a parameter to the
 	    normal command.
@@ -86,13 +86,13 @@ Version 6.0 alpha: (13 Jul 2004)
 	    channel with "%define word publicly", but long definitions will
 	    still insist upon appearing privately.
 
-Version 6.0 alpha: (11 Jul 2004)
+Version 1.0 alpha: (11 Jul 2004)
 	* plugins/rss.pl:
 	  - The RSS plugin no longer downloads feeds that aren't being
 	    announced every hour/on load, instead it downloads them as
 	    needed.
 
-Version 6.0 alpha: (10 Jul 2004)
+Version 1.0 alpha: (10 Jul 2004)
 	* simbot.pl:
 	   - SimBot now caches hostmasks for users when they enter the channel
 	     and uncaches them when they leave.
@@ -107,7 +107,7 @@ Version 6.0 alpha: (10 Jul 2004)
 	* plugins/services.undernet.pl:
 	   - Bans are now passed to Channel Service.
 
-Version 6.0 alpha: (09 Jul 2004)
+Version 1.0 alpha: (09 Jul 2004)
 	* simbot.pl:
 	   - Added a means to override standard IRC commands like kick, op,
 	     and voice with alternate functions.  This means that calling
@@ -117,7 +117,7 @@ Version 6.0 alpha: (09 Jul 2004)
 	   - Added support for the kick command, but some error checking will
 	     need to be added along with overrides for other IRC functions.
 
-Version 6.0 alpha: (04 Jul 2004)
+Version 1.0 alpha: (04 Jul 2004)
 	* simbot.pl:
 	   - Added snooze mode which can be toggled by users in the channel.
 	     If a conversation is bizarre or private and users want to prevent
@@ -127,7 +127,7 @@ Version 6.0 alpha: (04 Jul 2004)
 	     $SimBot::snooze is available as a boolean to any plugins that want
 	     to check whether snooze is on before generating an action.
 
-Version 6.0 alpha: (26 Apr 2004)
+Version 1.0 alpha: (26 Apr 2004)
 	* simbot.pl:
 	   - Added a new event handler that allows plugins to identify when
 	     the bot is addressed and do something else.  Returning false
@@ -146,13 +146,13 @@ Version 6.0 alpha: (26 Apr 2004)
 	     be plugins I did not write) can now add to hashes that define
 	     what type of language represents a request they can understand.
 
-Version 6.0 alpha: (23 Apr 2004)
+Version 1.0 alpha: (23 Apr 2004)
 	* plugins/info.pl:
 	   - If you address the bot while teaching, it will correctly take
 	     the entire line after the 'is' as the factoid, instead of cutting
 	     at punctuation.
 
-Version 6.0 alpha: (02 Mar 2004)
+Version 1.0 alpha: (02 Mar 2004)
 	* plugins/dict.pl:
 	   - Changed the dictionary plugin to try to find a definition for
 	     the requested word in any available dictionary unless otherwise
@@ -161,7 +161,7 @@ Version 6.0 alpha: (02 Mar 2004)
 	     that contains the word "in", you can quote the term with double
 	     quotes.
 
-Version 6.0 alpha: (01 Mar 2004)
+Version 1.0 alpha: (01 Mar 2004)
 	* plugins/recap.pl:
 	   - Added all the remaining events to recap: channel modes, quit,
 	     join, part, and nick changes.
@@ -171,14 +171,14 @@ Version 6.0 alpha: (01 Mar 2004)
 	     time, but it ensures that all words that aren't really usable
 	     are completely gone from the database.
 
-Version 6.0 alpha: (28 Feb 2004)
+Version 1.0 alpha: (28 Feb 2004)
 	* plugins/rss.pl:
 	   - Announce preselected RSS feeds in the IRC channel.  This is
 	     nifty if your channel is slow.  We announce a number of feeds by
 	     default, including slashdot, and developer personal feeds, which
 	     are probably boring.
 
-Version 6.0 alpha: (27 Feb 2004)
+Version 1.0 alpha: (27 Feb 2004)
 	* *.pl:
 	   - All files now use perl's strict mode, which should mean our code
 	     is absolutely perfect. :P
@@ -194,7 +194,7 @@ Version 6.0 alpha: (27 Feb 2004)
 	   - the %list command is now in the error plugin instead of directly
 	     inside the main script.
 
-Version 6.0 alpha: (26 Feb 2004)
+Version 1.0 alpha: (26 Feb 2004)
 	* simbot.pl:
 	   - Added a new configuration option that allows you to change the
 	     prefix that the bot will use to recognize commands.  The default
@@ -202,7 +202,7 @@ Version 6.0 alpha: (26 Feb 2004)
 	* plugins/dice.pl:
 	   - It is now possible to flip more than 1 coin at a time.
 
-Version 6.0 alpha: (25 Feb 2004)
+Version 1.0 alpha: (25 Feb 2004)
 	* simbot.pl:
 	   - Plugins now register their callbacks with references to functions
 	     instead of a string representing the functions name.  This keeps
@@ -211,19 +211,19 @@ Version 6.0 alpha: (25 Feb 2004)
 	     need to define separate packages for separate commands in a
 	     single plugin.
 
-Version 6.0 alpha: (23 Feb 2004)
+Version 1.0 alpha: (23 Feb 2004)
 	* plugins/info.pl:
 	   - Infobot style sentence learning. Tries to learn x (is/are) y
 	     from chat it sees or explicit setting with %info.
 	     Factoid retrieval is only through %info currently.
 
-Version 6.0 alpha: (20 Feb 2004)
+Version 1.0 alpha: (20 Feb 2004)
 	* plugins/dict.pl:
 	   - New plugin allows users to request definitions using the DICT
 	     protocol from several different databases.  At the moment, we
 	     are defaulting to use Jargon, but this could change.
 
-version 6.0 alpha: (19 Feb 2004)
+version 1.0 alpha: (19 Feb 2004)
 	* simbot.pl:
 	   - Introduced send_message, send_action, and send_notice to replace
 	     calling the POE::Kernel directly whenever we send a message.
@@ -243,12 +243,12 @@ version 6.0 alpha: (19 Feb 2004)
 	     station name cache.  Station names will then be cached for
 	     the current session only and lost upon quitting.
 
-version 6.0 alpha: (13 Feb 2004)
+version 1.0 alpha: (13 Feb 2004)
 	* Today is Friday the 13th.  I am told the ChangeLog must have an
 	  entry for today.  However, sadly, I didn't do anything, so this
 	  is all you get.
 
-Version 6.0 alpha: (12 Feb 2004)
+Version 1.0 alpha: (12 Feb 2004)
 	* simbot.pl:
 	   - We now exit the POE event loop in a way that lets us quit IRC
 	     without doing the famous "EOF from client."
@@ -263,7 +263,7 @@ Version 6.0 alpha: (12 Feb 2004)
 	   - New plugin which does currency conversions when passed an amount
 	     and two currency abbreviations.
 
-Version 6.0 alpha: (11 Feb 2004)
+Version 1.0 alpha: (11 Feb 2004)
 	* simbot.pl:
 	   - Context is now detected and a sentence is generated from the
 	     middle outward to (possibly) end up on-topic. An interesting
@@ -276,7 +276,7 @@ Version 6.0 alpha: (11 Feb 2004)
 	* plugins/seen.pl:
 	   - We now see topic changes and channel notices.
 
-Version 6.0 alpha: (22 Dec 2003)
+Version 1.0 alpha: (22 Dec 2003)
 	* simbot.pl:
 	   - A lot of code has been cleaned up and many core functions were
 	     renamed for consistency.  A lot more debug information has been
@@ -309,12 +309,12 @@ Version 6.0 alpha: (22 Dec 2003)
 	     bot can automatically log in, recover voice and request an
 	     invitation.
 
-Version 6.0 alpha: (21 Dec 2003)
+Version 1.0 alpha: (21 Dec 2003)
 	* plugins/weather.pl:
 	   - Added: metar command allows user request a raw METAR report
 	     if they are so inclined.
 
-Version 6.0 alpha: (17 Dec 2003)
+Version 1.0 alpha: (17 Dec 2003)
 	* simbot.pl:
 	   - Added: send_pieces() method that will automatically break up
 	     given text into pieces that fit into the standard IRC message
@@ -327,7 +327,7 @@ Version 6.0 alpha: (17 Dec 2003)
 	     requirement for HTML::Entities so we can convert the define
 	     string into plain text.
 
-Version 6.0 alpha: (15 Dec 2003)
+Version 1.0 alpha: (15 Dec 2003)
 	* plugins/weather.pl:
 	   - Added support for fetching station names, if available.
 	   - We also now work around the fact that Geo::METAR is unable to
@@ -339,10 +339,10 @@ Version 6.0 alpha: (15 Dec 2003)
 	   - We deal slight chance that the METAR report is coming up as NIL,
 	     because Geo:METAR assumes that to be a windspeed.
 
-Version 6.0 alpha: (14 Dec 2003)
+Version 1.0 alpha: (14 Dec 2003)
 	* plugins/google.pl: google plugin now supports define: queries
 
-Version 6.0 alpha: (12 Dec 2003)
+Version 1.0 alpha: (12 Dec 2003)
 	* added: plugins are now out on their own with a partial implementation
 	  of a plugin architecture.  The idea is that your plugin declares
 	  itself a package and then you plugin_register() and connect your
@@ -350,16 +350,16 @@ Version 6.0 alpha: (12 Dec 2003)
 	* added: a %error plugin now spits out random error messages on demand
 	* added: the core is now defined as a package called SimBot.
 
-Version 6.0 alpha: (06 Dec 2003)
+Version 1.0 alpha: (06 Dec 2003)
 	* added: %flip
 	* fixed: seen now sees kicks
 
-Version 6.0 alpha: (05 Dec 2003)
+Version 1.0 alpha: (05 Dec 2003)
 	* added: seen support! Well, somewhat. %seen SomeLoser
 	* added: dice!
 	* added: debug output for notices from channel service
 
-Version 6.0 alpha: (04 Dec 2003)
+Version 1.0 alpha: (04 Dec 2003)
 	* added: support for %weather via Geo::METAR
 	* added: google search via %find now turns itself off without LWP
 	* added: you can now add "plugins" inside simbot.pl, a feature which
@@ -372,14 +372,14 @@ Version 6.0 alpha: (04 Dec 2003)
 	* removed: some sleep calls that aren't used for anything
 	* removed: %version command to eliminate duplicate ChangeLog
 
-Version 5.99.16: (03 Dec 2003)
+Version 0.99.16: (03 Dec 2003)
 	* added: config.pl splits the configuration from the main script
 	* added: ChangeLog splits the ChangeLog from the main script
 	* added: some error checking should die on a bad configuration
 	* removed: evil hacky privmsg functions that could be abused
 	* this will be the first version to appear in SF.net CVS
 
-Version 5.99.15: (17 Nov 2003)
+Version 0.99.15: (17 Nov 2003)
 	* fixed: %find's queries sometimes broke the calculator result
 	* added: %find can now use the Google calculator!
 	* added: bot should see = as eyes where appropriate
@@ -390,34 +390,34 @@ Version 5.99.15: (17 Nov 2003)
 	* added: strip out all formatting codes before processing text
 	* added: allow ASCII international characters to be recorded
 
-Version 5.99.14:
+Version 0.99.14:
 	* fixed: bot should no longer try to record blank actions
 	* fixed: bot will not report dead word count without dead words
 	* added: expanded the set of ignored keywords
 	* added: bot will track punctuation by first word, not last word
 
-Version 5.99.13:
+Version 0.99.13:
 	* fixed: a problem with infinite loops in sentence generation
 	* fixed: redesigned the sentence generator to be much faster
 	* fixed: bot will no longer record lines that reduce as empty
 	* fixed: improved smiley detection to reduce errors
 
-Version 5.99.12:
+Version 0.99.12:
 	* fixed: added disconnect check & 15 second wait between attempts
 	* fixed: eliminated bot babble in messages by using notice reply
 	* added: bot will now attempt to autorecover the default nickname
 
-Version 5.99.11:
+Version 0.99.11:
 	* fixed: cleaned up some connection related issues where possible
 	* added: a new quip for %list
 
-Version 5.99.10:
+Version 0.99.10:
 	* added: new filter items to the word filter using regex
 	* added: responds to current nick, even if it's not nick or alttag
 	* added: respond to addressing tag plain or  with !, ? and smileys
 	* added: records equals signs with text
 
-Version 5.99.9:
+Version 0.99.9:
 	* added: automatic rejoin on kick from channel
 	* added: %find searches Google with "I'm Feeling Lucky"
 	* removed: autokick on @find was not necessary and kinda boring
@@ -427,29 +427,26 @@ Version 5.99.9:
 	* fixed: automatic nick collision workaround should work now
 	* fixed: crazy color coding should not break bot commands
 
-Version 5.99.8:
+Version 0.99.8:
 	* converted from the horribly ill-maintained Net::IRC module
 	  to POE::Component::IRC, which is more robust and confusing
 	* fixed: no longer crashes when my network changes slightly
 	* fixme: known issue: bot will not quit gracefully.. investigating
 
-Version 5.99.7:
+Version 0.99.7:
 	* fixed: "0" not considered a word on the rhs, counting as NULL
 	* fixed: trailing smiley caused a counting error
 	* fixed: logic error in punctuation detection
 	* fixed: rare debug message had a bad variable reference
 	* added: %help, %version commands
 
-Version 5.99.6 and earlier:
+Version 0.99.6 and earlier:
         * add a stats function -DONE
 	* fixme: __BEGIN should never appear. -FIXED
 	* fixme: if no sentence to occur after a /me, repeats previous
 	  sentences -FIXED
 	* accept .'s inside words -FIXED
 
-Version 5.99.1:
+Version 0.99.1:
 	* first version of SimBot written in Perl.  This will make processing
 	  text much, much cooler.
-
-Version 5.0:
-	* last version of SimBot using mIRC

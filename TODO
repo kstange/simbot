@@ -2,14 +2,14 @@
 SimBot ToDo List
 ================================================
 
-Targets for 6.0 Beta
+Targets for 1.0 Beta
 ======================
 
 - Implement automatic database backups.
 - Implement learning ignore by hostmask/nickname.
 - Implement autokick plugin.
 
-Targets for 6.0 Final
+Targets for 1.0 Final
 ======================
 
 - Test dalnet and chanserv style services plugins.
@@ -17,7 +17,7 @@ Targets for 6.0 Final
 - Standardize and clean up the debug output.
 - Crush evil bugs!
 
-Targets for 7.0 Final
+Targets for 2.0 Final
 ======================
 
 - Redefine Plugin API using POE or related Perl 6 functionality.

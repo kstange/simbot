@@ -68,7 +68,7 @@ use constant VERBOSE => 3;
 # Software Name
 use constant PROJECT => "SimBot";
 # Software Version
-use constant VERSION => "6.0 alpha";
+use constant VERSION => "1.0 alpha";
 
 
 our %numbers_groups = (
