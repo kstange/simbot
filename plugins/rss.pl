@@ -172,9 +172,17 @@ sub got_response {
         my $now = time;
         utime($now, $now, $file);
     } elsif($response->is_success) {
-        open(OUT, ">$file");
-        print OUT $response->content;
-        close(OUT);
+        if(open(OUT, ">$file")) {
+            print OUT $response->content;
+            close(OUT);
+        } else {
+            &SimBot::debug(1,
+                    "rss:  Could not open $file for writing: $!\n");
+            if(defined $nick) {
+                &SimBot::send_message(CHANNEL, "$nick: Sorry, an error has occurred. Please ask the bot's administrator to look in the console for the error message.");
+            }
+            return;
+        }
 	}
 
     if(defined $nick) {
