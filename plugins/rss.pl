@@ -42,15 +42,21 @@ use POE;
 use POE::Component::Client::HTTP;
 use HTTP::Request::Common qw(GET POST);
 use Encode;
-use vars qw( %mostRecentPost %feeds $session);
+use vars qw( %mostRecentPost %feeds %announce_feed $session );
 
 # Configure feeds here. Key should be local cache name; value should be
 # url to the RSS feed
-$feeds{'fourohfour.xml'}    = 'http://fourohfour.info/rss.xml';
-$feeds{'simguy.xml'}        = 'http://simguy.net/rss';
-$feeds{'slashdot.xml'}      = 'http://slashdot.org/index.rss';
-# Fark updates FREQUENTLY; this is probably a Bad Idea
-#$feeds{'fark.xml'}          = 'http://www.pluck.com/rss/fark.rss';
+$feeds{'fourohfour'}        = 'http://fourohfour.info/rss.xml';
+$announce_feed{'fourohfour'} = 1;
+
+$feeds{'simguy'}            = 'http://simguy.net/rss';
+$announce_feed{'simguy'}    = 1;
+
+$feeds{'slashdot'}          = 'http://slashdot.org/index.rss';
+$announce_feed{'slashdot'}  = 1;
+
+$feeds{'fark'}              = 'http://www.pluck.com/rss/fark.rss';
+$announce_feed{'fark'}      = 0;
 
 use constant CHANNEL => &SimBot::option('network', 'channel');
 use constant ENCODING => 'iso-8859-1';
@@ -98,19 +104,20 @@ sub bootstrap {
     
     &SimBot::debug(3, "Updating RSS cache... \n");
     foreach my $curFeed (keys %feeds) {
-        if(!-e "caches/$curFeed" || -M "caches/$curFeed" > 0.042) {
+        if(!-e "caches/${curFeed}.xml"
+           || -M "caches/${curFeed}.xml" > 0.042) {
             # cache is nonexistent or stale
             
             #system('curl', '-o', "caches/$curFeed", $feeds{$curFeed});
             my $request = HTTP::Request->new(GET => $feeds{$curFeed});
             my $response = $useragent->request($request);
             unless($response->is_error) {
-                open(OUT, ">caches/$curFeed");
+                open(OUT, ">caches/${curFeed}.xml");
                 print OUT $response->content;
                 close(OUT);
             }
         }
-        $rss->parsefile("caches/$curFeed");
+        $rss->parsefile("caches/${curFeed}.xml");
         $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
     }
         
@@ -149,38 +156,80 @@ sub got_response {
     &SimBot::debug(3, "...got RSS for $curFeed\n");
     
     unless($response->is_error) {
-        open(OUT, ">caches/$curFeed");
+        open(OUT, ">caches/${curFeed}.xml");
         print OUT $response->content;
         close(OUT);
     
-        $rss->parsefile("caches/$curFeed");
-    
-        foreach my $item (@{$rss->{'items'}}) {
-            if($item->{'link'} eq $mostRecentPost{$curFeed}) {
-                last;
-            } else {
-                $title = $item->{'title'};
-                Encode::from_to($title, 'utf8', ENCODING);                  
-                $title =~ s/&quot;/\"/;
-                $title =~ s/&amp;/&/;
-                push(@newPosts, "$title <$item->{'link'}>");
+        if($announce_feed{$curFeed}) {
+        
+            $rss->parsefile("caches/${curFeed}.xml");
+        
+            foreach my $item (@{$rss->{'items'}}) {
+                if($item->{'link'} eq $mostRecentPost{$curFeed}) {
+                    last;
+                } else {
+                    $title = $item->{'title'};
+                    Encode::from_to($title, 'utf8', ENCODING);                  
+                    $title =~ s/&quot;/\"/;
+                    $title =~ s/&amp;/&/;
+                    $title =~ s/\t/  /;
+                    push(@newPosts, "$title <$item->{'link'}>");
+                }
+            }
+            $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
+        
+            if(@newPosts) {
+                &SimBot::send_message(CHANNEL, "$rss->{'channel'}->{'title'} has been updated! Here's what's new:");
+                foreach(@newPosts) {
+                    &SimBot::send_message(CHANNEL, $_);
+                }
             }
         }
-        $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
+    }
+}
+
+### latest_headlines
+# gets the latest headlines for the specified feed.
+
+sub latest_headlines {
+    my (undef, $nick, $channel, undef, $feed) = @_;
+    my ($item, $title);
+    my $rss = new XML::RSS;
     
-        if(@newPosts) {
-            &SimBot::send_message(CHANNEL, "$rss->{'channel'}->{'title'} has been updated! Here's what's new:");
-            foreach(@newPosts) {
-                &SimBot::send_message(CHANNEL, $_);
-            }
+    if($feeds{$feed}) {
+        $rss->parsefile("caches/${feed}.xml");
+        &SimBot::send_message($channel, "$nick: Here are the latest $rss->{'channel'}->{'title'} posts.");
+#        foreach my $item (@{$rss->{'items'}}) {
+        for(my $i=0;
+            $i <= ($#{$rss->{'items'}} < 2 ? $#{$rss->{'items'}} : 2);
+            $i++)
+          {
+            $item = ${$rss->{'items'}}[$i];
+            $title = $item->{'title'};
+            Encode::from_to($title, 'utf8', ENCODING);                  
+            $title =~ s/&quot;/\"/;
+            $title =~ s/&amp;/&/;
+            $title =~ s/\t/  /;
+            &SimBot::send_message($channel,
+                                  "$title <$item->{'link'}>");
+#            push(@newPosts, "$title <$item->{'link'}>");
         }
+    } else {
+        my $message = "$nick: " 
+            . ($feed ? "I have no feed $feed."
+                     : "What feed what do you want latest posts from?")
+            . ' Try one of:';
+        foreach(keys %feeds) {
+            $message .= " $_";
+        }
+        &SimBot::send_message($channel, $message); 
     }
 }
 
 &SimBot::plugin_register(
     plugin_id   => 'rss',
 #    plugin_desc => 'Tells you what simbot has learned about something.',
-#    event_plugin_call   => sub {}, # Do nothing.
+    event_plugin_call   => \&latest_headlines,
     event_plugin_load   => \&messup_rss,
     event_plugin_unload => \&cleanup_rss,
 );
