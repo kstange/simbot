@@ -65,7 +65,7 @@ use constant VERSION => "6.0 alpha";
 # ************ Start of Script ***********
 # ****************************************
 
-&debug(0, "SimBot " . VERSION . "\n\n");
+&debug(0, PROJECT . " " . VERSION . "\n\n");
 
 # Load the configuration file.
 &load_config;
