@@ -1291,11 +1291,15 @@ sub send_message {
 	$text = &Encode::encode(TARGET_ENCODING, $text);
 	$kernel->post(bot => privmsg => $dest, $text);
     my $public = 0;
-    foreach(@{$dest}) {
-		if($_ =~ /[\#\&].+/) {
-			$public = 1;
+	if(@{$dest}) {
+		foreach(@{$dest}) {
+			if($_ =~ /[\#\&].+/) {
+				$public = 1;
+			}
 		}
-    }
+	} elsif($dest =~ /[\#\&].+/) {
+		$public = 1;
+	}
 	&debug((3 + (!$public)), "[" . (@{$dest} ? "@{$dest}" : $dest) .
 		   ":$chosen_nick] $text\n");
 
@@ -1317,11 +1321,15 @@ sub send_action {
 	$text = &Encode::encode(TARGET_ENCODING, $text);
 	$kernel->post(bot => ctcp => $dest, 'ACTION', $text);
     my $public = 0;
-    foreach(@{$dest}) {
-		if($_ =~ /[\#\&].+/) {
-			$public = 1;
+	if(@{$dest}) {
+		foreach(@{$dest}) {
+			if($_ =~ /[\#\&].+/) {
+				$public = 1;
+			}
 		}
-    }
+	} elsif($dest =~ /[\#\&].+/) {
+		$public = 1;
+	}
 	&debug((3 + (!$public)), "[" . (@{$dest} ? "@{$dest}" : $dest) .
 		   ":$chosen_nick] [action] $chosen_nick $text\n");
     if($public) {
@@ -1342,11 +1350,15 @@ sub send_notice {
 	$text = &Encode::encode(TARGET_ENCODING, $text);
 	$kernel->post(bot => notice => $dest, $text);
     my $public = 0;
-    foreach(@{$dest}) {
-		if($_ =~ /[\#\&].+/) {
-			$public = 1;
+	if(@{$dest}) {
+		foreach(@{$dest}) {
+			if($_ =~ /[\#\&].+/) {
+				$public = 1;
+			}
 		}
-    }
+	} elsif($dest =~ /[\#\&].+/) {
+		$public = 1;
+	}
 	&debug((3 + (!$public)), "[" . (@{$dest} ? "@{$dest}" : $dest) .
 		   ":$chosen_nick] [notice] $text\n");
 
