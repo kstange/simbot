@@ -22,16 +22,17 @@ use strict;
 use warnings;
 
 our @todo = (
-			 "1) perform automatic database backups",
-			 "2) dalnet style services plugin",
+			 "1) implement automatic database backups",
 			 "--- Increment version to 6.0 beta here ---",
+			 "2) test dalnet and chanserv style services plugins",
 			 "3) Polish the documentation (what documentation?)",
-			 "4) Make sure the stuff in cvs isn't littered with our own stuff",
+			 "4) Standardize and clean up the debug output",
 			 "5) Crush evil bugs!",
 			 "--- Increment version to 6.0 final here ---",
+			 "- use POE better, blocking less and using more events",
 			 "- eventually recognize the possibility for joining 2+ channels",
-			 "- allow for media other than IRC (connection plugins)",
 			 "- implement authentication for bot administration",
+			 "- allow for media other than IRC (connection plugins) (maybe)",
 			 );
 
 # PRINT_TODO: Prints todo list privately to the user.
