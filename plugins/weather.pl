@@ -177,7 +177,7 @@ sub get_wx {
                 - 35.75 * ($m->WIND_MPH ** 0.16)
                 + 0.4275 * $temp_f * ($m->WIND_MPH ** 0.16);
                 my $windchill_c = ($windchill - 32) * (5/9);
-                push(@reply_with, sprintf('a wind chill of %.1f∞F (%.1f∞C)', $windchill, $windchill_c));
+                push(@reply_with, sprintf('a wind chill of %.1f°F (%.1f°C)', $windchill, $windchill_c));
             }
 
             # Humidity, only if we have a dewpoint!
