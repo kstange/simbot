@@ -44,7 +44,8 @@ $channel = "#MyChannel";
 # until it finds a nickname that is not in use.
 $nickname = "MyBot";
 
-# This is the bot's gender. M (for his, himself, etc), F (her, herself), or I (its, itself)
+# This is the bot's gender. M (for his, himself, etc), F (her, herself),
+# or I (its, itself)
 $gender = 'I';
 
 # The bot will respond to this tag if it is specified in addition to the

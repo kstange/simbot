@@ -138,6 +138,7 @@ POE::Session->new
     irc_001          => \&init_bot,         # connected
     irc_public       => \&process_public,
     irc_msg          => \&process_priv,
+    irc_notice       => \&process_notice,
     irc_ctcp_action  => \&process_action,
     irc_ctcp_version => \&process_version,
     irc_ctcp_time    => \&process_time,
@@ -415,7 +416,7 @@ sub get_seen {
     if(!$person) {
         $kernel->post(bot => privmsg => $channel, "$nick: There are many things I have seen. Perhaps you should ask for someone in particular?");
     } elsif(lc($person) eq lc($chosen_nick)) {
-        $kernel->post(bot => ctcp => $channel, 'action', "waves $hisher hand in front of $hisher face. \"Yup,  I can see myself!\"");
+        $kernel->post(bot => ctcp => $channel, 'action', "waves $hisher hand in front of $hisher face. \"Yup, I can see myself!\"");
     } elsif($seenData{lc($person)}) {
         my ($when, $doing, $seenData) = split(/!/, $seenData{lc($person)}, 3);
         $doing = "saying \"$seenData\"" if($doing eq 'SAY');
@@ -772,23 +773,17 @@ sub process_priv {
     my ($usermask, undef, $text) = @_[ ARG0, ARG1, ARG2 ];
     my ($nick) = split(/!/, $usermask);
 
-# These were never supposed to remain active for this long without any
-# kind of authorization verification... oops! :)
-#
-#    if ($text eq "restart") {
-#	&debug(2, "Received restart command from " . $nick . ".\n");
-#	$kernel->post(bot => privmsg => $nick, "Okay, brb!");
-#	&restart();
-#    } elsif ($text eq "newrules") {
-#	&debug(2, "Received reload command from " . $nick . ".\n");
-#	$kernel->post(bot => privmsg => $nick, "reloading rules");
-#	&debug(3, "Reloading rules... ");
-#	&load;
-#	&debug(3, "Done!\n");
-#    } else {
     $kernel->post(bot => notice => $nick, "Please don't send me private messsages.");
-#    }
+}
 
+# PRCESS_NOTICE: Handle notices to the bot.
+sub process_notice {
+    my ($usermask, undef, $text) = @_[ ARG0, ARG1, ARG2 ];
+    my ($nick) = split(/!/, $usermask);
+
+    if ($nick eq "X" && $password) {
+	&debug(3, "Channel Service message: $text\n");
+    }
 }
 
 # PING_EVENT: Check a few things on ping event.
