@@ -540,7 +540,7 @@ sub get_wx {
     if(length($station) != 4) {
 	# Whine and bail
 	$kernel->post(bot => privmsg => $channel,
-               "$nick: That doesn't look like a METAR station.");
+               "$nick: That doesn't look like a METAR station. You can look up station IDs at <http://www.nws.noaa.gov/tg/siteloc.shtml>.");
 	return;
     }
     $station = uc($station);
@@ -557,7 +557,11 @@ sub get_wx {
     if (!$response->is_error) {
 	my (undef, $raw_metar) = split(/\n/, $response->content);
 	my $m = new Geo::METAR;
-	&debug(3, "METAR is " . $raw_metar . "\n");
+        
+        # Geo::METAR has issues not ignoring the remarks section of the
+        # METAR report. Let's strip it out.
+        $raw_metar =~ s/^(.*?) RMK .*$/\1/;
+        &debug(3, "METAR is " . $raw_metar . "\n");
 	$m->metar($raw_metar);
         
 	# Let's form a response!
@@ -566,6 +570,19 @@ sub get_wx {
 	my $reply = "As reported at $time UTC at $station it is ";
 	my @reply_with;
 	$reply .= $m->TEMP_F . '°F (' . int($m->TEMP_C) . '°C) ' if defined $m->TEMP_F;
+        
+        if($m->TEMP_F <= 40 && $m->WIND_MPH > 5) {
+            my $windchill = 35.74 + (0.6215 * $m->TEMP_F)
+                - 35.75 * ($m->WIND_MPH ** 0.16)
+                + 0.4275 * $m->TEMP_F * ($m->WIND_MPH ** 0.16);
+            my $windchill_c = ($windchill - 32) * (5/9);
+            push(@reply_with, sprintf('a wind chill of %.1f°F (%.1f°C)', $windchill, $windchill_c));
+        }
+        
+        my $humidity = 100 * ( ( (112 - (0.1 * $m->TEMP_C) + $m->C_DEW) /
+                                 (112 + (0.9 * $m->TEMP_C)) ) ** 8 );
+        push(@reply_with, sprintf('%d', $humidity) . '% humidity');
+            
 	if($m->WIND_MPH) {
 	    my $tmp = $m->WIND_MPH . ' mph winds';
             $tmp .= ' from the ' . $m->WIND_DIR_ENG if defined $m->WIND_DIR_ENG;
