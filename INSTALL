@@ -22,7 +22,7 @@ features in SimBot:
 	Net::Dict						for dict.pl (Dictionary Plugin)
 	HTML::Entities					for google.pl (Google Search Plugin)
 	Geo::METAR						for weather.pl (Weather Plugin)
-	DBI::SQLite						for sqlite-logger.pl (Logging plugin)
+	DBD::SQLite						for sqlite-logger.pl (Logging plugin)
 
 This all, of course, requires that you have Perl installed.
 
