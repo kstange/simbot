@@ -1,0 +1,81 @@
+Version 5.99.16: (03 Dec 2003)
+	* added: config.pl splits the configuration from the main script
+	* added: ChangeLog splits the ChangeLog from the main script
+	* added: some error checking should die on a bad configuration
+	* this will be the first version to appear in SF.net CVS
+	
+Version 5.99.15: (17 Nov 2003)
+	* fixed: %find's queries sometimes broke the calculator result
+	* added: %find can now use the Google calculator!
+	* added: bot should see = as eyes where appropriate
+	* added: bot will accept its name in the middle of a line
+	* added: added todo list function (%todo)
+	* added: expanded the set of ignored keywords
+	* added: ignore lines that have no alphanumeric characters
+	* added: strip out all formatting codes before processing text
+	* added: allow ASCII international characters to be recorded
+	
+Version 5.99.14:
+	* fixed: bot should no longer try to record blank actions
+	* fixed: bot will not report dead word count without dead words
+	* added: expanded the set of ignored keywords
+	* added: bot will track punctuation by first word, not last word
+
+Version 5.99.13:
+	* fixed: a problem with infinite loops in sentence generation
+	* fixed: redesigned the sentence generator to be much faster
+	* fixed: bot will no longer record lines that reduce as empty
+	* fixed: improved smiley detection to reduce errors
+
+Version 5.99.12:
+	* fixed: added disconnect check & 15 second wait between attempts
+	* fixed: eliminated bot babble in messages by using notice reply
+	* added: bot will now attempt to autorecover the default nickname
+
+Version 5.99.11:
+	* fixed: cleaned up some connection related issues where possible
+	* added: a new quip for %list
+
+Version 5.99.10:
+	* added: new filter items to the word filter using regex
+	* added: responds to current nick, even if it's not nick or alttag
+	* added: respond to addressing tag plain or  with !, ? and smileys
+	* added: records equals signs with text
+
+Version 5.99.9:
+	* added: automatic rejoin on kick from channel
+	* added: %find searches Google with \"I'm Feeling Lucky\"
+	* removed: autokick on \@find was not necessary and kinda boring
+	* cleaned up the script, fixed warnings and added comments
+	* notify the user that % is the proper command prefix on use of ! or \@
+	* on use of %list, print out a silly message; suggestions welcome
+	* fixed: automatic nick collision workaround should work now
+	* fixed: crazy color coding should not break bot commands
+
+Version 5.99.8:
+	* converted from the horribly ill-maintained Net::IRC module
+	  to POE::Component::IRC, which is more robust and confusing
+	* fixed: no longer crashes when my network changes slightly
+	* fixme: known issue: bot will not quit gracefully.. investigating
+
+Version 5.99.7:
+	* fixed: "0" not considered a word on the rhs, counting as NULL
+	* fixed: trailing smiley caused a counting error
+	* fixed: logic error in punctuation detection
+	* fixed: rare debug message had a bad variable reference
+	* added: %help, %version commands
+
+Version 5.99.6 and earlier:
+        * add a stats function -DONE
+	* fixme: __BEGIN should never appear. -FIXED
+	* fixme: if no sentence to occur after a /me, repeats previous
+	  sentences -FIXED
+	* accept .'s inside words -FIXED
+
+Version 5.99.1:
+	* first version of SimBot written in Perl.  This will make processing
+	  text much, much cooler.
+
+Version 5.0:
+	* last version of SimBot using mIRC
+
