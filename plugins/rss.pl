@@ -115,13 +115,19 @@ sub do_rss {
                 $mtime = (stat($file))[9];
                 $request->if_modified_since($mtime);
             }
-			# Only fetch this file if it is expired or missing.
-			if ($mtime == 0 || $mtime + EXPIRE < time) {
+			# Fetch the file when one of the following is true:
+			#  - We are scheduled to update all files (not initial fetch).
+			#  - The file we have is expired.
+			#  - We have no cached version of this file.
+			if (defined $mostRecentPost{$curFeed} ||
+				$mtime == 0 || $mtime + EXPIRE < time) {
 				$kernel->post( 'ua' => 'request', 'got_response',
 							   $request, $curFeed);
 			}
+			# If the file we have is not expired, we still need to determine
+			# the most recent post so we have a reference point for later
+			# updates.  This should only run on the first fetch.
 			if (!defined $mostRecentPost{$curFeed} && -e $file) {
-				# We still need to make sure we know the most recent post
 				&SimBot::debug(4, "rss:   loading up to date cache of $curFeed\n");
 				$rss->parsefile($file);
 				if(defined $rss->{'items'}->[0]->{'guid'}) {
