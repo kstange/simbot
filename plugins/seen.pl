@@ -43,7 +43,7 @@ sub messup_seen {
 
 # GET_SEEN: Checks to see if a person has done anything lately...
 sub get_seen {
-    my ($kernel, $nick, $channel, undef, $person) = @_;
+    my ($kernel, $nick, $channel, $self, $person) = @_;
     if(!$person) {
         &SimBot::send_message($channel,
             "$nick: There are many things I have seen. Perhaps you should ask for someone in particular?");
@@ -53,6 +53,8 @@ sub get_seen {
 
     } elsif($seenData{lc($person)}) {
         my ($when, $doing, $seenData) = split(/!/, $seenData{lc($person)}, 3);
+
+	return if (lc($person) eq lc($nick) && $self ne "SELF");
 
         if   ($doing eq 'SAY')      { $doing = qq(saying "$seenData");              }
         elsif($doing eq 'NOTICE')   { $doing = qq(saying "$seenData" in a notice);  }
@@ -82,6 +84,13 @@ sub set_seen {
     my($kernel, $nick, $channel, $doing, $content, $target) = @_;
     SimBot::debug(4, "seen: Seeing $nick ($doing $content)\n");
     my $time = time;
+
+    my $prefix = &SimBot::option('global', 'command_prefix');
+    if ($doing eq "SAY" &&
+	lc($content) =~ /^\s*($prefix)seen\s+$nick(\s+|$)/i) {
+	get_seen($kernel, $nick, $channel, "SELF", $nick);
+    }
+
     $seenData{lc($nick)} = "$time!$doing!" . ($target ? "$target!" : "")
                             . "$content";
 
