@@ -345,7 +345,7 @@ sub handle_chat {
                                    $key, $isare, $oldFactoid));
             }
 
-        } else {
+        } elsif(!$info{$key}) {
             $info{$key} = "$flags|$factoid";
             &report_learned($channel, $nick, $key, $factoid, $flags);
         }
