@@ -80,7 +80,7 @@ $version = "6.0 alpha";
 # system wants to kill us.
 $SIG{'TERM'} = 'SimBot::quit';
 $SIG{'INT'}  = 'SimBot::quit';
-$sig{'HUP'}  = 'SimBot::quit';
+$SIG{'HUP'}  = 'SimBot::quit';
 #$SIG{'HUP'}  = 'SimBot::cleanup';
 $SIG{'USR1'} = 'SimBot::restart';
 $SIG{'USR2'} = 'SimBot::reload';
