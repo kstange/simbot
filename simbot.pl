@@ -287,6 +287,7 @@ POE::Session->new
 	( _start           => \&make_connection,
 	  irc_disconnected => \&reconnect,
 	  irc_socketerr    => \&reconnect,
+	  irc_error        => \&server_error      # server wants to yell at us.
 	  irc_433          => \&pick_new_nick,    # nickname in use
 	  irc_001          => \&server_connect,   # connected
 	  irc_303          => \&server_ison,      # check ison reply
@@ -1155,7 +1156,7 @@ sub build_reply {
 		}
 		$return =~ s/\s+$//;
 		$return = uc(substr($return, 0,1)) . substr($return, 1) . ($punc ne "" ? $punc : ".");
-		$return =~ s/\bi(\b|\')/I$1/g;
+		$return =~ s/\bi(\b|\')/I$1/g; # '
 		my $chance = option('chat', 'new_sentence_chance');
 		if ($chance && int(rand()*(100/$chance)) == 0) {
 			&debug(3, "Adding another sentence...\n");
@@ -1822,6 +1823,12 @@ sub quit {
         $kernel->yield('quit_session');
     }
 }
+
+# SERVER_ERROR: The server's whining at us. We should listen.
+sub server_error {
+    &debug(1, $_[ARG0]);
+}
+
 
 # RECONNECT: Reconnect to IRC when disconnected.
 sub reconnect {
