@@ -431,7 +431,7 @@ sub row_hashref_to_text {
     
     if($cur_yr != $yr) { $msg .= "$yr "; }
     
-    $msg .= "$hr:$min] ";
+    $msg .= $hr . ':' . sprintf('%02d',$min) . '] ';
     
     if($row->{'event'} eq 'SAY') {
         $msg .= '<' . &get_nickchan_name($row->{'source_nick_id'})
