@@ -87,7 +87,7 @@ sub request_invite {
     if (&SimBot::option('services', 'pass')) {
 		$locked_out = 1;
 		if($x_online && $logged_in) {
-			&SimBot::debug(2, "Could not join.  Asking for invitation to $channel...\n");
+			&SimBot::debug(3, "Asking Channel Service for invitation to $channel...\n");
 			&SimBot::send_message("x", "invite $channel");
 		} elsif ($x_online) {
 			&services_login($kernel);

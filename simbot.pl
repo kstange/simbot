@@ -22,7 +22,7 @@
 #       unless you know what you are doing.  Submit bugfixes back to:
 #       http://sf.net/projects/simbot
 
-# Hi, my name is:
+# Hi, my name(space) is:
 package SimBot;
 
 # Sometimes we end up in Unicode.  Since IRC and Unicode are not good
@@ -51,12 +51,12 @@ use vars qw( %conf %chat_words $chosen_nick $chosen_server $alarm_sched_60
 
 # Error Descriptions
 use constant ERROR_DESCRIPTIONS
-        => ('', 'ERROR: ', 'WARNING: ', '', 'DEBUG: ', 'SPAM: ');
+        => ('', 'ERROR: ', 'ALERT: ', '', 'DEBUG: ', 'SPAM: ');
 
 # Force debug on with this:
-# 0 is silent, 1 shows errors, 2 shows warnings, 3 shows lots of fun things,
-# 4 shows everything you never wanted to see.
-use constant VERBOSE => 3;
+# 0 is silent, 1 shows errors, 2 shows alert, 3 shows normal information,
+# 4 shows debug information, and 5 everything you never wanted to see.
+use constant VERBOSE => 4;
 
 # Software Name
 use constant PROJECT => "SimBot";
@@ -101,12 +101,6 @@ die("Your configuration is lacking a channel to join") unless option('network', 
 die("Your configuration is lacking a valid default nickname") unless option('global', 'nickname');
 die("Your configuration has an extra sentence % >= 100%") unless option('chat', 'new_sentence_chance') < 100;
 die("Your configuration has no rulefile to load") unless option('global', 'rules');
-
-# We want to catch signals to make sure we clean up and save if the
-# system wants to kill us.  We'll use POE to deal with some of these
-# for us.
-$SIG{'USR1'} = 'SimBot::restart';
-$SIG{'USR2'} = 'SimBot::reload';
 
 # These are intializations of the hash tables we'll be using for
 # callbacks and plugin information.
@@ -199,36 +193,33 @@ our %commands = (
 
 # This provides the descriptions of plugins.  If a plugin has no
 # defined description, it is "hidden" and will not appear in help.
-&debug(4, "Registering internal plugins... \n");
+&debug(5, "Registering internal plugins... \n");
 
 # register the snooze plugin only if snooze is allowed
 if(option('chat','snooze') !~ m/always|never/) {
     &plugin_register(plugin_id   => "snooze",
-		     plugin_desc => "Toggles snooze mode which prevents recording"
-		     . " and responding to chat. Commands are still processed.",
-		     
-		     event_plugin_call     => \&set_snooze,
-		     );
+					 plugin_desc => "Toggles snooze mode which prevents " .
+					 "recording and responding to chat. Commands are still " .
+					 "processed.",
+					 event_plugin_call     => \&set_snooze,
+					 );
 }
-    
-    &plugin_register(plugin_id   => "stats",
-		     plugin_desc => "Shows useless stats about the database.",
-		     
-		     event_plugin_call     => \&print_stats,
-		     );
-    
-    &plugin_register(plugin_id   => "help",
-		     plugin_desc => "Shows this information.",
-		     
-		     event_plugin_call     => \&print_help,
-		     );
+
+&plugin_register(plugin_id   => "stats",
+				 plugin_desc => "Shows useless stats about the database.",
+				 event_plugin_call     => \&print_stats,
+				 );
+
+&plugin_register(plugin_id   => "help",
+				 plugin_desc => "Shows this information.",
+				 event_plugin_call     => \&print_help,
+				 );
 
 
 # Register the delete plugin only if the option is enabled
 if(option('chat', 'delete_usage_max') != -1) {
 	&plugin_register(plugin_id   => "delete",
 					 plugin_desc => "Erases a word that has been previously learned.",
-
 					 event_plugin_call     => \&delete_words,
 					 );
 }
@@ -239,9 +230,9 @@ opendir(DIR, "./plugins");
 foreach my $plugin (readdir(DIR)) {
     if($plugin =~ /.*\.pl$/) {
 		if($plugin =~ /^services\.(.+)\.pl$/) {
-			debug(4, "$1 services plugin found.\n");
+			debug(5, "$1 services plugin found.\n");
 			if (option('services','type') eq $1) {
-				debug(4, "$1 services plugin was selected. Attempting to load...\n");
+				debug(5, "$1 services plugin was selected. Attempting to load...\n");
 				if (eval { require "./plugins/$plugin"; }) {
 					debug(3, "$1 services plugin loaded successfully.\n");
 				} else {
@@ -249,7 +240,7 @@ foreach my $plugin (readdir(DIR)) {
 					debug(2, "$1 service plugin did not load due to errors.\n");
 				}
 			} else {
-				debug(4, "$1 services plugin was not selected.\n");
+				debug(5, "$1 services plugin was not selected.\n");
 			}
 		} elsif(eval { require "./plugins/$plugin"; }) {
 			debug(3, "$plugin plugin loaded successfully.\n");
@@ -284,12 +275,12 @@ POE::Component::IRC->new('bot');
 
 # Add the handlers for different IRC events we want to know about.
 POE::Session->new
-	( _start           => \&make_connection,
-	  irc_disconnected => \&reconnect,
-	  irc_socketerr    => \&socket_error,
-	  irc_error        => \&server_error,     # server wants to yell at us.
+	( _start           => \&initialize,
+	  irc_001          => \&irc_connected,    # connected
 	  irc_433          => \&pick_new_nick,    # nickname in use
-	  irc_001          => \&server_connect,   # connected
+	  irc_socketerr    => \&socket_error,     # internet wants to yell at us
+	  irc_error        => \&server_error,     # server wants to yell at us
+	  irc_disconnected => \&irc_disconnected, # disconnected
 	  irc_303          => \&server_ison,      # check ison reply
 	  irc_352          => \&server_who,       # check who reply
 	  irc_nick         => \&server_nick_change,
@@ -316,8 +307,11 @@ POE::Session->new
 
 	  # These are our own custom events-- signs that we're using POE correctly.
 	  scheduler_60     => \&run_scheduler_60, # run events every 60 seconds
-	  cont_send_pieces => \&cont_send_pieces,
-	  quit_session     => \&quit_session,
+	  cont_send_pieces => \&cont_send_pieces, # send all the rest of the pieces
+
+	  quit_session     => \&quit_session,     # end the session and terminate
+	  restart          => \&restart,          # end the session and restart
+	  rehash           => \&rehash,           # reload data files
 	  );
 
 # ****************************************
@@ -354,7 +348,7 @@ sub hostmask {
 	foreach my $plugin (keys(%query_userhost_mask)) {
 		my $newmask = &plugin_callback($plugin, $query_userhost_mask{$plugin}, ("$user\@$host"));
 		if (defined $newmask && $newmask =~ /.@./) {
-			debug(4, "hostmask: the $plugin plugin changed the user\@host mask\n");
+			debug(5, "hostmask: the $plugin plugin changed the user\@host mask\n");
 			($user, $host) = split(/@/, $newmask);
 			$changed = 1;
 			last;
@@ -374,7 +368,7 @@ sub hostmask {
 		}
 	}
 
-	debug(4, "hostmask: returning type 3 hostmask: $nick!$user\@$host\n");
+	debug(5, "hostmask: returning type 3 hostmask: $nick!$user\@$host\n");
     return "$nick!$user\@$host";
 }
 
@@ -431,7 +425,7 @@ sub parse_style {
 #            with digit-based numbers.
 sub numberize {
 	my $string = $_[0];
-	debug(4, "numberize: new string: $string\n");
+	debug(5, "numberize: new string: $string\n");
 	my $tmatch = "(" . join("|", keys(%numbers_tens)) . ")";
 	my $omatch = "(" . join("|", keys(%numbers_other)) . ")";
 	my $dmatch = "(" . join("|", keys(%numbers_digits)) . ")";
@@ -439,7 +433,7 @@ sub numberize {
 		my $match = $1;
 		my $value = ($numbers_tens{$2} + $numbers_digits{$3});
 		$string  =~ s/$match/$value/g;
-		debug(4, "numberize: tens-ones: $string\n");
+		debug(5, "numberize: tens-ones: $string\n");
 	}
 	while ($string =~ /\b($tmatch|$omatch|$dmatch)\b/) {
 		my $match = $1;
@@ -447,7 +441,7 @@ sub numberize {
 					 (defined $numbers_other{$match} ? $numbers_other{$match} :
 					  $numbers_digits{$match}));
 		$string  =~ s/$match/$value/g;
-		debug(4, "numberize: numbers: $string\n");
+		debug(5, "numberize: numbers: $string\n");
 	}
 
 	foreach my $match ("hundred and", "hundred", "thousand", "million", "billion", "trillion") {
@@ -462,11 +456,11 @@ sub numberize {
 				$value += $1;
 			}
 			$string = "$left$value$right";
-			debug(4, "numberize: groups: $string\n");
+			debug(5, "numberize: groups: $string\n");
 		}
 	}
 
-	debug(4, "numberize: final: $string\n");
+	debug(5, "numberize: final: $string\n");
 	return $string;
 }
 
@@ -534,22 +528,6 @@ sub options_in_section {
     return keys %{$conf{$sec}};
 }
 
-# RESTART: Quits and restarts the script.  This should be done
-#          after the script is updated.
-sub restart {
-    &debug(3, "Received restart call...\n");
-	$terminating = 2;
-    &quit("Restarting, brb...");
-}
-
-# RELOAD: Calls a series of reload callbacks to refresh plugins' data.
-sub reload {
-    &debug(3, "Received reload call...\n");
-    foreach(keys(%event_plugin_reload)) {
-		&plugin_callback($_, $event_plugin_reload{$_});
-    }
-}
-
 # ############ IRC OPERATIONS ############
 
 # These are the functions that a plugin should call to run an IRC operation.
@@ -565,13 +543,13 @@ sub send_topic   { &{$commands{topic}}  ($kernel, @_); }
 
 sub irc_ops_kick {
 	my ($kernel, $channel, $user, $message) = @_;
-	debug(3, "Irc Ops: attempting to kick $user from $channel ($message)\n");
+	debug(4, "Irc Ops: attempting to kick $user from $channel ($message)\n");
 	$kernel->post(bot => kick => $channel, $user, $message);
 }
 
 sub irc_ops_ban {
 	my ($kernel, $channel, $user, $time, $message) = @_;
-	debug(3, "Irc Ops: attempting to ban $user from $channel ($message)"
+	debug(4, "Irc Ops: attempting to ban $user from $channel ($message)"
 		  . ($time > 0 ? " for $time seconds" : "") . "\n");
 	$kernel->post(bot => mode => $channel, "+b", hostmask($user));
 	send_kick($channel, $user, $message);
@@ -582,37 +560,37 @@ sub irc_ops_ban {
 
 sub irc_ops_unban {
 	my ($kernel, $channel, $user) = @_;
-	debug(3, "Irc Ops: attempting to unban $user from $channel\n");
+	debug(4, "Irc Ops: attempting to unban $user from $channel\n");
 	$kernel->post(bot => mode => $channel, "-b", hostmask($user));
 }
 
 sub irc_ops_op {
 	my ($kernel, $channel, $user) = @_;
-	debug(3, "Irc Ops: attempting to op $user on $channel\n");
+	debug(4, "Irc Ops: attempting to op $user on $channel\n");
 	$kernel->post(bot => mode => $channel, "+o", $user);
 }
 
 sub irc_ops_deop {
 	my ($kernel, $channel, $user) = @_;
-	debug(3, "Irc Ops: attempting to deop $user on $channel\n");
+	debug(4, "Irc Ops: attempting to deop $user on $channel\n");
 	$kernel->post(bot => mode => $channel, "-o", $user);
 }
 
 sub irc_ops_voice {
 	my ($kernel, $channel, $user) = @_;
-	debug(3, "Irc Ops: attempting to voice $user on $channel\n");
+	debug(4, "Irc Ops: attempting to voice $user on $channel\n");
 	$kernel->post(bot => mode => $channel, "+v", $user);
 }
 
 sub irc_ops_devoice {
 	my ($kernel, $channel, $user) = @_;
-	debug(3, "Irc Ops: attempting to devoice $user on $channel\n");
+	debug(4, "Irc Ops: attempting to devoice $user on $channel\n");
 	$kernel->post(bot => mode => $channel, "-v", $user);
 }
 
 sub irc_ops_topic {
 	my ($kernel, $channel, $topic) = @_;
-	debug(3, "Irc Ops: attempting to set the topic to $topic on $channel\n");
+	debug(4, "Irc Ops: attempting to set the topic to $topic on $channel\n");
 	$kernel->post(bot => topic => $channel, $topic);
 }
 
@@ -708,22 +686,22 @@ sub load_config {
 			chomp;
 			if (m/^#|^\s*$/) {
 			} elsif (m/^\[(.*)\]$/) {
-				debug(4, "Begin config section $1.\n");
+				debug(5, "Begin config section $1.\n");
 				$section = $1;
 			} elsif (m/^(.*?)=(.*)$/) {
 				if ($section eq "filters") {
 					if ($1 eq "match") {
 						push(@{$conf{'filters'}}, qr/$2/i);
-						debug(4, "$section: loaded match filter for $2\n");
+						debug(5, "$section: loaded match filter for $2\n");
 					} elsif ($1 eq "word") {
 						push(@{$conf{'filters'}}, qr/(^|\b)\Q$2\E(\b|$)/i);
-						debug(4, "$section: loaded word filter for $2\n");
+						debug(5, "$section: loaded word filter for $2\n");
 					} else {
-						debug(4, "$section: saw unknown filter type $1\n");
+						debug(5, "$section: saw unknown filter type $1\n");
 					}
 				} else {
 					push(@{$conf{$section}{$1}}, "$2");
-					debug(4, "$section: loaded option $1 as $2\n");
+					debug(5, "$section: loaded option $1 as $2\n");
 				}
 			}
 		}
@@ -772,13 +750,13 @@ sub plugin_register {
     my %data = @_;
 	$data{plugin_id} = lc($data{plugin_id});
     if(!$event_plugin_call{$data{plugin_id}}) {
-		&debug(4, $data{plugin_id} . ": no plugin conflicts detected\n");
+		&debug(5, $data{plugin_id} . ": no plugin conflicts detected\n");
     } else {
 		die("$data{plugin_id}: a plugin is already registered to this handle");
     }
     $event_plugin_call{$data{plugin_id}} = $data{event_plugin_call};
     if(!$data{plugin_desc}) {
-		&debug(4, $data{plugin_id} . ": this plugin has no description and will be hidden\n");
+		&debug(5, $data{plugin_id} . ": this plugin has no description and will be hidden\n");
     } else {
 		$plugin_desc{$data{plugin_id}} = $data{plugin_desc};
     }
@@ -806,7 +784,7 @@ sub plugin_register {
 # PLUGIN_CALLBACK: Calls the given plugin function with paramters.
 sub plugin_callback {
     my ($plugin, $function, @params) = @_;
-	debug(4, "Running callback to $function in $plugin.\n");
+	debug(5, "Running callback to $function in $plugin.\n");
 	return &$function($kernel, @params);
 }
 
@@ -816,20 +794,20 @@ sub set_snooze {
 	if (lc($option) eq "off") {
 		if ($snooze) {
 			$snooze = 0;
-			debug(3, "Snooze mode was turned OFF by $nick.\n");
+			debug(3, "snooze: Snooze mode was turned OFF by $nick.\n");
 			&send_action($channel, "streches and yawns.");
 			&send_message($channel, "$nick: Thanks for the wake up call.  Time to get back to work!");
 		} else {
-			debug(3, "Snooze mode was OFF, but $nick wanted to try anyway.\n");
+			debug(4, "snooze: Snooze mode was OFF, but $nick wanted to try anyway.\n");
 			&send_message($channel, "$nick: Do I look like I'm sleeping to you?");
 		}
 	} elsif (lc($option) eq "on") {
 		if ($snooze) {
-			debug(3, "Snooze mode was ON, but $nick wanted to try anyway.\n");
+			debug(4, "snooze: Snooze mode was ON, but $nick wanted to try anyway.\n");
 			&send_message($channel, "$nick: You're waking me up to tell me to take a nap?  What kind of monster are you!?");
 		} else {
 			$snooze = 1;
-			debug(3, "Snooze mode was turned ON by $nick.\n");
+			debug(3, "snooze: Snooze mode was turned ON by $nick.\n");
 			&send_message($channel, "$nick: You know, a nap sounds great right about now.  Wake me if you need anything.");
 			&send_action($channel, "lays down and begins to snore....");
 		}
@@ -844,7 +822,7 @@ sub print_help {
     my $nick = $_[1];
 	my $prefix = option('global', 'command_prefix');
 	my $message = '';
-    &debug(3, "Received help command from " . $nick . ".\n");
+    &debug(4, "help: requested by " . $nick . ".\n");
     foreach(sort {$a cmp $b} keys(%plugin_desc)) {
         $message .= "${prefix}$_ - $plugin_desc{$_}\n";
     }
@@ -860,7 +838,7 @@ sub print_stats {
     my ($message, $wordpop);
     my ($lfound, $lcount, $rfound, $rcount, $wordpopcount) = (0, 0, 0, 0, 0);
 
-    &debug(3, "Received stats command from " . $nick . ".\n");
+    &debug(4, "stats: requested by " . $nick . ".\n");
     my $count = keys(%chat_words);
     my $begins = keys(%{$chat_words{'__BEGIN'}}) + keys(%{$chat_words{'__!BEGIN'}}) + keys(%{$chat_words{'__?BEGIN'}});
     my $ends = keys(%{$chat_words{'__END'}}) + keys(%{$chat_words{'__!END'}}) + keys(%{$chat_words{'__?END'}});
@@ -985,7 +963,7 @@ sub build_records {
 
 		# After all this, if we're short on letters, we can't record this.
 		if ("@sentence" !~ /[A-Za-z0-9\300-\377]/) {
-			&debug(2, "This line contained no discernable words: @sentence\n");
+			&debug(4, "This line contained no discernable words: @sentence\n");
 			goto skiptosave; # Oh my, a goto!
 		}
 
@@ -993,7 +971,7 @@ sub build_records {
 		# we're not going to record this line.
 		foreach (option_list('filters')) {
 			if ($sentence[$x] =~ /$_/) {
-				&debug(2, "Not recording this line: @sentence\n");
+				&debug(4, "Not recording this line: @sentence\n");
 				goto skiptosave; # Oh my, a goto!
 			}
 		}
@@ -1001,7 +979,7 @@ sub build_records {
 
 	# Lines of nothing but whitespace aren't worth trying to record.
     if ("@sentence" =~ /^\s*$/) {
-		&debug(2, "This line contained no discernable words: @sentence\n");
+		&debug(4, "This line contained no discernable words: @sentence\n");
 		goto skiptosave; # Oh my, a goto!
     }
 
@@ -1028,15 +1006,15 @@ sub build_records {
 			if ($chat_words{$cur_word}{$sentence[$i+1]}[1]) {
 				$chat_words{$cur_word}{$sentence[$i+1]}[1]++;
 				$chat_words{$sentence[$i+1]}{$cur_word}[0]++;
-				&debug(3, "Updating $cur_word-\>$sentence[$i+1] to " . $chat_words{$cur_word}{$sentence[$i+1]}[1] . "\n");
-				&debug(4, "Updating $sentence[$i+1]-\>$cur_word to " . $chat_words{$sentence[$i+1]}{$cur_word}[0] . " (reverse)\n");
+				&debug(4, "Updating $cur_word-\>$sentence[$i+1] to " . $chat_words{$cur_word}{$sentence[$i+1]}[1] . "\n");
+				&debug(5, "Updating $sentence[$i+1]-\>$cur_word to " . $chat_words{$sentence[$i+1]}{$cur_word}[0] . " (reverse)\n");
 
 			# Otherwise, add the word pairing as new to the database.
 			} else {
 				$chat_words{$cur_word}{$sentence[$i+1]}[1] = 1;
 				$chat_words{$sentence[$i+1]}{$cur_word}[0] = 1;
-				&debug(3, "Adding $cur_word-\>$sentence[$i+1]\n");
-				&debug(4, "Adding $sentence[$i+1]-\>$cur_word (reverse)\n");
+				&debug(4, "Adding $cur_word-\>$sentence[$i+1]\n");
+				&debug(5, "Adding $sentence[$i+1]-\>$cur_word (reverse)\n");
 			}
 		}
 		$i++;
@@ -1084,7 +1062,7 @@ sub build_reply {
 						m/^__([\!\?])?BEGIN$/;
 						if ($1) {
 							$punc = $1;
-							debug(3, "Using '$1' from __BEGIN\n");
+							debug(4, "Using '$1' from __BEGIN\n");
 						}
 						last;
 					}
@@ -1095,18 +1073,18 @@ sub build_reply {
 				foreach (keys(%{$chat_words{$newword}})) {
 					$chcount += $chat_words{$newword}{$_}[1] if defined $chat_words{$newword}{$_}[1];
 				}
-				debug(4, "$chcount choices for next to $newword\n");
+				debug(5, "$chcount choices for next to $newword\n");
 			}
 			my $try = int(rand()*($chcount))+1;
 			foreach(keys(%{$chat_words{$newword}})) {
 				$try -= $chat_words{$newword}{$_}[1] if defined $chat_words{$newword}{$_}[1];
 				if ($try <= 0) {
-					debug(4, "Selected $_ to follow $newword\n");
+					debug(5, "Selected $_ to follow $newword\n");
 					$newword = $_;
 					if($newword =~ /^__([\!\?])?END$/) {
 						if ($1 && !$punc) {
 							$punc = $1;
-							debug(3, "Using '$1' from __END\n");
+							debug(4, "Using '$1' from __END\n");
 						}
 					} else {
 						$return .= $newword . " ";
@@ -1130,17 +1108,17 @@ sub build_reply {
 				foreach (keys(%{$chat_words{$newword}})) {
 					$chcount += $chat_words{$newword}{$_}[0] if defined $chat_words{$newword}{$_}[0];
 				}
-				debug(4, "$chcount choices for next to $newword\n");
+				debug(5, "$chcount choices for next to $newword\n");
 				my $try = int(rand()*($chcount))+1;
 				foreach(keys(%{$chat_words{$newword}})) {
 					$try -= $chat_words{$newword}{$_}[0] if defined $chat_words{$newword}{$_}[0];
 					if ($try <= 0) {
-						debug(4, "Selected $_ to follow $newword\n");
+						debug(5, "Selected $_ to follow $newword\n");
 						$newword = $_;
 						if($newword =~ /^__([\!\?])?BEGIN$/) {
 							if ($1) {
 								$punc = $1;
-								debug(3, "Using '$1' from __BEGIN\n");
+								debug(4, "Using '$1' from __BEGIN\n");
 							}
 						} else {
 							$return = $newword . " " . $return;
@@ -1159,7 +1137,7 @@ sub build_reply {
 		$return =~ s/\bi(\b|\')/I$1/g; # '
 		my $chance = option('chat', 'new_sentence_chance');
 		if ($chance && int(rand()*(100/$chance)) == 0) {
-			&debug(3, "Adding another sentence...\n");
+			&debug(4, "Adding another sentence...\n");
 			$return .= "__NEW__" . &build_reply("");
 		}
 		return $return;
@@ -1176,7 +1154,7 @@ sub find_interesting_word {
 		option('global', 'nickname') . "|" .
 		option('global', 'alt_tag') . ")\$";
 
-	debug(3, "Word scores: ");
+	debug(4, "Word scores: ");
     $highestScoreWord = ""; $highestScore=0;
 	foreach my $curWord (@_) {
         $curWord = lc($curWord);
@@ -1199,13 +1177,13 @@ sub find_interesting_word {
             }
         }
         $curWordScore += .7 * length($curWord);
-        debug(3, "$curWord:$curWordScore ");
+        debug(4, "$curWord:$curWordScore ");
         if($curWordScore > $highestScore) {
             $highestScore = $curWordScore;
             $highestScoreWord = $curWord;
         }
     }
-    debug(3, "\nUsing $highestScoreWord\n");
+    debug(4, "\nUsing $highestScoreWord\n");
     return $highestScoreWord;
 }
 
@@ -1223,18 +1201,18 @@ sub delete_word {
 			$use_left += $chat_words{$word}{$_}[0] if defined $chat_words{$word}{$_}[0];
 			$use_right += $chat_words{$word}{$_}[1] if defined $chat_words{$word}{$_}[1];
 		}
-		&debug(4, "delete: $word has been seen $use_left or $use_right times\n");
+		&debug(5, "delete: $word has been seen $use_left or $use_right times\n");
 		if($count == 0 || ($use_left <= $count && $use_right <= $count)) {
 			foreach my $next (keys(%{$chat_words{$word}})) {
 				if ($next eq $word) {
-					&debug(4, "delete: skipped a loop from $word to $next\n");
+					&debug(5, "delete: skipped a loop from $word to $next\n");
 					next;
 				}
 
 				my $loop = 0;
 				foreach(@path_words) {
 					if($next eq $_) {
-						&debug(4, "delete: skipped a loop from $word to $next\n");
+						&debug(5, "delete: skipped a loop from $word to $next\n");
 						$loop = 1;
 						last;
 					}
@@ -1245,7 +1223,7 @@ sub delete_word {
 					&& keys(%{$chat_words{$next}}) <= 2) {
 					push(@deleted, &delete_word($next, 0, (@path_words, $word)));
 				} else {
-					&debug(4, "delete: a reference from $word to $next was deleted from the database\n");
+					&debug(5, "delete: a reference from $word to $next was deleted from the database\n");
 					delete($chat_words{$next}{$word});
 				}
 			}
@@ -1258,7 +1236,7 @@ sub delete_word {
 			return (@deleted);
 		}
 	} else {
-		&debug(4, "delete: $word ... no such word is known\n");
+		&debug(5, "delete: $word ... no such word is known\n");
 		return (@deleted);
 	}
 }
@@ -1269,13 +1247,14 @@ sub send_message {
 	my ($dest, $text) = @_;
 	$text = &Encode::encode(TARGET_ENCODING, $text);
 	$kernel->post(bot => privmsg => $dest, $text);
-	&debug(4, "sending message to @{$dest}\n");
     my $public = 0;
     foreach(@{$dest}) {
 		if($_ =~ /[\#\&].+/) {
 			$public = 1;
 		}
     }
+	&debug((3 + (!$public)), "[@{$dest}:$chosen_nick] $text\n");
+
     if($public) {
 		foreach(keys(%event_channel_message_out)) {
 			&plugin_callback($_, $event_channel_message_out{$_}, ($chosen_nick, $dest, 'SAY', $text));
@@ -1293,13 +1272,13 @@ sub send_action {
 	my ($dest, $text) = @_;
 	$text = &Encode::encode(TARGET_ENCODING, $text);
 	$kernel->post(bot => ctcp => $dest, 'ACTION', $text);
-	&debug(4, "sending action to @{$dest}\n");
     my $public = 0;
     foreach(@{$dest}) {
 		if($_ =~ /[\#\&].+/) {
 			$public = 1;
 		}
     }
+	&debug((3 + (!$public)), "[@{$dest}:$chosen_nick] [action] $chosen_nick $text\n");
     if($public) {
 		foreach(keys(%event_channel_message_out)) {
 			&plugin_callback($_, $event_channel_action_out{$_}, ($chosen_nick, $dest, 'ACTION', $text));
@@ -1317,13 +1296,14 @@ sub send_notice {
 	my ($dest, $text) = @_;
 	$text = &Encode::encode(TARGET_ENCODING, $text);
 	$kernel->post(bot => notice => $dest, $text);
-	&debug(4, "sending notice to @{$dest}\n");
     my $public = 0;
     foreach(@{$dest}) {
 		if($_ =~ /[\#\&].+/) {
 			$public = 1;
 		}
     }
+	&debug((3 + (!$public)), "[@{$dest}:$chosen_nick] [notice] $text\n");
+
     if($public) {
 		foreach(keys(%event_channel_notice_out)) {
 			&plugin_callback($_, $event_channel_notice_out{$_}, ($chosen_nick, $dest, 'NOTICE', $text));
@@ -1412,23 +1392,6 @@ sub cont_send_pieces {
 
 # ######### IRC FUNCTION CALLS ###########
 
-# SERVER_CONNECT: After connecting to IRC, this will join the channel and
-# log the bot into channel services.
-sub server_connect {
-	my $channel = option('network', 'channel');
-
-	# Start the 60 second scheduler
-	$alarm_sched_60 = $kernel->delay_set('scheduler_60', 60);
-
-    &debug(3, "Setting invisible user mode...\n");
-    $kernel->post(bot => mode => $chosen_nick, "+i");
-    foreach(keys(%event_server_connect)) {
-		&plugin_callback($_, $event_server_connect{$_}, ($chosen_server, $chosen_nick));
-    }
-    &debug(3, "Joining $channel...\n");
-    $kernel->post(bot => join => $channel);
-}
-
 # RUN_SCHEDULER_60: Runs events every 60 seconds.
 sub run_scheduler_60 {
 	my $kernel = $_[ KERNEL ];
@@ -1444,7 +1407,7 @@ sub server_ison {
     my @nicks = split(/ /, $_[ ARG1 ]);
 	my $own_nick = option('global', 'nickname');
     my $avail = 1;
-    &debug(4, "Nicknames online: @nicks\n");
+    &debug(5, "Nicknames online: @nicks\n");
 
     foreach (@nicks) {
 		if ($_ eq $own_nick) {
@@ -1466,14 +1429,14 @@ sub server_ison {
 sub server_who {
 	my (undef, $user, $host, $server, $nick) = split(/ /, $_[ ARG1 ]);
 	&set_hostmask($nick, "$nick!$user\@$host");
-	&debug(4, "Caching hostmask for $nick (" . &get_hostmask($nick) . ")\n");
+	&debug(5, "Caching hostmask for $nick (" . &get_hostmask($nick) . ")\n");
 }
 
 # PROCESS_PING: Handle ping requests to the bot.
 sub process_ping {
     my ($nick) = split(/!/, $_[ARG0]);
     my $text = $_[ ARG2 ];
-    &debug(3, "Received ping request from " . $nick . ".\n");
+    &debug(3, "[ctcp] PING requested by " . $nick . ".\n");
 	# We want this reply to be delivered with some urgency.
     $kernel->call(bot => ctcpreply => $nick, 'PING ' . $text);
 }
@@ -1482,7 +1445,7 @@ sub process_ping {
 sub process_finger {
     my ($nick) = split(/!/, $_[ARG0]);
     my $reply = "I have no fingers.  Please try again.";
-    &debug(3, "Received finger request from " . $nick . ".\n");
+    &debug(3, "[ctcp] FINGER requested by " . $nick . ".\n");
     $kernel->post(bot => ctcpreply => $nick, 'FINGER ' . $reply);
 }
 
@@ -1490,7 +1453,7 @@ sub process_finger {
 sub process_time {
     my ($nick) = split(/!/, $_[ARG0]);
     my $reply = localtime(time);
-    &debug(3, "Received time request from " . $nick . ".\n");
+    &debug(3, "[ctcp] TIME requested by " . $nick . ".\n");
     $kernel->post(bot => ctcpreply => $nick, 'TIME ' . $reply);
 }
 
@@ -1499,7 +1462,7 @@ sub process_version {
     my ($nick) = split(/!/, $_[ARG0]);
     my $reply = `uname -s -r -m`;
     chomp($reply);
-    &debug(3, "Received version request from " . $nick . ".\n");
+    &debug(3, "[ctcp] VERSION requested by " . $nick . ".\n");
     $kernel->post(bot => ctcpreply => $nick, "VERSION " . PROJECT . " " .
 				  VERSION . " ($reply)");
 }
@@ -1509,10 +1472,12 @@ sub server_nick_change {
 	my ($nick, $userhost) = split(/!/, $_[ARG0]);
 	my $newnick = $_[ ARG1 ];
 
-	&debug(4, "Uncaching hostmask for $nick (" . &get_hostmask($nick) . ")\n");
+	&debug(3, "$nick is now known as $newnick.\n");
+
+	&debug(5, "Uncaching hostmask for $nick (" . &get_hostmask($nick) . ")\n");
 	&set_hostmask($nick, undef);
 	&set_hostmask($newnick, $newnick . "!" . $userhost);
-	&debug(4, "Caching hostmask for $newnick (" . &get_hostmask($newnick) . ")\n");
+	&debug(5, "Caching hostmask for $newnick (" . &get_hostmask($newnick) . ")\n");
 
     foreach(keys(%event_server_nick)) {
 		&plugin_callback($_, $event_server_nick{$_}, ($chosen_server, $nick, $newnick));
@@ -1532,12 +1497,12 @@ sub process_notice {
 		}
     }
     if($public) {
-		&debug(4, "Received public notice from $nick.\n");
+		&debug(3, "[$channel:$nick] [notice] $nick\n");
 		foreach(keys(%event_channel_notice)) {
 			&plugin_callback($_, $event_channel_notice{$_}, ($nick, $channel, 'NOTICE', $text));
 		}
     } else {
-		&debug(4, "Received private notice from $nick.\n");
+		&debug(4, "[private:$nick] [notice] $text\n");
 		foreach(keys(%event_private_notice)) {
 			&plugin_callback($_, $event_private_notice{$_}, ($nick, 'NOTICE', $text));
 		}
@@ -1558,14 +1523,15 @@ sub process_action {
     }
     if($public) {
 		if (!$snooze) {
-			&debug(3, "Learning from " . $nick . "'s action...\n");
+			&debug(4, "Learning from " . $nick . "'s action...\n");
+			&debug(3, "[$channel:$nick] [action] $nick $text\n");
 			&build_records($text,"ACTION");
 		}
 		foreach(keys(%event_channel_action)) {
 			&plugin_callback($_, $event_channel_action{$_}, ($nick, $channel, 'ACTION', "$nick $text"));
 		}
     } else {
-		debug(4, "Received private action from $nick.\n");
+		&debug(4, "[private:$nick] [action] $nick $text\n");
 		foreach(keys(%event_private_action)) {
 			&plugin_callback($_, $event_private_action{$_}, ($nick, 'PRIVACTION', "$nick $text"));
 		}
@@ -1576,6 +1542,7 @@ sub process_action {
 sub private_message {
     my ($nick) = split(/!/, $_[ ARG0 ]);
     my $text = $_[ ARG2 ];
+	&debug(4, "[private:$nick] $text\n");
     foreach(keys(%event_private_message)) {
 		&plugin_callback($_, $event_private_message{$_}, ($nick, 'PRIVMSG', $text));
     }
@@ -1587,6 +1554,9 @@ sub channel_message {
     my ($channel, $text) = @_[ ARG1, ARG2 ];
     $text =~ s/\003\d{0,2},?\d{0,2}//g;
     $text =~ s/[\002\017\026\037]//g;
+
+	&debug(3, "[@{$channel}:$nick] $text\n");
+
 	my $prefix = option('global', 'command_prefix');
 	my $nickmatch = "(" . $chosen_nick . "|" .
 		option('global', 'nickname') . "|" .
@@ -1610,7 +1580,7 @@ sub channel_message {
 			# otherwise, command has no letters in it, and therefore was probably a smile %-) (a very odd smile, sure, but whatever)
 		}
     } elsif ($text =~ /^hi,*\s+$nickmatch[!\.\?]*/i && !$snooze) {
-		&debug(3, "Greeting " . $nick . "...\n");
+		&debug(4, "Greeting " . $nick . "...\n");
 		&send_message($channel, option('chat', 'greeting') . " $nick!");
     } elsif ($text =~ /(^|.[\.!\?,]+\s+)$nickmatch([\.!\?:,]+|$)/i && !$snooze) {
 		my $continue = 1;
@@ -1619,7 +1589,7 @@ sub channel_message {
 		}
 
 		if ($continue) {
-			&debug(3, "Generating a reply for " . $nick . "...\n");
+			&debug(4, "Generating a reply for " . $nick . "...\n");
 			my @botreply = split(/__NEW__/, &build_reply($text));
 			my $queue = "";
 			foreach my $comment (@botreply) {
@@ -1635,7 +1605,7 @@ sub channel_message {
 			&send_message($channel, $queue) unless ($queue eq "");
 		}
     } elsif ($text !~ /^[;=:]/ && !$snooze) {
-		&debug(3, "Learning from " . $nick . "...\n");
+		&debug(4, "Learning from " . $nick . "...\n");
 		&build_records($text);
     }
 }
@@ -1645,11 +1615,13 @@ sub channel_message {
 sub channel_kick {
 	my ($kicker) = split(/!/, $_[ ARG0 ]);
     my ($chan, $nick, $reason) = @_[ ARG1, ARG2, ARG3 ];
+	&debug(3, "$nick was kicked from $chan by $kicker. ($reason)\n");
+
     if ($nick eq $chosen_nick && $chan eq option('network', 'channel')) {
 		&debug(2, "Kicked from $chan... Attempting to rejoin!\n");
 		$kernel->post(bot => join => $chan);
     }
-	&debug(4, "Uncaching hostmask for $nick (" . &get_hostmask($nick) . ")\n");
+	&debug(5, "Uncaching hostmask for $nick (" . &get_hostmask($nick) . ")\n");
 	&set_hostmask($nick, undef);
 
     foreach(keys(%event_channel_kick)) {
@@ -1671,7 +1643,8 @@ sub channel_invite {
 
 # CHANNEL_NOJOIN: Allow plugins to take actions on failed join attempt.
 sub channel_nojoin {
-    my ($chan) = split(/ :/, $_[ ARG1 ]);
+    my ($chan, $msg) = split(/ :/, $_[ ARG1 ]);
+	&debug(2, "Unable to join $chan. ($msg)\n");
     foreach(keys(%event_channel_nojoin)) {
 		&plugin_callback($_, $event_channel_nojoin{$_}, ($chosen_nick, $chan, 'NOTJOINED'));
     }
@@ -1690,22 +1663,22 @@ sub channel_join {
 			&plugin_callback($_, $event_channel_mejoin{$_}, ($nick, $chan, 'JOINED'));
 		}
     } else {
-		&debug(4, "$nick has joined $chan.\n");
+		&debug(3, "$nick has joined $chan.\n");
 		foreach(keys(%event_channel_join)) {
 			&plugin_callback($_, $event_channel_join{$_}, ($nick, $chan, 'JOINED'));
 		}
     }
 
-	&debug(4, "Caching hostmask for $nick (" . &get_hostmask($nick) . ")\n");
+	&debug(5, "Caching hostmask for $nick (" . &get_hostmask($nick) . ")\n");
 }
 
 # CHANNEL_PART: Allow plugins to take actions when a user parts the channel.
 sub channel_part {
     my ($nick) = split(/!/, $_[ ARG0 ]);
     my ($chan, $message) = split(/ :/, $_[ ARG1 ], 2);
-    &debug(4, "$nick has parted $chan."
+    &debug(3, "$nick has parted $chan."
 		   . (defined $message ? " ($message)" : "") . "\n");
-	&debug(4, "Uncaching hostmask for $nick (" . &get_hostmask($nick) . ")\n");
+	&debug(5, "Uncaching hostmask for $nick (" . &get_hostmask($nick) . ")\n");
 	&set_hostmask($nick, undef);
     foreach(keys(%event_channel_part)) {
 		&plugin_callback($_, $event_channel_part{$_}, ($nick, $chan, 'PARTED', $message));
@@ -1716,9 +1689,9 @@ sub channel_part {
 sub channel_quit {
     my $message = $_[ ARG1 ];
     my ($nick) = split(/!/, $_[ ARG0 ]);
-    &debug(4, "$nick has quit IRC."
+    &debug(3, "$nick has quit IRC."
 		   . (defined $message ? " ($message)" : "") . "\n");
-	&debug(4, "Uncaching hostmask for $nick (" . &get_hostmask($nick) . ")\n");
+	&debug(5, "Uncaching hostmask for $nick (" . &get_hostmask($nick) . ")\n");
 	&set_hostmask($nick, undef);
     foreach(keys(%event_channel_quit)) {
 		&plugin_callback($_, $event_channel_quit{$_}, ($nick, undef, 'QUIT', $message));
@@ -1738,7 +1711,7 @@ sub channel_novoice {
 sub channel_topic {
     my ($nick) = split(/!/, $_[ ARG0 ]);
     my ($chan, $text) = @_[ ARG1, ARG2 ];
-    &debug(4, "Topic in $chan was changed to '$text' by $nick.\n");
+    &debug(3, "Topic in $chan was changed to '$text' by $nick.\n");
     foreach(keys(%event_channel_topic)) {
 		&plugin_callback($_, $event_channel_topic{$_}, ($nick, $chan, 'TOPIC', $text));
     }
@@ -1749,7 +1722,7 @@ sub channel_mode {
     my ($nick) = split(/!/, $_[ ARG0 ]);
     my ($chan, $modes, @args) = @_[ ARG1, ARG2, ARG3 .. $#_ ];
     if ($nick ne $chan) {
-		&debug(4, "$nick set mode $modes @args in $chan.\n");
+		&debug(3, "$nick set mode $modes @args in $chan.\n");
 		foreach(keys(%event_channel_mode)) {
 			&plugin_callback($_, $event_channel_mode{$_}, ($nick, $chan, 'MODE', $modes, @args));
 		}
@@ -1758,121 +1731,26 @@ sub channel_mode {
 
 # ######### CONNECTION SUBROUTINES ###########
 
-sub quit_session {
-    my($kernel, $message) = @_[ KERNEL, ARG0 ];
-    if($terminating < 1) {
+# INITIALIZE: Prepares the kernel for our use and starts the first connection.
+sub initialize {
+	# We want to catch signals to make sure we clean up and save if the
+	# system wants to kill us.  We'll use POE to deal with them for us.
+	$kernel->sig( INT => 'quit_session' );
+	$kernel->sig( HUP => 'quit_session' );
+	$kernel->sig( TERM => 'quit_session' );
+	$kernel->sig( USR1 => 'restart' );
+	$kernel->sig( USR2 => 'rehash' );
 
-    	if ($message eq "TERM") {
-    		$message = "Terminated";
-    	} elsif ($message eq "HUP") {
-    		$message = "I am lost without my terminal!";
-    	} elsif ($message eq "INT") {
-    		if (option('network', 'quit_prompt')) {
-    			print "\nEnter Quit Message:\n";
-    			$message = readline(STDIN);
-    			chomp($message);
-    		} else {
-    			$message = option('network', 'quit_default');
-    		}
-    	}
-        $terminating = 1 unless $terminating == 2;
+	$kernel->post(bot => register => "all");
 
-    	# Everyone out of the pool!
-    	foreach(keys(%event_plugin_unload)) {
-    		&plugin_callback($_, $event_plugin_unload{$_});
-    	}
-
-        $kernel->post(bot => quit => PROJECT . " " . VERSION
-    				  . (($message ne "") ? ": $message" : ""));
-        &debug(3, "Disconnecting from IRC... $message\n");
-    } else {
-        # somebody's impatient today
-        $kernel->alarm_remove_all();
-    }
-    $kernel->sig_handled();
+	&irc_connect;
 }
 
-# QUIT: Quit IRC.
-sub quit {
-    if($terminating != 1) {
-        my ($message) = @_;
-    	if ($message eq "TERM") {
-    		$message = "Terminated";
-    	} elsif ($message eq "HUP") {
-    		$message = "I am lost without my terminal!";
-    	} elsif ($message eq "INT") {
-    		if (option('network', 'quit_prompt')) {
-    			print "\nEnter Quit Message:\n";
-    			$message = readline(STDIN);
-    			chomp($message);
-    		} else {
-    			$message = option('network', 'quit_default');
-    		}
-    	}
-        $terminating = 1 unless $terminating == 2;
-
-    	# Everyone out of the pool!
-    	foreach(keys(%event_plugin_unload)) {
-    		&plugin_callback($_, $event_plugin_unload{$_});
-    	}
-
-        $kernel->post(bot => quit => PROJECT . " " . VERSION
-    				  . (($message ne "") ? ": $message" : ""));
-        &debug(3, "Disconnecting from IRC... $message\n");
-    } else {
-        $kernel->yield('quit_session');
-    }
-}
-
-# SERVER_ERROR: The server's whining at us. We should listen.
-sub server_error {
-    &debug(1, "$_[ARG0]\n");
-}
-
-# SOCKET_ERROR: Spit out the error, then reconnect to IRC
-sub socket_error {
-    &debug(1, "$_[ARG0]\n");
-    &reconnect;
-}
-
-# RECONNECT: Reconnect to IRC when disconnected.
-sub reconnect {
-	$kernel->alarm_remove($alarm_sched_60);
-    if ($terminating >= 1) {
-		&debug(2, "Disconnected!\n");
-		$kernel->post(bot => unregister => "all");
-
-		# since the event loop should soon have nothing to do
-		# it'll exit. Or something like that.
-    } else {
-		&debug(2, "Disconnected!  Reconnecting in 30 seconds...\n");
-		$chosen_server = option('network', 'server');
-		sleep 30;
-		$kernel->post(bot => 'connect',
-					  {
-						  Nick    => $chosen_nick,
-						  Server  => $chosen_server,
-						  Port    =>  6667,
-						  Ircname => PROJECT . " " . VERSION,
-						  Username => option('network', 'username'),
-					  }
-					  );
-		&debug(3, "Connecting to IRC server " . $chosen_server . "...\n");
-    }
-}
-
-# MAKE_CONNECTION: Starts up the connection to IRC.
-sub make_connection {
-    &debug(3, "Setting up the IRC connection...\n");
-
-    $kernel->sig( INT => 'quit_session' );
-    $kernel->sig( HUP => 'quit_session' );
-    $kernel->sig( TERM => 'quit_session' );
-
-    $kernel->post(bot => register => "all");
+# IRC_CONNECT: Creates a connection to IRC.
+sub irc_connect {
     $chosen_nick = option('global', 'nickname');
-
     $chosen_server = option('network', 'server');
+
     $kernel->post(bot => 'connect',
 				  {
 					  Nick    => $chosen_nick,
@@ -1885,6 +1763,23 @@ sub make_connection {
     &debug(3, "Connecting to IRC server " . $chosen_server . "...\n");
 }
 
+# IRC_CONNECTED: After connecting to IRC, this will join the channel and
+# log the bot into channel services.
+sub irc_connected {
+	my $channel = option('network', 'channel');
+
+	# Start the 60 second scheduler
+	$alarm_sched_60 = $kernel->delay_set('scheduler_60', 60);
+
+    &debug(3, "Setting invisible user mode...\n");
+    $kernel->post(bot => mode => $chosen_nick, "+i");
+    foreach(keys(%event_server_connect)) {
+		&plugin_callback($_, $event_server_connect{$_}, ($chosen_server, $chosen_nick));
+    }
+    &debug(3, "Joining $channel...\n");
+    $kernel->post(bot => join => $channel);
+}
+
 # PICK_NEW_NICK: If IRC reports the desired nickname as in use, this
 #                will rotate the letters in the nickname to get a new one.
 sub pick_new_nick {
@@ -1893,8 +1788,106 @@ sub pick_new_nick {
     $kernel->post(bot => nick => $chosen_nick);
 }
 
+# IRC_DISCONNECTED: Handles the case where we are disconnected from the IRC.
+# server.
+sub irc_disconnected {
+	$kernel->alarm_remove($alarm_sched_60);
+
+    if ($terminating >= 1) {
+		&debug(3, "Disconnected!\n");
+		$kernel->post(bot => unregister => "all");
+
+		# since the event loop should soon have nothing to do
+		# it'll exit. Or something like that.
+    } else {
+		&debug(2, "Disconnected!  Reconnecting in 30 seconds...\n");
+		sleep 30;
+		&irc_connect;
+    }
+}
+
+# SERVER_ERROR: The server's whining at us. We should listen.
+sub server_error {
+    &debug(1, "$_[ARG0]\n");
+	if ($_[ARG0] =~ /k-lined/i) {
+		for (my $i = 0; !defined @{$conf{'network'}{'servers'}}[$i]; $i++) {
+			if ($chosen_server eq @{$conf{'network'}{'servers'}}[$i]) {
+				splice(@{$conf{'network'}{'servers'}}, $i, 1)
+			}
+		}
+	}
+}
+
+# SOCKET_ERROR: Spit out the error, then reconnect to IRC.
+sub socket_error {
+    &debug(1, "$_[ARG0]\n");
+    &irc_disconnected;
+}
+
+# QUIT_SESSION: Prepares to terminate the IRC connection and exit.
+sub quit_session {
+    my ($kernel, $message) = @_[ KERNEL, ARG0 ];
+
+	if ($message eq "TERM") {
+		$message = "Terminated";
+	} elsif ($message eq "HUP") {
+		$message = "I am lost without my terminal!";
+	} elsif ($message eq "INT") {
+		if (option('network', 'quit_prompt')) {
+			print "\nEnter Quit Message:\n";
+			$message = readline(STDIN);
+			chomp($message);
+		} else {
+			$message = option('network', 'quit_default');
+		}
+	}
+	$terminating = 1 unless $terminating == 2;
+
+	# Everyone out of the pool!
+	foreach(keys(%event_plugin_unload)) {
+		&plugin_callback($_, $event_plugin_unload{$_});
+	}
+
+	$kernel->post(bot => quit => PROJECT . " " . VERSION
+				  . (($message ne "") ? ": $message" : ""));
+	&debug(3, "Disconnecting from IRC... $message\n");
+
+    $kernel->sig_handled();
+}
+
+# RESTART: Quits and restarts the script.  This should be done
+#          after the script is updated.
+sub restart {
+    my ($kernel, $signal) = @_[ KERNEL, ARG0 ];
+	if (defined $signal) {
+		&debug(3, "Restart requested via signal ($signal)...\n");
+	} else {
+		&debug(3, "Restart requested...\n");
+	}
+	$terminating = 2;
+    $kernel->yield(quit_session => "Restarting... brb!");
+
+    $kernel->sig_handled();
+}
+
+# REHASH: Calls a series of reload callbacks to refresh data files.
+sub rehash {
+    my ($kernel, $signal) = @_[ KERNEL, ARG0 ];
+	if (defined $signal) {
+		&debug(3, "Rehash requested via signal ($signal)...\n");
+	} else {
+		&debug(3, "Rehash requested...\n");
+	}
+    foreach(keys(%event_plugin_reload)) {
+		&plugin_callback($_, $event_plugin_reload{$_});
+    }
+
+    $kernel->sig_handled();
+}
+
+&debug(5, "Starting main event loop.\n");
 $kernel->run();
-&debug(4, "Exited event loop!\n");
+&debug(5, "Exited main event loop.\n");
 &save;
 if ($terminating == 2) {
     &debug(3, "Restarting script...\n");
