@@ -34,12 +34,16 @@ sub roll_dice {
         $kernel->post(bot => ctcp => $channel, 'ACTION', "drops $numDice ${numSides}-sided dice on the floor, trying to roll them for ${nick}.");
     } elsif($numSides == 0) {
         $kernel->post(bot => ctcp => $channel, 'ACTION', "rolls $numDice zero-sided " . (($numDice==1) ? 'die' : 'dice') . " for ${nick}: " . (($numDice==1) ? "it doesn't" : "they don't") . ' land, having no sides to land on.');
+    } elsif($numSides > 1000) {
+        $kernel->post(bot => privmsg => $channel, "$nick: The numbers on the dice are so small that I can't read them!");
+    } elsif($numDice > 100) {
+        $kernel->post(bot => ctcp => $channel, 'ACTION', "drops $numDice ${numSides}-sided dice on the floor, trying to roll them for ${nick}.");
     } else {
         my @rolls = ();
         for(my $x=0;$x<$numDice;$x++) {
             push(@rolls, int rand($numSides)+1);
         }
-    
+
         $kernel->post(bot => ctcp => $channel, 'ACTION', "rolls $numDice ${numSides}-sided " . (($numDice==1) ? 'die' : 'dice') . " for ${nick}: " . join(' ', @rolls));
     }
 }
