@@ -351,6 +351,23 @@ sub got_wx {
                     . ' rapidly');
             }
             
+            if($remarks =~ m/\b5(\d)(\d\d\d)\b/) {
+                my ($trend, $change) = ($1, $2*.1);
+                if($trend >= 0 && $trend <= 3) {
+                    # change is positive or 0
+                    if($change > 0) {
+                        push(@reply_with, "pressure $change hPa higher than 3 hours ago");
+                    }
+                } elsif ($trend == 4) {
+                    # no change
+                } elsif ($trend >= 5 && $trend <= 8) {
+                    # change is decreasing or 0
+                    if($change > 0) {
+                        push(@reply_with, "pressure $change hPa lower than 3 hours ago");
+                    }
+                }
+            }
+            
             if($remarks =~ m|SNINCR (\d+)/(\d+)|) {
                 push(@reply_with,
                     qq[snow increasing rapidly ($1" in last hr)]);
