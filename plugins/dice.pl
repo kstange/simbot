@@ -36,8 +36,6 @@ sub roll_dice {
         $kernel->post(bot => ctcp => $channel, 'ACTION', "rolls $numDice zero-sided " . (($numDice==1) ? 'die' : 'dice') . " for ${nick}: " . (($numDice==1) ? "it doesn't" : "they don't") . ' land, having no sides to land on.');
     } elsif($numSides > 1000) {
         $kernel->post(bot => privmsg => $channel, "$nick: The numbers on the dice are so small that I can't read them!");
-    } elsif($numDice > 100) {
-        $kernel->post(bot => ctcp => $channel, 'ACTION', "drops $numDice ${numSides}-sided dice on the floor, trying to roll them for ${nick}.");
     } else {
         my @rolls = ();
         for(my $x=0;$x<$numDice;$x++) {
@@ -48,14 +46,6 @@ sub roll_dice {
     }
 }
 
-# Register Plugin
-SimBot::plugin_register(plugin_id   => "roll",
-			plugin_desc => "Rolls dice. You can specify how many dice, and how many sides, in the format 3D6.",
-			modules     => "",
-
-			event_plugin_call => "roll_dice",
-			);
-
 package SimBot::plugin::flip;
 
 sub flip_coin {
@@ -64,11 +54,17 @@ sub flip_coin {
         . ((int rand(2)==0) ? 'heads' : 'tails'));
 }
 
-# Register Plugin
+# Register Plugins
+SimBot::plugin_register(plugin_id   => "roll",
+			plugin_desc => "Rolls dice. You can specify how many dice, and how many sides, in the format 3D6.",
+			modules     => "",
+
+			event_plugin_call => "roll_dice",
+			);
+
 SimBot::plugin_register(plugin_id   => "flip",
 			plugin_desc => "Flips a coin.",
 			modules     => "",
 
 			event_plugin_call => "flip_coin",
 			);
-
