@@ -59,7 +59,7 @@ foreach (<CONFIG>) {
 			debug(4, "$section: loaded option $1 as $2\n");
 		}
 	}
-}
+	}
 undef $section;
 close(CONFIG);
 
@@ -70,13 +70,25 @@ die("Your configuration is lacking a valid default nickname") unless option('glo
 die("Your configuration has an extra sentence % >= 100%") unless option('chat', 'new_sentence_chance') < 100;
 die("Your configuration has no rulefile to load") unless option('global', 'rules');
 
-# We set sane defaults for some options if necessary:
-$conf{'global'}{'command_prefix'}[0] = '%' if !option('global', 'command_prefix');
-$conf{'chat'}{'new_sentence_chance'}[0] = 0 if !option('chat', 'new_sentence_chance');
-$conf{'network'}{'username'}[0] = 'nobody' if !option('network', 'username');
+# We set sane defaults for some options if necessary.
+if (!option('global', 'command_prefix')) {
+	$conf{'global'}{'command_prefix'}[0] = '%';
+	debug(2, "global/command_prefix missing from config. Using '%'.\n");
+}
+if (!option('chat', 'new_sentence_chance')) {
+	$conf{'chat'}{'new_sentence_chance'}[0] = 0;
+	debug(2, "chat/new_sentence_chance missing from config. Using 0 (off).\n");
+}
+if (!option('chat', 'delete_usage_max')) {
+	$conf{'chat'}{'delete_usage_max'}[0] = -1;
+	debug(2, "chat/delete_usage_max missing from config. Using -1 (off).\n");
+}
+if (!option('network', 'username')) {
+	$conf{'network'}{'username'}[0] = 'nobody';
+	debug(2, "network/username missing from config. Using 'nobody'.\n");
+}
 
-
-
+# Once we know the gender, is it his or her (or its)?
 if(option('global', 'gender') eq 'M') {
     our $hisher = 'his';
 } elsif (option('global', 'gender') eq 'F') {
@@ -140,6 +152,12 @@ our %event_plugin_call     = (
 						  "stats",   \&print_stats,
 						  "help",    \&print_help,
 						  );
+
+# Register the delete plugin only if the option is enabled
+if(option('chat', 'delete_usage_max') != -1) {
+	$event_plugin_call{"delete"} = \&delete_words;
+	$plugin_desc{"delete"} = "Erases a word that has been previously learned.";
+}
 
 ### Channel Events ###
 # Channel events get params:
@@ -581,10 +599,30 @@ sub print_stats {
     }
 }
 
+# DELETE_WORDS: This removes a word, if it hasn't been deeply ingrained
+# in the database (used a lot) and tells the user what has been done.
+sub delete_words {
+    my (undef, $nick, $channel, undef, $word) = @_;
+	my $max = option('chat', 'delete_usage_max');
+	$word = lc($word);
+	if (defined $word) {
+		my @deleted = &delete_word($word, $max);
+		if (!@deleted && !defined $chat_words{$word}) {
+			&send_message($channel, "$nick: I don't remember ever seeing that word before. It will be hard to forget it.");
+		} elsif (!@deleted) {
+			&send_message($channel, "$nick: '$word' may not be deleted because I've seen it used more than $max times.");
+		} else {
+			&send_message($channel, "$nick: I've supressed any knowledge of the words: " . join(", ", @deleted));
+		}
+	} else {
+		&send_message($channel, "$nick: You need to tell me which word you want me to dropkick to oblivion.");
+	}
+}
+
 # ######### CONVERSATION LOGIC ###########
 
-# BUILDRECORDS: This creates new rules and adds them to the database.
-sub buildrecords {
+# BUILD_RECORDS: This creates new rules and adds them to the database.
+sub build_records {
     my $action = ($_[1] ? $_[1] : "");
     my @sentence = split(/\s+/, $_[0]);
     my ($sec) = localtime(time);
@@ -653,8 +691,8 @@ sub buildrecords {
     }
 }
 
-# BUILDREPLY: This creates a random reply from the database.
-sub buildreply {
+# BUILD_REPLY: This creates a random reply from the database.
+sub build_reply {
     if (%chat_words) {
 		my @sentence = split(/ /, $_[0]);
 
@@ -759,7 +797,7 @@ sub buildreply {
 		my $chance = option('chat', 'new_sentence_chance');
 		if ($chance && int(rand()*(100/$chance)) == 0) {
 			&debug(3, "Adding another sentence...\n");
-			$return .= "__NEW__" . &buildreply("");
+			$return .= "__NEW__" . &build_reply("");
 		}
 		return $return;
     } else {
@@ -807,6 +845,60 @@ sub find_interesting_word {
     }
     debug(3, "\nUsing $highestScoreWord\n");
     return $highestScoreWord;
+}
+
+# DELETE_WORD: Removes a word and any exclusive chains from that word
+# from the database.  The second argument is a number, which prevents
+# removal of a word used more than a certain number of times.  To force
+# word removal, use 0.
+sub delete_word {
+    my ($word, $count, @path_words) = @_;
+	my @deleted = ();
+	$word = lc($word);
+	if (defined $chat_words{$word}) {
+		my ($use_left, $use_right) = (0,0);
+		foreach(keys(%{$chat_words{$word}})) {
+			$use_left += $chat_words{$word}{$_}[0] if defined $chat_words{$word}{$_}[0];
+			$use_right += $chat_words{$word}{$_}[1] if defined $chat_words{$word}{$_}[1];
+		}
+		&debug(4, "delete: $word has been seen $use_left or $use_right times\n");
+		if($count == 0 || ($use_left <= $count && $use_right <= $count)) {
+			foreach my $next (keys(%{$chat_words{$word}})) {
+				if ($next eq $word) {
+					&debug(4, "delete: skipped a loop from $word to $next\n");
+					next;
+				}
+
+				my $loop = 0;
+				foreach(@path_words) {
+					if($next eq $_) {
+						&debug(4, "delete: skipped a loop from $word to $next\n");
+						$loop = 1;
+						last;
+					}
+				}
+				next if $loop == 1;
+
+				if (defined $chat_words{$next}{$word}
+					&& keys(%{$chat_words{$next}}) <= 2) {
+					push(@deleted, &delete_word($next, 0, (@path_words, $word)));
+				} else {
+					&debug(4, "delete: a reference from $word to $next was deleted from the database\n");
+					delete($chat_words{$next}{$word});
+				}
+			}
+			&debug(3, "delete: $word was deleted from the database\n");
+			delete($chat_words{$word});
+			push(@deleted, $word);
+			return (@deleted);
+		} else {
+			&debug(3, "delete: $word was NOT deleted from the database\n");
+			return (@deleted);
+		}
+	} else {
+		&debug(4, "delete: $word ... no such word is known\n");
+		return (@deleted);
+	}
 }
 
 # SEND_MESSAGE: This sends a message and provides something we can hook
@@ -1020,7 +1112,7 @@ sub process_action {
     }
     if($public) {
 		&debug(3, "Learning from " . $nick . "'s action...\n");
-		&buildrecords($text,"ACTION");
+		&build_records($text,"ACTION");
 		foreach(keys(%event_channel_action)) {
 			&plugin_callback($_, $event_channel_action{$_}, ($nick, $channel, 'ACTION', "$nick $text"));
 		}
@@ -1074,7 +1166,7 @@ sub channel_message {
 		&send_message($channel, option('chat', 'greeting') . " $nick!");
     } elsif ($text =~ /^$nickmatch([,|:]\s+|[!\?]*\s*([;:=][\Wdpo]*)?$)|,\s+$nickmatch[,\.!\?]\s+|,\s+$nickmatch[!\.\?]*\s*([;:=][\Wdpo]*)?$/i) {
 		&debug(3, "Generating a reply for " . $nick . "...\n");
-		my @botreply = split(/__NEW__/, &buildreply($text));
+		my @botreply = split(/__NEW__/, &build_reply($text));
 		my $queue = "";
 		foreach my $comment (@botreply) {
 			if ($comment =~ /__ACTION\s/) {
@@ -1090,7 +1182,7 @@ sub channel_message {
 
     } elsif ($text !~ /^[;=:]/) {
 		&debug(3, "Learning from " . $nick . "...\n");
-		&buildrecords($text);
+		&build_records($text);
     }
 }
 
@@ -1218,6 +1310,12 @@ sub quit {
 		}
 	}
     $terminating = 1 unless $terminating == 2;
+
+	# Everyone out of the pool!
+	foreach(keys(%event_plugin_unload)) {
+		&plugin_callback($_, $event_plugin_unload{$_});
+	}
+
     $kernel->post(bot => quit => PROJECT . " " . VERSION
 				  . (($message ne "") ? ": $message" : ""));
     &debug(3, "Disconnecting from IRC... $message\n");
@@ -1228,6 +1326,7 @@ sub reconnect {
     if ($terminating >= 1) {
 		&debug(2, "Disconnected!\n");
 		$kernel->post(bot => unregister => "all");
+
 		# since the event loop should soon have nothing to do
 		# it'll exit. Or something like that.
     } else {
@@ -1277,9 +1376,6 @@ sub pick_new_nick {
 
 $kernel->run();
 &debug(3, "Exited event loop!\n");
-foreach(keys(%event_plugin_unload)) {
-    &plugin_callback($_, $event_plugin_unload{$_});
-}
 &save;
 if ($terminating == 2) {
     &debug(3, "Restarting script...\n");

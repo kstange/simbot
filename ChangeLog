@@ -2,6 +2,10 @@ Version 6.0 alpha: (27 Feb 2004)
 	* *.pl:
 	   - All files now use perl's strict mode, which should mean our code
 	     is absolutely perfect. :P
+	* simbot.pl:
+	   - We now support the %delete command which will remove any item from
+	     the database provided it has been seen fewer than the max number
+	     as specified in the config file.
 	* config.default.ini:
 	   - We now use a plain text file (not a script file) for configuration
 	     this is safer because no one can break the bot by putting bad

@@ -22,14 +22,15 @@ use strict;
 use warnings;
 
 our @todo = (
-	 "1) %delete: allow users to delete words used less than x times",
-	 "2) %recap: handle more events including channel modes and notices",
-	 "3) detect and remove orphaned and dead end words",
-	 "4) perform automatic database backups",
-	 "--- Increment version to 6.0 beta (then final) here ---",
-	 "5) eventually recognize the possibility for joining 2+ channels",
-	 "6) allow for media other than IRC to be used (connection plugins)",
-	 );
+			 "1) %recap: handle more events including channel modes",
+			 "2) detect and remove orphaned and dead end words",
+			 "3) perform automatic database backups",
+			 "4) dalnet style services plugin",
+			 "--- Increment version to 6.0 beta (then final) here ---",
+			 "5) eventually recognize the possibility for joining 2+ channels",
+			 "6) allow for media other than IRC (connection plugins)",
+			 "7) implement authentication for bot administration",
+			 );
 
 # PRINT_TODO: Prints todo list privately to the user.
 sub print_todo {
