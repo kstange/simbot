@@ -49,7 +49,7 @@ sub get_wx {
 	my $request = HTTP::Request->new(GET => $url);
 	my $response = $useragent->request($request);
 	my $station_name = $station;
-	if (!$response->is_error) {
+	if (!$response->is_error && $response->content !~ /The supplied value is invalid/ && $response->content !~ /No station matched the supplied identifier/) {
 	    $response->content =~ m|Station Name:.*?<B>(.*?)\s*</B>|s;
 	    my $name = $1;
 	    $response->content =~ m|State:.*?<B>(.*?)\s*</B>|s;

@@ -265,16 +265,16 @@ sub hostmask {
 sub timeago {
     my ($seconds, $minutes, $hours, $days, $weeks, $years);
     $seconds = time - $_[0];
-    if($seconds > 60) {
+    if($seconds >= 60) {
         $minutes = int $seconds / 60;
         $seconds %= 60;
-        if($minutes > 60) {
+        if($minutes >= 60) {
             $hours = int $minutes / 60;
             $minutes %= 60;
-            if($hours > 24) {
+            if($hours >= 24) {
                 $days = int $hours / 24;
                 $hours %= 24;
-                if($days > 365) {
+                if($days >= 365) {
                     $years = int $days/365;
                     $days %= 365;
                 }
@@ -282,18 +282,19 @@ sub timeago {
         }
     }
 
-    my $reply;
-    $reply = "$years year" . (($years == 1) ? ' ' : 's ') if $years;
-    $reply .= "$days day" . (($days == 1) ? ' ' : 's ') if $days;
-    $reply .= "$hours hour" . (($hours == 1) ? ' ' : 's ') if $hours;
-    $reply .= "$minutes minute" . (($minutes == 1) ? ' ' : 's ') if $minutes;
-    $reply .= "$seconds second" . (($seconds == 1) ? ' ' : 's ') if $seconds;
-    if($reply) {
-        $reply .= 'ago';
+    my @reply;
+    push(@reply, "$years year" . (($years == 1) ? '' : 's'))       if $years;
+    push(@reply, "$days day" . (($days == 1) ? '' : 's'))          if $days;
+    push(@reply, "$hours hour" . (($hours == 1) ? '' : 's'))       if $hours;
+    push(@reply, "$minutes minute" . (($minutes == 1) ? '' : 's')) if $minutes;
+    push(@reply, "$seconds second" . (($seconds == 1) ? '' : 's')) if $seconds;
+    if(@reply) {
+	my $string = join(', ', @reply) . ' ago';
+	$string =~ s/(.*),/$1 and/;
+	return $string;
     } else {
-        $reply = 'very recently';
+        return 'very recently';
     }
-    return $reply;
 }
 
 # RESTART: Quits and restarts the script.  This should be done
