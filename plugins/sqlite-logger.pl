@@ -456,7 +456,7 @@ sub access_log {
                 return;
             }
             
-            my $tmp_query = $dbh->prepare(
+            my $tmp_query = $dbh->prepare_cached(
                 'SELECT time FROM chatlog'
                 . ' WHERE channel_id = ?'
                 . ' AND (source_nick_id = ?'
@@ -467,7 +467,7 @@ sub access_log {
             my $first_date = localtime(($tmp_query->fetchrow_array())[0]);
             $tmp_query->finish;
             
-            $tmp_query = $dbh->prepare(
+            $tmp_query = $dbh->prepare_cached(
                 'SELECT time FROM chatlog'
                 . ' WHERE channel_id = ?'
                 . ' AND (source_nick_id = ?'
@@ -478,7 +478,17 @@ sub access_log {
             my $last_date = localtime(($tmp_query->fetchrow_array())[0]);
             $tmp_query->finish;
             
-            # line count
+            $tmp_query = $dbh->prepare_cached(
+                'SELECT count() FROM chatlog'
+                . ' WHERE channel_id = ?'
+                . ' AND source_nick_id = ?'
+            );
+            $tmp_query->execute($chan_id, $statnick_id);
+            my $line_count = ($tmp_query->fetchrow_array())[0];
+            $tmp_query->finish;
+            
+            # join count ("I have seen JohnDoe 52 times, first on 
+            #   Jan 42, 87:43 AM, and most recently on...")
             # kicked count, kicking count
             # "is a nightowl" if some percent of logged days
             #   contains at least one line between midnight and 5?
@@ -490,7 +500,8 @@ sub access_log {
             
             my $response =
                 "$nick: I first saw $statnick on $first_date,"
-                . " and most recently on $last_date.";
+                . " and most recently on $last_date. $statnick has"
+                . " spoken $line_count times.";
             &SimBot::send_message($channel, $response);
         }
     } else {
@@ -568,7 +579,7 @@ sub row_hashref_to_text {
 sub get_nick_context {
     my ($nick_id) = @_;
     
-    my $query = $dbh->prepare(
+    my $query = $dbh->prepare_cached(
         'SELECT context FROM names WHERE id = ?'
     );
     $query->execute($nick_id);
@@ -591,7 +602,7 @@ sub update_nick_context {
         $context .= " ${key}=${value}";
     }
     
-    my $query = $dbh->prepare(
+    my $query = $dbh->prepare_cached(
         'UPDATE names SET context = ? WHERE id = ?'
     );
     $query->execute($context, $nick_id);
