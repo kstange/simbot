@@ -29,14 +29,10 @@
 #   * Either fix the issues in Geo::METAR or stop using it.
 #
 
-
-# This file is in unicode. If your editor doesn't like it, get a new one.
-
 package SimBot::plugin::weather;
 
 use strict;
 use warnings;
-use utf8;
 
 # The weather, more or less!
 use Geo::METAR;
@@ -169,7 +165,7 @@ sub get_wx {
             $temp_c =~ s/M/-/;
             my $temp_f = (defined $m->TEMP_F ? $m->TEMP_F : (9/5)*$temp_c+32);
 
-            my $temp = $temp_f . '째F (' . int($temp_c) . '째C)';
+            my $temp = $temp_f . '캟 (' . int($temp_c) . '캜)';
             push(@reply_with, $temp);
 
             if($temp_f <= 40 && $m->WIND_MPH > 5) {
@@ -177,7 +173,7 @@ sub get_wx {
                 - 35.75 * ($m->WIND_MPH ** 0.16)
                 + 0.4275 * $temp_f * ($m->WIND_MPH ** 0.16);
                 my $windchill_c = ($windchill - 32) * (5/9);
-                push(@reply_with, sprintf('a wind chill of %.1f째F (%.1f째C)', $windchill, $windchill_c));
+                push(@reply_with, sprintf('a wind chill of %.1f캟 (%.1f캜)', $windchill, $windchill_c));
             }
 
             # Humidity, only if we have a dewpoint!

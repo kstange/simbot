@@ -25,6 +25,13 @@
 # Hi, my name is:
 package SimBot;
 
+# Sometimes we end up in Unicode.  Since IRC and Unicode are not good
+# friends, we'll take a ride back to ISO-8859-1 before we send the
+# server any questionable strings.  This requires Perl 5.8.0 or a perl
+# with the equivalent Encode module.
+use Encode;
+use constant TARGET_ENCODING => 'iso-8859-1';
+
 # We hold our code up to some standards.  If anyone knows how to use
 # symbolic refs with strict refs on, you should tell us.  From the Perl
 # documentation this is decidely not possible.
@@ -47,10 +54,10 @@ foreach (<CONFIG>) {
 	} elsif (m/^(.*?)=(.*)$/) {
 		if ($section eq "filters") {
 			if ($1 eq "match") {
-				push(@{$conf{'filters'}}, qr/$2/);
+				push(@{$conf{'filters'}}, qr/$2/i);
 				debug(4, "$section: loaded match filter for $2\n");
 			} elsif ($1 eq "word") {
-				push(@{$conf{'filters'}}, qr/(^|\b)$2(\b|$)/);
+				push(@{$conf{'filters'}}, qr/(^|\b)$2(\b|$)/i);
 				debug(4, "$section: loaded word filter for $2\n");
 			} else {
 				debug(4, "$section: saw unknown filter type $1\n");
@@ -934,6 +941,7 @@ sub delete_word {
 # into for logging what the bot says for plugins and whatnot.
 sub send_message {
 	my ($dest, $text) = @_;
+	$text = &Encode::encode(TARGET_ENCODING, $text);
 	$kernel->post(bot => privmsg => $dest, $text);
 	&debug(4, "sending message to @{$dest}\n");
     my $public = 0;
@@ -957,6 +965,7 @@ sub send_message {
 # into for logging what the bot says for plugins and whatnot.
 sub send_action {
 	my ($dest, $text) = @_;
+	$text = &Encode::encode(TARGET_ENCODING, $text);
 	$kernel->post(bot => ctcp => $dest, 'ACTION', $text);
 	&debug(4, "sending action to @{$dest}\n");
     my $public = 0;
@@ -980,6 +989,7 @@ sub send_action {
 # into for logging what the bot says for plugins and whatnot.
 sub send_notice {
 	my ($dest, $text) = @_;
+	$text = &Encode::encode(TARGET_ENCODING, $text);
 	$kernel->post(bot => notice => $dest, $text);
 	&debug(4, "sending notice to @{$dest}\n");
     my $public = 0;
