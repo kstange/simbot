@@ -1,6 +1,6 @@
 # SimBot Todo List Plugin
 #
-# Copyright (C) 2003-4, Kevin M Stange <kevin@simguy.net>
+# Copyright (C) 2003-04, Kevin M Stange <kevin@simguy.net>
 #
 # This program is free software; you can redistribute it and/or modify
 # under the terms of the GNU General Public License as published by
@@ -21,10 +21,11 @@ package SimBot::plugin::todo;
 @todo = (
 	 "1) %delete: allow users to delete words used less than x times",
 	 "2) %recap: allow users to request scrollback of up to x lines",
-	 "3) create a means for automatic dead words cleanup",
-	 "4) automatically perform regular db backups",
-	 "--- Finish above this line and we'll increment to 6.0 final ---",
+	 "3) detect and remove orphaned and dead end words",
+	 "4) perform automatic perform database backups",
+	 "--- Increment version to 6.0 beta (then final) here ---",
 	 "5) eventually recognize the possibility for joining 2+ channels",
+	 "6) allow for other media than IRC to be used (connection plugins)",
 	 );
 
 # PRINT_TODO: Prints todo list privately to the user.

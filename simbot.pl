@@ -31,7 +31,7 @@ use warnings;
 
 use constant ERROR_DESCRIPTIONS
         => ('', 'ERROR: ', 'WARNING: ', '', 'SPAM: ',);
-        
+
 # Declaring these as empty is better for the case when the config file
 # is missing them.
 @greeting = ();
