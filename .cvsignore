@@ -1,6 +1,8 @@
 rules.db
 config.pl
-seen.*
 seen
+metarStationNames
+*.pag
+*.dir
 simbot.sh
 
