@@ -669,7 +669,7 @@ sub got_xml {
     if(defined $location)   { $msg .= 'at ' . $location; }
     else                    { $msg .= 'at ' . $station; }
 
-    if(defined $weather) {
+    if(defined $weather && $weather !~ m/^null$/i) {
         $weather = lc($weather);
         $weather =~ s/^\s*//;   # sometimes they have a space in front
         
@@ -696,11 +696,11 @@ sub got_xml {
 
     $msg .= ', with';
 
-    if(defined $hidx && $hidx !~ m/Not Applicable/i) {
+    if(defined $hidx && $hidx !~ m/(Not Applicable|null)/i) {
         push(@reply_with, "a heat index of $hidx");
     }
 
-    if(defined $wchill && $wchill !~ m/Not Applicable/i) {
+    if(defined $wchill && $wchill !~ m/(Not Applicable|null)/i) {
         push(@reply_with, "a wind chill of $wchill");
     }
 
@@ -716,7 +716,7 @@ sub got_xml {
         push(@reply_with, $mmsg);
     }
 
-    if(defined $visibility && $visibility !~ m/Not Applicable/i) {
+    if(defined $visibility && $visibility !~ m/(Not Applicable|null)/i) {
         push(@reply_with, "$visibility visibility");
     }
 
