@@ -81,7 +81,6 @@ sub messup_wx {
     $session = POE::Session->create(
         inline_states => {
             _start          => \&bootstrap,
-            _stop           => sub { warn "WX session stopping"; },
             do_wx           => \&do_wx,
             got_wx          => \&got_wx,
             got_station_name => \&got_station_name,
