@@ -129,7 +129,7 @@ sub got_response {
     my $response = $response_packet->[0];
     my $rss = new XML::RSS;
     $file = "caches/${curFeed}.xml";
-    &SimBot::debug((($response->code >= 400) ? 1 : 3),
+    &SimBot::debug((($response->code >= 400) ? 1 : 4),
 				   "rss:   fetching feed for $curFeed: "
 				   . $response->status_line . "\n");
 
