@@ -1808,17 +1808,22 @@ sub initialize {
 sub irc_connect {
     $chosen_nick = option('global', 'nickname');
     $chosen_server = option('network', 'server');
-
+    my $chosen_port = 6667;
+    if($chosen_server =~ m/^(.*):(\d+)$/) {
+        $chosen_server = $1;
+        $chosen_port = $2;
+    }
+        
     $kernel->post(bot => 'connect',
 				  {
 					  Nick    => $chosen_nick,
 					  Server  => $chosen_server,
-					  Port    =>  6667,
+					  Port    => $chosen_port,
 					  Ircname => PROJECT . " " . VERSION,
 					  Username => option('network', 'username'),
 				  }
 				  );
-    &debug(3, "Connecting to IRC server " . $chosen_server . "...\n");
+    &debug(3, 'Connecting to IRC server ' . $chosen_server . ' on port ' . $chosen_port . "...\n");
 }
 
 # IRC_CONNECTED: After connecting to IRC, this will join the channel and
