@@ -1,22 +1,22 @@
 version 6.0 alpha: (19 Feb 2004)
 	* simbot.pl:
-	  - Introduced send_message, send_action, and send_notice to replace
-	    calling the POE::Kernel directly whenever we send a message.
-	    This means we now get a chance to log things that the bot is
-	    going to say.
-	  - Added events event_*_out that are fired for plugins wanting to
-	    know when the bot has sent a message out.
+	   - Introduced send_message, send_action, and send_notice to replace
+	     calling the POE::Kernel directly whenever we send a message.
+	     This means we now get a chance to log things that the bot is
+	     going to say.
+	   - Added events event_*_out that are fired for plugins wanting to
+	     know when the bot has sent a message out.
 	* plugins/*.pl:
-	  - All plugins now use send_message, send_action, and send_notice
-	    for all their sending needs.
+	   - All plugins now use send_message, send_action, and send_notice
+	     for all their sending needs.
 	* plugins/recap.pl:
-	  - This plugin can now see what the bot says and logs it correctly.
-	  - Fixed a bunch of message ordering logic to make sure we log in
-	    the same order as time passes.
+	   - This plugin can now see what the bot says and logs it correctly.
+	   - Fixed a bunch of message ordering logic to make sure we log in
+	     the same order as time passes.
 	* plugins/weather.pl:
-	  - We don't fail the weather plugin if we're unable to load the
-	    station name cache.  Station names will then be cached for
-	    the current session only and lost upon quitting.
+	   - We don't fail the weather plugin if we're unable to load the
+	     station name cache.  Station names will then be cached for
+	     the current session only and lost upon quitting.
 
 version 6.0 alpha: (13 Feb 2004)
 	* Today is Friday the 13th.  I am told the ChangeLog must have an
