@@ -555,7 +555,7 @@ sub timeago {
 # CHAR_SUB: Returns the string with some odd unicode replaced with
 # more ordinary characters.
 sub char_sub {
-    $text = $_[0];
+    my $text = $_[0];
     
     $text =~ s/\N{HORIZONTAL ELLIPSIS}/.../g;
     $text =~ s/\N{TWO DOT LEADER}/../g;
