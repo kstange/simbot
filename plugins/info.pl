@@ -19,7 +19,28 @@
 package SimBot::plugin::info;
 
 use warnings;
-
+use constant I_DONT_KNOW =>
+    ('$nick: Damned if I know!', '$nick: Huh?', 'I dunno, $nick.',
+     'Tell me if you find out, $nick.', );
+use constant OK_LEARNED =>
+    ('$nick: I will remember that.', 'OK, $nick.',
+     'I\'ll keep that in mind, $nick.', );
+use constant OK_FORGOTTEN =>
+    ('$nick: What were we talking about again?');
+use constant CANT_FORGET =>
+    ('$nick: I don\'t know anything about $key.');
+use constant QUERY_RESPONSE =>
+    ('$nick: I have been told that $key $isare $factoid.',
+     '$nick: Someone mentioned that $key $isare $factoid.',
+     '$nick: $key, according to popular belief, $isare $factoid.',
+    );
+use constant ALREADY_WAS =>
+    ('I already know that, $nick.');
+use constant BUT_X_IS_Y =>
+    ('$nick: I thought $key $isare $factoid.');
+use constant I_CANNOT =>
+    ('I cannot do that, $nick.');
+     
 sub messup_info {
     dbmopen(%isDB, 'is', 0664);
     dbmopen(%areDB, 'are', 0664);
@@ -30,26 +51,56 @@ sub cleanup_info {
 }
 
 sub learn_info {
-    my($kernel, $nick, $channel, $doing, $content, $being_addressed) = @_;
-    my($person_being_referenced);
+    my($kernel, $nick, $channel, $doing, $content) = @_;
+    my($person_being_referenced, $being_addressed, $is_query); 
     
-    if($content =~ m/^.info/) { return; }
+    if($content =~ s/^.info ?//) {
+        $being_addressed = 1;
+    }
     
     # Is someone being referenced?
     if($content =~ s{, (\S*)[.\!\?]?$}{}) { # whatever, JohnDoe
         $person_being_referenced = $1;
     }
-    if($content =~ s{^(\S*)[:,] }{}) { # JohnDoe: whatever
+    if($content =~ s{^(\S*)[:,] }{}) {      # JohnDoe: whatever
         $person_being_referenced = $1;
     }
     if($being_addressed) {
         $person_being_referenced = $SimBot::nickname;
+#    } elsif($person_being_addressed =~ m/$SimBot::nickname/g) {
+#        $being_addressed = 1;
     }
     
     $content = &munge_pronouns($content, $nick, $person_being_referenced);
     $content = &normalize_urls($content);
     
-    if($content =~ m{([\w\s]+) is[\s\w]* (\w+://\S+)}g) {
+    if($being_addressed && $content =~ m{^forget ([\w\s]+)}g) {
+        # someone wants us to forget
+        
+        my($forgotten, $key) = (0, lc($1));
+        if($isDB{$key}) {
+            delete $isDB{$key};
+            $forgotten = 1;
+        }
+        if($areDB{$key}) {
+            delete $areDB{$key};
+            $forgotten = 1;
+        }
+        if($forgotten) {
+            &SimBot::debug(3, "Forgot $key (req'd by $nick)\n");
+            &SimBot::send_message($channel,
+                &parse_message(&SimBot::pick(OK_FORGOTTEN),
+                               $nick, $key));
+        } else {
+            &SimBot::send_message($channel,
+                &parse_message(&SimBot::pick(CANT_FORGET),
+                               $nick, $key));
+        }
+    } elsif($content =~ m{(where|what|who) is ([\'\w\s]+)}g) {
+        # looks like a query
+        &handle_query($2, $nick, $channel, $person_being_referenced,
+                      $being_addressed);
+    } elsif($content =~ m{([\'\w\s]+) is[\s\w]* (\w+://\S+)}g) {
         # looks like a URL to me!
         my ($key, $factoid) = (lc($1), $2);
         $factoid = 'at ' . $factoid;
@@ -57,7 +108,7 @@ sub learn_info {
             $isDB{$key} = $factoid;
             &report_learned($channel, $nick, $key, 'is', $factoid, $being_addressed);
         }
-    } elsif($content =~ m{([\w\s]+?) (is|are) ([\w\s]+)}) {
+    } elsif($content =~ m{([\'\w\s]+?) (is|are) ([\'\w\s]+)}) {
         my ($key, $isare, $factoid) = (lc($1), $2, $3);
 
         foreach(@SimBot::chat_ignore) {
@@ -74,34 +125,143 @@ sub learn_info {
         }
         if($isare =~ m/is/g) {
             if($isDB{$key}) {
-                
+                &SimBot::send_message($channel, "$nick: But $key is $isDB{$key}.") if $being_addressed;
             } else {
                 $isDB{$key} = $factoid;
                 &report_learned($channel, $nick, $key, 'is', $factoid, $being_addressed);
             }
         } else {
-            unless($areDB{$key}) {
+            if($areDB{$key}) {
+                &SimBot::send_message($channel, "$nick: But $key are $isDB{$key}.") if $being_addressed;
+            } else {
                 $areDB{$key} = $factoid;
                 &report_learned($channel, $nick, $key, 'are', $factoid, $being_addressed);
             }
         }
+    } elsif($being_addressed && $content =~ m{^([\'\w\s]+)$}) {
+        # KEEP THIS ELSIF LAST
+        # Single phrase, doesn't match anything else and we are being
+        # addressed. Let's do a query.
+        &handle_query($1, $nick, $channel, $person_being_referenced,
+                      $being_addressed);
     }
 }
+
+sub handle_query {
+    my ($query, $nick, $channel, $person_being_addressed, $being_addressed)
+        = @_;
+    
+    if($person_being_addressed && !$being_addressed) {
+        # Someone's being referenced, and it isn't us
+        # We should keep quiet.
+        return;
+    }
+    
+    $query = lc($query);
+    if($isDB{$query}) {
+        &SimBot::send_message($channel,
+                    &parse_message(&SimBot::pick(QUERY_RESPONSE),
+                                   $nick, $query, 'is', $isDB{$query}));
+    } elsif($areDB{$query}) {
+        &SimBot::send_message($channel,
+                    &parse_message(&SimBot::pick(QUERY_RESPONSE),
+                                   $nick, $query, 'are', $isDB{$query}));
+    } elsif($being_addressed) {
+        # we're being addressed, but don't have an answer...
+        &SimBot::send_message($channel,
+            &parse_message(&SimBot::pick(I_DONT_KNOW),
+                           $nick, $query));
+    }
+}
+
+sub report_learned {
+    my($channel, $nick, $key, $isare, $factoid, $addressed) = @_;
+    &SimBot::debug(3, "Learning from $nick: $key =$isare=> $factoid\n");
+    &SimBot::send_message($channel, &parse_message(&SimBot::pick(OK_LEARNED), $nick) . " ($key =$isare=> $factoid)") if $addressed;
+}
+
+sub parse_message {
+    my ($message, $nick, $key, $isare, $factoid) = @_;
+    
+    $message =~ s/\$nick/$nick/;
+    $message =~ s/\$key/$key/;
+    $message =~ s/\$isare/$isare/;
+    $message =~ s/\$factoid/$factoid/;
+    
+    return $message;
+}
+
+sub munge_pronouns {
+    my ($content, $nick, $person_being_referenced, $thirdperson) = @_;
+    
+    $content =~ s/(^|\s)i am /$1$nick is /ig;
+    $content =~ s/(^|\s)my /$1${nick}'s /ig;
+    if($person_being_referenced) {
+        $content =~ s/(^|\s)(you're|you are) /$1${person_being_referenced} is /ig;
+        $content =~ s/(^|\s)your /$1${person_being_referenced}\'s /ig;
+    }
+    
+    return $content;
+}
+
+sub normalize_urls {
+    my @words = split(/\s+/, $_[0]);
+    my $curWord;
+        
+    foreach $curWord (@words) {
+        # map some common host names to protocols
+        $curWord =~ s{^(www|web)\.}{http://$1\.};
+        $curWord =~ s{^ftp\.}{ftp://ftp\.};
+        
+        if($curWord =~ m{^((http|ftp|news|nntp|mailto|aim)s?:[\w.?/]+)}) {
+            $curWord = $1;
+            next;
+        }
+        
+        if($curWord =~ m{/}) {
+            my ($host, $path) = split(m{/}, $curWord, 2);
+            
+            # does the first segment have a TLD?
+            if($host =~ m{\.(com|org|net|biz|info|aero|museum|\w\w)$}) {
+                # Yup. Let's assume it's a web site...
+                $host = 'http://' . $host;
+            }
+            $curWord = $host . '/' . $path;
+        }
+    }
+    return join(' ', @words);
+}
+
+&SimBot::plugin_register(
+    plugin_id   => 'info',
+    plugin_desc => 'Tells you what simbot has learned about something.',
+    event_plugin_call   => sub {}, # Do nothing.
+    event_plugin_load   => \&messup_info,
+    event_plugin_unload => \&cleanup_info,
+    event_channel_message   => \&learn_info,
+);
+
+__END__
+This is the code graveyard... I might need this for reference later, but
+it's currently unused. I wouldn't touch this stuff if I were you...
 
 sub get_info {
     my($kernel, $nick, $channel, undef, @query) = @_;
 
     $query = &munge_pronouns(join(' ', @query), $nick, $SimBot::nickname);
 
-    if($query =~ m{^forget (.*)}) {
+    if($query =~ m/^$/) {
+        # looks like someone doesn't know what to do
+        &SimBot::send_message($channel, "$nick: What d'ya wanna know?");
+    } elsif($query =~ m{^forget (.*)}) {
         # looks like someone wants us to be forgetful
         my($forgotten, $key) = (0, lc($1));
         if($isDB{$key}) {
-            undef $isDB{$key};
+            delete $isDB{$key};
             $forgotten = 1;
         }
         if($areDB{$key}) {
-            undef $areDB{$key};
+            delete $areDB{$key};
             $forgotten = 1;
         }
         if($forgotten) {
@@ -130,59 +290,3 @@ sub get_info {
         }
     }
 }
-
-sub report_learned {
-    my($channel, $nick, $key, $isare, $factoid, $addressed) = @_;
-    &SimBot::debug(3, "Learning from $nick: $key =$isare=> $factoid\n");
-    &SimBot::send_message($channel, "$nick: OK. ($key =$isare=> $factoid)") if $addressed;
-}
-
-sub munge_pronouns {
-    my ($content, $nick, $person_being_referenced, $thirdperson) = @_;
-    
-    $content =~ s/(^|\s)i am /$1$nick is /ig;
-    $content =~ s/(^|\s)my /$1${nick}'s /ig;
-    if($person_being_referenced) {
-        $content =~ s/(^|\s)(you're|you are) /$1${person_being_referenced} is /ig;
-        $content =~ s/(^|\s)your /$1${person_being_referenced}\'s /ig;
-    }
-    
-    return $content;
-}
-
-sub normalize_urls {
-    my @words = split(/\s+/, $_[0]);
-    my ($proto, $path, $curWordTemp);
-    
-    foreach $curWord (@words) {
-        # map some common host names to protocols
-        $curWord =~ s{^(www|web)\.}{http://$1\.};
-        $curWord =~ s{^ftp\.}{ftp://ftp\.};
-        
-        if($curWord =~ m{^((http|ftp|news|nntp|mailto|aim)s?:[\w.?/]+)}) {
-            $curWord = $1;
-            next;
-        }
-        
-        if($curWord =~ m{/}) {
-            my ($host, $path) = split(m{/}, $curWord, 2);
-            
-            # does the first segment have a TLD?
-            if($host =~ m{\.(com|org|net|biz|info|aero|museum|\w\w)$}) {
-                # Yup. Let's assume it's a web site...
-                $host = 'http://' . $host;
-            }
-            $curWord = $host . '/' . $path;
-        }
-    }
-    return join(' ', @words);
-}
-
-&SimBot::plugin_register(
-    plugin_id   => 'info',
-    plugin_desc => 'Tells you what simbot has learned about something.',
-    event_plugin_call   => \&get_info,
-    event_plugin_load   => \&messup_info,
-    event_plugin_unload => \&cleanup_info,
-    event_channel_message   => \&learn_info,
-);
