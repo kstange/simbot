@@ -1038,10 +1038,10 @@ sub cont_send_pieces {
             unshift(@words, $nextWord);
             if(length($line) + length($curWord) <= 440) {
                 $line .= ' ' . $curWord;
-                $kernel->delay('cont_send_pieces', .5, $dest, $prefix,
+                $kernel->delay('cont_send_pieces', 1, $dest, $prefix,
                                join(' ', @words));
             } else {
-                $kernel->delay('cont_send_pieces', .5, $dest, $prefix,
+                $kernel->delay('cont_send_pieces', 1, $dest, $prefix,
                                ("$curWord\n" . join(' ', @words)));
             }
             last;
@@ -1052,7 +1052,7 @@ sub cont_send_pieces {
             # tell POE to run cont_send_pieces again with the remaining
             # words.
             unshift(@words, $curWord);
-            $kernel->delay('cont_send_pieces', .5, $dest, $prefix,
+            $kernel->delay('cont_send_pieces', 1, $dest, $prefix,
                             join(' ', @words));
             last;
         }
