@@ -169,9 +169,10 @@ sub get_wx {
             push(@reply_with, $temp);
 
             if($temp_f <= 40 && $m->WIND_MPH > 5) {
+                # Do we have a wind chill?
                 my $windchill = 35.74 + (0.6215 * $temp_f)
-                - 35.75 * ($m->WIND_MPH ** 0.16)
-                + 0.4275 * $temp_f * ($m->WIND_MPH ** 0.16);
+                                - 35.75 * ($m->WIND_MPH ** 0.16)
+                                + 0.4275 * $temp_f * ($m->WIND_MPH ** 0.16);
                 my $windchill_c = ($windchill - 32) * (5/9);
                 push(@reply_with, sprintf('a wind chill of %.1f°F (%.1f°C)', $windchill, $windchill_c));
             }
@@ -180,7 +181,25 @@ sub get_wx {
             if (defined $m->C_DEW) {
                 my $humidity = 100 * ( ( (112 - (0.1 * $temp_c) + $m->C_DEW)
                              / (112 + (0.9 * $temp_c)) ) ** 8 );
-                push(@reply_with, sprintf('%d', $humidity) . '% humidity');
+                push(@reply_with, sprintf('%d', $humidity) . '% humidity'); 
+                        
+                if($temp_f >= 80 && $humidity >= 40) {
+                    # Do we have a heat index?
+
+                    my $heatindex = - 42.379
+                                    + 2.04901523 * $temp_f
+                                    + 10.1433127 * $humidity
+                                    - 0.22475541 * $temp_f * $humidity
+                                    - 0.00683783 * $temp_f ** 2
+                                    - 0.05481717 * $humidity ** 2
+                                    + 0.00122874 * $temp_f ** 2 * $humidity
+                                    + 0.00085282 * $temp_f * $humidity ** 2
+                                    - 0.00000199 * $temp_f ** 2 
+                                                 * $humidity ** 2;
+    
+                    my $heatindex_c = ($heatindex - 32) * (5/9);
+                    push(@reply_with, sprintf('a heat index of %.1f°F (%.1f°C)', $heatindex, $heatindex_c));
+                }
             }
         } else {
             # We have no temp, "there are" (winds|skies)
