@@ -65,6 +65,12 @@ sub messup_rss {
         $announce_feed{$cur_feed} = 1;
     }
 
+    POE::Component::Client::HTTP->spawn
+		( Alias => 'ua',
+		  Timeout => 120,
+		  Agent => SimBot::PROJECT . "/" . SimBot::VERSION,
+		  );
+
     $session = POE::Session->create(
         inline_states => {
             _start          => \&do_rss,
@@ -76,11 +82,6 @@ sub messup_rss {
             shutdown        => \&shutdown,
         }
     );
-    POE::Component::Client::HTTP->spawn
-		( Alias => 'ua',
-		  Timeout => 120,
-		  Agent => SimBot::PROJECT . "/" . SimBot::VERSION,
-		  );
     1;
 }
 
@@ -102,18 +103,33 @@ sub shutdown {
 sub do_rss {
     my $kernel = $_[KERNEL];
     my (@newPosts, $title, $request, $file);
+    my $rss = new XML::RSS;
     &SimBot::debug(3, "rss: Updating cache...\n");
 
     foreach my $curFeed (keys %feeds) {
-        if($announce_feed{$curFeed}) {
+		if($announce_feed{$curFeed}) {
+			my $mtime = 0;
             $file = "caches/${curFeed}.xml";
             $request = HTTP::Request->new(GET => $feeds{$curFeed});
             if(-e $file) {
-                my $mtime = (stat($file))[9];
+                $mtime = (stat($file))[9];
                 $request->if_modified_since($mtime);
             }
-            $kernel->post( 'ua' => 'request', 'got_response',
-                            $request, $curFeed);
+			# Only fetch this file if it is expired or missing.
+			if ($mtime == 0 || $mtime + EXPIRE < time) {
+				$kernel->post( 'ua' => 'request', 'got_response',
+							   $request, $curFeed);
+			}
+			if (!defined $mostRecentPost{$curFeed} && -e $file) {
+				# We still need to make sure we know the most recent post
+				&SimBot::debug(4, "rss:   loading up to date cache of $curFeed\n");
+				$rss->parsefile($file);
+				if(defined $rss->{'items'}->[0]->{'guid'}) {
+					$mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'guid'};
+				} else {
+					$mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
+				}
+			}
         }
     }
     $kernel->delay(do_rss => EXPIRE);
@@ -186,7 +202,7 @@ sub got_response {
 }
 
 ### latest_headlines_stub
-# SimBot does not know this is a POE session.  It will call this function to
+# SimBot does not know this is a POE session.  It will call this function
 # and we'll post our event.
 sub latest_headlines_stub {
     my ($kernel, $nick, $channel, undef, $feed) = @_;
@@ -239,24 +255,30 @@ sub latest_headlines {
 sub announce_top {
     my ($feed, $nick, $channel) = @_[ ARG0, ARG1, ARG2 ];
     my ($rss, $link, $title, $item);
-    $rss = new XML::RSS;
-    $rss->parsefile("caches/${feed}.xml");
-    $title = $rss->{'channel'}->{'title'};
-    if($title =~ m/Slashdot Journals/) {
-        $title = $rss->{'channel'}->{'description'};
-    }
-    &SimBot::send_message($channel, &SimBot::parse_style(
-                    "$nick: Here are the latest posts to "
-                    . &colorize_feed($title) . ':'));
-    for(my $i=0;
-        $i <= ($#{$rss->{'items'}} < 2 ? $#{$rss->{'items'}} : 2);
-        $i++)
-      {
-        $item = ${$rss->{'items'}}[$i];
-        ($link, $title) = &get_link_and_title($item);
+	my $file = "caches/${feed}.xml";
+    if(-e $file) {
+		$rss = new XML::RSS;
+		$rss->parsefile("caches/${feed}.xml");
 
-        &SimBot::send_message($channel, "$title  $link");
-    }
+		$title = $rss->{'channel'}->{'title'};
+		if($title =~ m/Slashdot Journals/) {
+			$title = $rss->{'channel'}->{'description'};
+		}
+		&SimBot::send_message($channel, &SimBot::parse_style(
+			 "$nick: Here are the latest posts to "
+			 . &colorize_feed($title) . ':'));
+		for(my $i=0;
+			$i <= ($#{$rss->{'items'}} < 2 ? $#{$rss->{'items'}} : 2);
+			$i++)
+		{
+			$item = ${$rss->{'items'}}[$i];
+			($link, $title) = &get_link_and_title($item);
+
+			&SimBot::send_message($channel, "$title  $link");
+		}
+	} else {
+		&SimBot::send_message($channel, "$nick: $feed is unavailable.  The feed seems to be down and I don't have an old copy to show you.");
+	}
 }
 
 sub colorize_feed {
