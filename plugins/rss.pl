@@ -51,13 +51,14 @@ use constant EXPIRE => (&SimBot::option('plugin.rss', 'expire') ?
 						&SimBot::option('plugin.rss', 'expire') : 3600);
 
 ### messup_rss
-# This runs when simbot loads. We need to make sure we know the most recent
-# post on each feed at this time so when we update we can announce only new
-# stuff.
+# This runs when simbot loads. We need to make sure we know the most
+# recent post on each feed at this time so when we update we can
+# announce only new stuff.
 sub messup_rss {
     foreach my $cur_feed
             (&SimBot::options_in_section('plugin.rss.feeds')) {
-        $feeds{$cur_feed}=&SimBot::option('plugin.rss.feeds', $cur_feed);
+        $feeds{$cur_feed}=&SimBot::option('plugin.rss.feeds',
+                                          $cur_feed);
         $announce_feed{$cur_feed} = 0;
     }
     foreach my $cur_feed
@@ -69,7 +70,7 @@ sub messup_rss {
 		( Alias => 'ua',
 		  Timeout => 120,
 		  Agent => SimBot::PROJECT . "/" . SimBot::VERSION,
-		  );
+       );
 
     $session = POE::Session->create(
         inline_states => {
@@ -98,8 +99,8 @@ sub shutdown {
 }
 
 ### do_rss
-# This is run on a timer, once an hour or as specified by the EXPIRE option,
-# to fetch new data and, if there is anything new, announce it.
+# This is run on a timer, once an hour or as specified by the EXPIRE
+# option, to fetch new data and, if there is anything new, announce it.
 sub do_rss {
     my $kernel = $_[KERNEL];
     my (@newPosts, $title, $request, $file);
@@ -116,7 +117,8 @@ sub do_rss {
                 $request->if_modified_since($mtime);
             }
 			# Fetch the file when one of the following is true:
-			#  - We are scheduled to update all files (not initial fetch).
+			#  - We are scheduled to update all files (not initial
+			#    fetch).
 			#  - The file we have is expired.
 			#  - We have no cached version of this file.
 			if (defined $mostRecentPost{$curFeed} ||
@@ -124,19 +126,24 @@ sub do_rss {
 				$kernel->post( 'ua' => 'request', 'got_response',
 							   $request, $curFeed);
 
-			# If the file we have is not expired, we still need to find	the
-			# most recent post so we have a reference point for later updates.
-			# This should only run if all of these conditions are met:
+			# If the file we have is not expired, we still need to find
+			# the most recent post so we have a reference point for later
+			# updates. This should only run if all of these conditions
+			# are met:
 			#  - We have a cached version of this file.
 			#  - The file we have is not expired.
-			#  - We have not yet found the most recent post (initial fetch).
+			#  - We have not yet found the most recent post (initial
+			#    fetch).
 			} else {
-				&SimBot::debug(4, "rss:   loading up to date cache of $curFeed\n");
+				&SimBot::debug(4,
+				        "rss:   loading up to date cache of $curFeed\n");
 				$rss->parsefile($file);
 				if(defined $rss->{'items'}->[0]->{'guid'}) {
-					$mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'guid'};
+					$mostRecentPost{$curFeed}
+					   = $rss->{'items'}->[0]->{'guid'};
 				} else {
-					$mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
+					$mostRecentPost{$curFeed}
+					   = $rss->{'items'}->[0]->{'link'};
 				}
 			}
         }
@@ -148,7 +155,8 @@ sub do_rss {
 # This is run whenever we have retrieved a RSS feed. We dump it
 # to disk.
 sub got_response {
-    my ($kernel, $request_packet, $response_packet) = @_[ KERNEL, ARG0, ARG1 ];
+    my ($kernel, $request_packet, $response_packet)
+        = @_[ KERNEL, ARG0, ARG1 ];
     my (@newPosts, $title, $link, $file);
     my ($curFeed, $nick) = split(/!!/, $request_packet->[1]);
     my $response = $response_packet->[0];
@@ -178,7 +186,8 @@ sub got_response {
 
 		if (defined $mostRecentPost{$curFeed}) {
 			foreach my $item (@{$rss->{'items'}}) {
-				if((defined $item->{'guid'} && $item->{'guid'} eq $mostRecentPost{$curFeed})
+				if((defined $item->{'guid'}
+				    && $item->{'guid'} eq $mostRecentPost{$curFeed})
 				   || $item->{'link'} eq $mostRecentPost{$curFeed}) {
 					last;
 				} else {
@@ -201,7 +210,7 @@ sub got_response {
 			}
 			&SimBot::send_message(CHANNEL,
 			  &SimBot::parse_style(&colorize_feed($title)
-								   . " has been updated! Here's what's new:"));
+				            . " has been updated! Here's what's new:"));
 			foreach(@newPosts) {
 				&SimBot::send_message(CHANNEL, $_);
 			}
@@ -211,17 +220,19 @@ sub got_response {
 }
 
 ### latest_headlines_stub
-# SimBot does not know this is a POE session.  It will call this function
-# and we'll post our event.
+# SimBot does not know this is a POE session.  It will call this
+# function and we'll post our event.
 sub latest_headlines_stub {
     my ($kernel, $nick, $channel, undef, $feed) = @_;
-    $kernel->post($session => 'latest_headlines', $nick, $channel, $feed);
+    $kernel->post($session => 'latest_headlines', $nick,
+                  $channel, $feed);
 }
 
 ### latest_headlines
 # This outputs the latest headlines for the requested feed to IRC.
 sub latest_headlines {
-    my ($kernel, $nick, $channel, $feed) = @_[ KERNEL, ARG0, ARG1, ARG2 ];
+    my ($kernel, $nick, $channel, $feed)
+        = @_[ KERNEL, ARG0, ARG1, ARG2 ];
     my ($item, $title, $link);
     my $rss = new XML::RSS;
 
@@ -239,11 +250,14 @@ sub latest_headlines {
                 my $mtime = (stat($file))[9];
                 $request->if_modified_since($mtime);
             }
+            
             $kernel->post( 'ua' => 'request', 'got_response',
                             $request, "$feed!!$nick");
         } else {
-            &SimBot::debug(4, "rss: $feed is up to date; Displaying.\n");
-            $kernel->post($session => 'announce_top', $feed, $nick, $channel);
+            &SimBot::debug(4,
+                           "rss: $feed is up to date; Displaying.\n");
+            $kernel->post($session => 'announce_top', $feed, $nick,
+                          $channel);
         }
     } else {
         &SimBot::debug(4, "rss: No feed matched request.\n");
@@ -312,8 +326,8 @@ sub get_link_and_title {
     }
 
     $title = ($item->{'title'} ? $item->{'title'} : "");
-	$title = HTML::Entities::decode($title);
-	$title = Encode::decode('utf8', $title);
+    $title = HTML::Entities::decode($title);
+    $title = Encode::decode('utf8', $title);
     $title =~ s/\t/  /g;
 
     return ($link, $title);
@@ -325,7 +339,7 @@ sub nlp_match {
 	my $feed;
 
 	foreach (@params) {
-		if (m/(\w+)\'s (rss|feed|posts|headlines)/i) {
+		if (m/(\w+)\'s (rss|feed|posts|headlines)/i) { # '
 			$feed = $1;
 		} elsif (m/(\w+) (\w+)/i) {
 			$feed = $2;
@@ -333,7 +347,8 @@ sub nlp_match {
 	}
 
 	if (defined $feed) {
-		$kernel->post($session => 'latest_headlines', $nick, $channel, $feed);
+		$kernel->post($session => 'latest_headlines', $nick, $channel,
+		              $feed);
 		return 1;
 	} else {
 		return 0;
