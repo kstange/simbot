@@ -66,8 +66,8 @@ use constant CANNOT_ACCESS => 'Sorry; I could not access NOAA.';
 # This method is run when SimBot is exiting. We save the station names
 # cache here.
 sub cleanup_wx {
-		&SimBot::debug(3, "Saving station names\n");
-		dbmclose(%stationNames);
+    &SimBot::debug(3, "Saving station names\n");
+    dbmclose(%stationNames);
 }
 
 ### messup_wx
@@ -124,12 +124,13 @@ sub do_wx {
     # first off, do we have a station name?
     unless($stationNames{$station}) {
         &SimBot::debug(3, "Station name not found, looking it up\n");
-		my $url = 'http://weather.noaa.gov/cgi-bin/nsd_lookup.pl?station='
-			. $station;
-		my $request = HTTP::Request->new(GET => $url);
-		$kernel->post('wxua' => 'request', 'got_station_name',
+        my $url =
+            'http://weather.noaa.gov/cgi-bin/nsd_lookup.pl?station='
+            . $station;
+        my $request = HTTP::Request->new(GET => $url);
+        $kernel->post('wxua' => 'request', 'got_station_name',
 		              $request, "$nick!$station");
-        # We're done here - got_station_name will handle request
+        # We're done here - got_station_name will handle requesting
         # the weather
         return;
     }
@@ -202,16 +203,17 @@ sub got_wx {
     
     my $remarks;
     ($raw_metar, undef, $remarks) = $raw_metar =~ m/^(.*?)( RMK (.*))?$/;
-#    $raw_metar =~ s/^(.*?) RMK .*$/$1/;
     $raw_metar =~ s|/////KT|00000KT|;
-    &SimBot::debug(3, "Reduced METAR is " . $raw_metar . "\n");
+    &SimBot::debug(4, "Reduced METAR is " . $raw_metar . "\n");
 
     my $m = new Geo::METAR;
     $m->metar($raw_metar);
 
     # Let's form a response!
-    $m->{date_time} =~ m/\d\d(\d\d)(\d\d)Z/;
-    my $time = "$1:$2";
+    $m->{date_time} =~ m/(\d\d)(\d\d)(\d\d)Z/;
+    my $time = "$2:$3";
+    my $day=$1;
+    
     my $reply = "As reported at $time GMT at " .
 		(defined $stationNames{$station} ? $stationNames{$station}
 		 : $station);
@@ -221,13 +223,14 @@ sub got_wx {
     if ($raw_metar =~ /NIL$/) {
         $reply .= " there is no data available";
     } else {
-        # Temperature and related details *only* if we have a temperature!
+        # Temperature and related details *only* if we have
+        # a temperature!
         if (defined $m->TEMP_C || $raw_metar =~ m|(M?\d\d)/|) {
             # We have a temp, "it is"
             $reply .= " it is ";
 
-            # This nonsense checks to see if we have a temperature in the
-            # report that Geo::METAR is too stupid to see.
+            # This nonsense checks to see if we have a temperature in
+            # the report that Geo::METAR is too stupid to see.
 
             my $temp_c = (defined $m->TEMP_C ? $m->TEMP_C : $1);
             $temp_c =~ s/M/-/;
@@ -242,7 +245,9 @@ sub got_wx {
                                 - 35.75 * ($m->WIND_MPH ** 0.16)
                                 + 0.4275 * $temp_f * ($m->WIND_MPH ** 0.16);
                 my $windchill_c = ($windchill - 32) * (5/9);
-                push(@reply_with, sprintf('a wind chill of %.1f°F (%.1f°C)', $windchill, $windchill_c));
+                push(@reply_with,
+                    sprintf('a wind chill of %.1f°F (%.1f°C)',
+                    $windchill, $windchill_c));
             }
 
             # Humidity, only if we have a dewpoint!
@@ -266,7 +271,9 @@ sub got_wx {
                                                  * $humidity ** 2;
     
                     my $heatindex_c = ($heatindex - 32) * (5/9);
-                    push(@reply_with, sprintf('a heat index of %.1f°F (%.1f°C)', $heatindex, $heatindex_c));
+                    push(@reply_with,
+                        sprintf('a heat index of %.1f°F (%.1f°C)', 
+                                $heatindex, $heatindex_c));
                 }
             }
         } else {
@@ -298,6 +305,10 @@ sub got_wx {
         push(@reply_with, @sky);
         
         if($remarks) {
+            # remarks are often not very easy to parse, but we can try.
+            
+            # Tornado and similar wx... I hope people don't rely on simbot
+            # for tornado warnings.
             if($remarks =~ m/(TORNADO|FUNNEL CLOUD|WATERSPOUT)( (B|E(\d\d)?\d\d))?( (\d+) (N|NE|E|SE|S|SW|W|NW))?/) {
                 my ($cond, $dist, $dir) = ($1, $5, $6);
                 $cond = lc($cond);
@@ -308,6 +319,7 @@ sub got_wx {
                 push(@reply_with, $rmk);
             }
             
+            # Lightning.
             if($remarks =~ m/\b((OCNL|FRQ|CONS) )?LTG(CG|IC|CC|CA)*( (OHD|VC|DSNT))?( (\S+))?\b/) {
                 my ($freq, $loc, $dir) = ($2, $5, $7);
                 my $rmk;
@@ -334,6 +346,7 @@ sub got_wx {
                 push(@reply_with, $rmk);
             }
         
+            # Thunderstorm.
             if($remarks =~ m/\bTS( VC)?( \S*?)?( MOV (N|NE|E|SE|S|SW|W|NW))?\b/) {
                 my ($in_vc, $in_dir, $mov_dir) = ($1, $2, $4);
                 my $rmk = 'thunderstorm ';
@@ -343,12 +356,14 @@ sub got_wx {
                 push(@reply_with, $rmk);
             }
             
+            # Pressure rise/fall rapidly.
             if($remarks =~ m/\bPRES(R|F)R\b/) {
                 push(@reply_with, 'pressure '
                     . ($1 eq 'R' ? 'rising' : 'falling')
                     . ' rapidly');
             }
             
+            # Pressure trends.
             if($remarks =~ m/\b5(\d)(\d\d\d)\b/) {
                 my ($trend, $change) = ($1, $2*.1);
                 if($trend >= 0 && $trend <= 3) {
@@ -366,9 +381,10 @@ sub got_wx {
                 }
             }
             
+            # Snow increasing rapidly.
             if($remarks =~ m|SNINCR (\d+)/(\d+)|) {
                 push(@reply_with,
-                    qq[snow increasing rapidly ($1" in last hr)]);
+                    "snow increasing rapidly ($1\" in last hr)");
             }
         }
 
@@ -377,7 +393,8 @@ sub got_wx {
     }
     $reply .= '.';
 
-    &SimBot::send_message(&SimBot::option('network', 'channel'), "$nick: $reply");
+    &SimBot::send_message(&SimBot::option('network', 'channel'),
+        "$nick: $reply");
 }
 
 sub nlp_match {
