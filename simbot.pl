@@ -84,16 +84,16 @@ $SIG{'USR2'} = 'SimBot::reload';
 # This is the plugin's type.  A plugin cannot currently set this
 # itself, meaning only internal plugins can be anything but "EXT"
 %plugin_type = (
-		"stats",   "INT",
-		"help",    "INT",
-		"list",    "INT",
+				"stats",   "INT",
+				"help",    "INT",
+				"list",    "INT",
 		);
 
 # This provides the descriptions of plugins.  If a plugin has no
 # defined description, it is "hidden" and will not appear in help.
 %plugin_desc = (
-		"stats",   "Shows useless stats about the database.",
-		"help",    "Shows this message.",
+				"stats",   "Shows useless stats about the database.",
+				"help",    "Shows this message.",
 		);
 
 # These are the events you can currently attach to.
@@ -107,10 +107,10 @@ $SIG{'USR2'} = 'SimBot::reload';
 # Call event gets params:
 #  (kernel, from, channel, command string)
 %event_plugin_call     = (
-			  "stats",   "print_stats",
-			  "help",    "print_help",
-			  "list",    "print_list",
-			  );
+						  "stats",   "print_stats",
+						  "help",    "print_help",
+						  "list",    "print_list",
+						  );
 
 ### Channel Events ###
 # Channel events get params:
@@ -200,34 +200,34 @@ POE::Component::IRC->new('bot');
 
 # Add the handlers for different IRC events we want to know about.
 POE::Session->new
-  ( _start           => \&make_connection,
-    irc_disconnected => \&reconnect,
-    irc_socketerr    => \&reconnect,
-    irc_433          => \&pick_new_nick,    # nickname in use
-    irc_001          => \&server_connect,   # connected
-    irc_ping         => \&server_ping,      # we can use this as a timer
-    irc_303          => \&server_ison,      # check ison reply
-    irc_msg          => \&private_message,
-    irc_public       => \&channel_message,
-    irc_kick         => \&channel_kick,
-    irc_join         => \&channel_join,
-    irc_part         => \&channel_part,
-    irc_quit         => \&channel_quit,
-    irc_404          => \&channel_novoice,  # we can't speak for some reason
-    irc_471          => \&channel_nojoin,   # channel is at limit
-    irc_473          => \&channel_nojoin,   # channel invite only
-    irc_474          => \&channel_nojoin,   # banned from channel
-    irc_475          => \&channel_nojoin,   # bad channel key
-    irc_invite       => \&channel_invite,
-    irc_topic        => \&channel_topic,
-    irc_mode         => \&channel_mode,
-    irc_notice       => \&process_notice,
-    irc_ctcp_action  => \&process_action,
-    irc_ctcp_version => \&process_version,
-    irc_ctcp_time    => \&process_time,
-    irc_ctcp_finger  => \&process_finger,
-    irc_ctcp_ping    => \&process_ping,
-  );
+	( _start           => \&make_connection,
+	  irc_disconnected => \&reconnect,
+	  irc_socketerr    => \&reconnect,
+	  irc_433          => \&pick_new_nick,    # nickname in use
+	  irc_001          => \&server_connect,   # connected
+	  irc_ping         => \&server_ping,      # we can use this as a timer
+	  irc_303          => \&server_ison,      # check ison reply
+	  irc_msg          => \&private_message,
+	  irc_public       => \&channel_message,
+	  irc_kick         => \&channel_kick,
+	  irc_join         => \&channel_join,
+	  irc_part         => \&channel_part,
+	  irc_quit         => \&channel_quit,
+	  irc_404          => \&channel_novoice,  # we can't speak for some reason
+	  irc_471          => \&channel_nojoin,   # channel is at limit
+	  irc_473          => \&channel_nojoin,   # channel invite only
+	  irc_474          => \&channel_nojoin,   # banned from channel
+	  irc_475          => \&channel_nojoin,   # bad channel key
+	  irc_invite       => \&channel_invite,
+	  irc_topic        => \&channel_topic,
+	  irc_mode         => \&channel_mode,
+	  irc_notice       => \&process_notice,
+	  irc_ctcp_action  => \&process_action,
+	  irc_ctcp_version => \&process_version,
+	  irc_ctcp_time    => \&process_time,
+	  irc_ctcp_finger  => \&process_finger,
+	  irc_ctcp_ping    => \&process_ping,
+	  );
 
 # ****************************************
 # ********* Start of Subroutines *********
@@ -238,13 +238,13 @@ POE::Session->new
 # DEBUG: Print out messages with the desired verbosity.
 sub debug {
     my @errors = ("",
-		  "ERROR: ",
-		  "WARNING: ",
-		  "",
-		  "SPAM: ",
-		  );
+				  "ERROR: ",
+				  "WARNING: ",
+				  "",
+				  "SPAM: ",
+				  );
     if ($_[0] <= $verbose) {
-	print STDERR $errors[$_[0]] . $_[1];
+		print STDERR $errors[$_[0]] . $_[1];
     }
 }
 
@@ -257,10 +257,10 @@ sub pick {
 sub hostmask {
     my ($nick, $user, $host) = split(/[@!]/, $_);
     if ($host =~ /(\d{1,3}\.){3}\d{1,3}/) {
-	$host =~ s/(\.\d{1,3}){2}$/\.\*/;
+		$host =~ s/(\.\d{1,3}){2}$/\.\*/;
     } else {
-	$host =~ /^(.*)(\.\w*?\.[\w\.]{3,5})$/;
-	$host = "*$2";
+		$host =~ /^(.*)(\.\w*?\.[\w\.]{3,5})$/;
+		$host = "*$2";
     }
     $user =~ s/^~?/*/;
     return "*!$user\@$host";
@@ -294,11 +294,11 @@ sub timeago {
     push(@reply, "$minutes minute" . (($minutes == 1) ? '' : 's')) if $minutes;
     push(@reply, "$seconds second" . (($seconds == 1) ? '' : 's')) if $seconds;
     if(@reply) {
-	my $string = join(', ', @reply) . ' ago';
-	$string =~ s/(.*),/$1 and/;
-	return $string;
-    } else {
-        return 'very recently';
+		my $string = join(', ', @reply) . ' ago';
+		$string =~ s/(.*),/$1 and/;
+		return $string;
+	} else {
+		return 'very recently';
     }
 }
 
@@ -307,7 +307,7 @@ sub timeago {
 sub restart {
     &debug(3, "Received restart call...\n");
     foreach(keys(%event_plugin_unload)) {
-	&plugin_callback($_, $event_plugin_unload{$_});
+		&plugin_callback($_, $event_plugin_unload{$_});
     }
     &debug(3, "Disconnecting from IRC...\n");
     &quit("Restarting, brb...");
@@ -320,7 +320,7 @@ sub restart {
 sub cleanup {
     &debug(3, "Received cleanup call...\n");
     foreach(keys(%event_plugin_unload)) {
-	&plugin_callback($_, $event_plugin_unload{$_});
+		&plugin_callback($_, $event_plugin_unload{$_});
     }
     &debug(3, "Disconnecting from IRC...\n");
     &quit("Bye everyone!");
@@ -333,7 +333,7 @@ sub cleanup {
 sub reload {
     &debug(3, "Received reload call...\n");
     foreach(keys(%event_plugin_reload)) {
-	&plugin_callback($_, $event_plugin_reload{$_});
+		&plugin_callback($_, $event_plugin_reload{$_});
     }
 }
 
@@ -344,21 +344,21 @@ sub load {
     &debug(3, "Loading $rulefile... ");
     $loaded = 0;
     if(open(RULES, $rulefile)) {
-	foreach(<RULES>) {
-	    chomp;
-	    s/\r//;
-	    my @rule = split (/\t/);
-	    $chat_words{$rule[0]}{$rule[1]}[1] = $rule[2];
-	    $chat_words{$rule[1]}{$rule[0]}[0] = $rule[2];
-	}
-	close(RULES);
-	&debug(3, "Rules loaded successfully!\n");
-	$loaded = 1;
+		foreach(<RULES>) {
+			chomp;
+			s/\r//;
+			my @rule = split (/\t/);
+			$chat_words{$rule[0]}{$rule[1]}[1] = $rule[2];
+			$chat_words{$rule[1]}{$rule[0]}[0] = $rule[2];
+		}
+		close(RULES);
+		&debug(3, "Rules loaded successfully!\n");
+		$loaded = 1;
     } elsif (!-e $rulefile) {
-	&debug(2, "File does not exist and will be created on save.\n");
-	$loaded = 1;
+		&debug(2, "File does not exist and will be created on save.\n");
+		$loaded = 1;
     } else {
-	&debug(1, "Cannot read from the rules file! This session will not be saved!\n");
+		&debug(1, "Cannot read from the rules file! This session will not be saved!\n");
     }
 }
 
@@ -366,24 +366,24 @@ sub load {
 sub save {
     &debug(3, "Saving $rulefile... ");
     if ($loaded == 1) {
-	if(open(RULES, ">$rulefile")) {
-	    flock(RULES, 2);
-	    foreach(keys(%chat_words)) {
-		my $a = $_;
-		foreach(keys(%{$chat_words{$a}})) {
-		    my $b = $_;
-		    my $c = $chat_words{$a}{$b}[1];
-		    print RULES "$a\t$b\t$c\n" if defined $c;
+		if(open(RULES, ">$rulefile")) {
+			flock(RULES, 2);
+			foreach(keys(%chat_words)) {
+				my $a = $_;
+				foreach(keys(%{$chat_words{$a}})) {
+					my $b = $_;
+					my $c = $chat_words{$a}{$b}[1];
+					print RULES "$a\t$b\t$c\n" if defined $c;
+				}
+			}
+			flock(RULES, 8);
+			close(RULES);
+			&debug(3, "Rules saved successfully!\n");
+		} else {
+			&debug(1, "Cannot write to the rules file! This session will be lost!\n");
 		}
-	    }
-	    flock(RULES, 8);
-	    close(RULES);
-	    &debug(3, "Rules saved successfully!\n");
-	} else {
-	    &debug(1, "Cannot write to the rules file! This session will be lost!\n");
-	}
     } else {
-	&debug(2, "Opting not to save.  Rules are not loaded.\n");
+		&debug(2, "Opting not to save.  Rules are not loaded.\n");
     }
     $items = 0;
 }
@@ -394,48 +394,50 @@ sub save {
 sub plugin_register {
     my %data = @_;
     if ($data{modules}) {
-	foreach (split(/,/, $data{modules})) {
-	    if (eval { eval "require $_"; }) {
-		&debug(4, $data{plugin_id} . ": $_ module was loaded as a plugin dependency\n");
-	    } else {
-		&debug(1, $data{plugin_id} . ": $_ module could not be loaded as a plugin dependency\n");
-		return 0;
-	    }
-	}
+		foreach (split(/,/, $data{modules})) {
+			if (eval { eval "require $_"; }) {
+				&debug(4, $data{plugin_id} . ": $_ module was loaded as a plugin dependency\n");
+			} else {
+				&debug(1, $data{plugin_id} . ": $_ module could not be loaded as a plugin dependency\n");
+				return 0;
+			}
+		}
     }
     if(!$plugin_type{$data{plugin_id}}) {
-	&debug(4, $data{plugin_id} . ": no plugin conflicts detected\n");
+		&debug(4, $data{plugin_id} . ": no plugin conflicts detected\n");
     } else {
-	&debug(1, $data{plugin_id} . ": a plugin is already registered to this handle\n");
-	return 0;
+		&debug(1, $data{plugin_id} . ": a plugin is already registered to this handle\n");
+		return 0;
     }
     $event_plugin_call{$data{plugin_id}} = $data{event_plugin_call};
     $plugin_type{$data{plugin_id}} = "EXT";
     if(!$data{plugin_desc}) {
-	&debug(4, $data{plugin_id} . ": this plugin has no description and will be hidden\n");
+		&debug(4, $data{plugin_id} . ": this plugin has no description and will be hidden\n");
     } else {
-	$plugin_desc{$data{plugin_id}} = $data{plugin_desc};
+		$plugin_desc{$data{plugin_id}} = $data{plugin_desc};
     }
     if ($data{event_plugin_load}) {
-	if (!&plugin_callback($data{plugin_id}, $data{event_plugin_load})) {
-	    &debug(1, $data{plugin_id} . ": plugin returned an error code on load\n");
-	    return 0;
-	}
+		if (!&plugin_callback($data{plugin_id}, $data{event_plugin_load})) {
+			&debug(1, $data{plugin_id} . ": plugin returned an error code on load\n");
+			return 0;
+		}
+		$event_plugin_load{$data{plugin_id}} = $data{event_plugin_load};
+
     }
     if ($data{event_plugin_unload}) {
-	$event_plugin_unload{$data{plugin_id}} = $data{event_plugin_unload};
+		$event_plugin_unload{$data{plugin_id}} = $data{event_plugin_unload};
     }
     if ($data{event_plugin_reload}) {
-	$event_plugin_unload{$data{plugin_id}} = $data{event_plugin_reload};
+		$event_plugin_reload{$data{plugin_id}} = $data{event_plugin_reload};
     }
     foreach (keys(%data)) {
-	if ($_ =~ /^event_(channel|private|server)_.*/) {
-	    ${$_}{$data{plugin_id}} = $data{$_};
-	} elsif ($_ =~ /^query_.*/) {
-	    ${$_}{$data{plugin_id}} = $data{$_};
+		if ($_ =~ /^event_(channel|private|server)_.*/) {
+			${$_}{$data{plugin_id}} = $data{$_};
+		} elsif ($_ =~ /^query_.*/) {
+			${$_}{$data{plugin_id}} = $data{$_};
         } elsif ($_ =~ /^list_.*/) {
-	    my @list = split(/,\s*/, $data{$_});
-	    push(@{$_}, @list);
+			my @list = split(/,\s*/, $data{$_});
+			push(@{$_}, @list);
         }
     }
     return 1;
@@ -445,11 +447,11 @@ sub plugin_register {
 sub plugin_callback {
     my ($plugin, $function, @params) = @_;
     if($plugin_type{$plugin} eq "EXT") {
-	debug(4, "Running callback to $function in $plugin.\n");
-	return &{"SimBot::plugin::$plugin\:\:$function"}($kernel, @params);
+		debug(4, "Running callback to $function in $plugin.\n");
+		return &{"SimBot::plugin::$plugin\:\:$function"}($kernel, @params);
     } else {
-	debug(4, "Running callback to $function in $plugin (INTERNAL).\n");
-	return &{$function}($kernel, @params);
+		debug(4, "Running callback to $function in $plugin (INTERNAL).\n");
+		return &{$function}($kernel, @params);
     }
 }
 
@@ -458,7 +460,7 @@ sub print_help {
     my $nick = $_[1];
     &debug(3, "Received help command from " . $nick . ".\n");
     foreach(sort {$a cmp $b} keys(%plugin_desc)) {
-	$kernel->post(bot => privmsg => $nick, "%" . $_ . " - " . $plugin_desc{$_});
+		$kernel->post(bot => privmsg => $nick, "%" . $_ . " - " . $plugin_desc{$_});
     }
 }
 
@@ -467,21 +469,21 @@ sub print_list {
     my $nick = $_[1];
     &debug(3, "Received list command from " . $nick . ".\n");
     my @reply = (
-		 "$nick: HER R TEH FIL3Z!!!! TEH PR1Z3 FOR U! KTHXBYE",
-		 "$nick: U R L33T H4X0R!",
-		 "$nick: No files for you!",
-		 "$nick: Sorry, I have reached my piracy quota for this century.  Please return in " . (100 - ((localtime(time))[5] % 100)) . " years.",
-		 "$nick: The FBI thanks you for your patronage.",
-		 "$nick: h4x0r5 0n teh yu0r pC? oh nos!!! my megahurtz haev been stoeled!!!!!111 safely check yuor megahurtz with me, free!",
-		 );
+				 "$nick: HER R TEH FIL3Z!!!! TEH PR1Z3 FOR U! KTHXBYE",
+				 "$nick: U R L33T H4X0R!",
+				 "$nick: No files for you!",
+				 "$nick: Sorry, I have reached my piracy quota for this century.  Please return in " . (100 - ((localtime(time))[5] % 100)) . " years.",
+				 "$nick: The FBI thanks you for your patronage.",
+				 "$nick: h4x0r5 0n teh yu0r pC? oh nos!!! my megahurtz haev been stoeled!!!!!111 safely check yuor megahurtz with me, free!",
+				 );
     $kernel->post(bot => privmsg => $channel, &pick(@reply));
 }
 
 # PRINT_STATS: Prints some useless stats about the bot to the channel.
 sub print_stats {
-    my @ldeadwords;
-    my @rdeadwords;
-    my $message;
+    my (@ldeadwords, @rdeadwords) = ();
+    my ($message, $wordpop);
+    my ($lfound, $lcount, $rfound, $rcount, $wordpopcount) = (0, 0, 0, 0, 0);
 
     &debug(3, "Received stats command from a user.\n");
     my $count = keys(%chat_words);
@@ -489,43 +491,49 @@ sub print_stats {
     my $ends = keys(%{$chat_words{'__END'}}) + keys(%{$chat_words{'__!END'}}) + keys(%{$chat_words{'__?END'}});
     my $actions = keys(%{$chat_words{'__ACTION'}});
     $kernel->post(bot => privmsg => $channel, "In total, I know $count words.  I've learned $begins words that I can start a sentence with, and $ends words that I can end one with.  I know of $actions ways to start an IRC action (/me).");
-    my $lfound, $lcount = 0;
-    my $rfound, $rcount = 0;
-    my $wordpop;
-    my $wordpopcount = 0;
 
+    # Process through the list and find words that have no links in one or
+    # both directions (because we can never use these words safely).  We'll
+    # be nice and efficient and use this same loop to find the most frequent
+    # two word sequence.
     foreach $word (keys(%chat_words)) {
-	next if ($word =~ /^__[\!\?]?[A-Z]*$/);
-	$lfound = 0;
-	$rfound = 0;
-	foreach (keys(%{$chat_words{$word}})) {
-	    if (defined $chat_words{$word}{$_}[1]) {
-		$rfound = 1;
-	    }
-	    if (defined $chat_words{$word}{$_}[0]) {
-		$lfound = 1;
-	    }
-	    if ($chat_words{$word}{$_}[1] > $wordpopcount
-		&& $_ !~ /^__[\!\?]?[A-Z]*$/) {
-		$wordpop = "$word $_";
-		$wordpopcount = $chat_words{$word}{$_}[1];
-	    }
-	}
-	if ($lfound == 0) {
-	    $lcount++;
-	    push(@ldeadwords, "'$word'");
-	}
-	if ($rfound == 0) {
-	    $rcount++;
-	    push(@rdeadwords, "'$word'");
-	}
+		next if ($word =~ /^__[\!\?]?[A-Z]*$/);
+		$lfound = 0;
+		$rfound = 0;
+		foreach (keys(%{$chat_words{$word}})) {
+			# If we find out a word has any links to the right, we're good.
+			if (defined $chat_words{$word}{$_}[1] && $rfound == 0) {
+				$rfound = 1;
+			}
+			# If we find out a word has any links to the left, we're good.
+			if (defined $chat_words{$word}{$_}[0] && $lfound == 0) {
+				$lfound = 1;
+			}
+			# Find the most popular two word sequence.
+			if (defined $chat_words{$word}{$_}[1]) {
+				if ($chat_words{$word}{$_}[1] > $wordpopcount
+					&& $_ !~ /^__[\!\?]?[A-Z]*$/
+					&& length($word) > 3 && length($_) > 3) {
+					$wordpop = "$word $_";
+					$wordpopcount = $chat_words{$word}{$_}[1];
+				}
+			}
+		}
+		if ($lfound == 0) {
+			$lcount++;
+			push(@ldeadwords, "'$word'");
+		}
+		if ($rfound == 0) {
+			$rcount++;
+			push(@rdeadwords, "'$word'");
+		}
     }
-    $kernel->post(bot => privmsg => $channel, "The most popular two word sequence is \"$wordpop\" which has been used $wordpopcount times.");
+    $kernel->post(bot => privmsg => $channel, "The most popular two word sequence (with more than 3 letters) is \"$wordpop\" which has been used $wordpopcount times.");
     if ($rcount > 0) {
-	$kernel->post(bot => privmsg => $channel, "There are $rcount words that lead me to unexpected dead ends. They are: @rdeadwords");
+		$kernel->post(bot => privmsg => $channel, "There are $rcount words that lead me to unexpected dead ends. They are: @rdeadwords");
     }
     if ($lcount > 0) {
-	$kernel->post(bot => privmsg => $channel, "There are $lcount words that lead me to unexpected dead beginnings.  They are: @ldeadwords");
+		$kernel->post(bot => privmsg => $channel, "There are $lcount words that lead me to unexpected dead beginnings.  They are: @ldeadwords");
     }
 }
 
@@ -547,199 +555,198 @@ sub buildrecords {
     my $endblock = "__END";
 
     for(my $x=0; $x <= $#sentence; $x++) {
-	$sentence[$x] =~ s/^[;:].*//;
-	$sentence[$x] =~ s/^=[^=]+//;
-	$sentence[$x] =~ s/[^\300-\377\w\'\/\-\.=\%\$&\+\@]*//g;
-	$sentence[$x] =~ s/(^|\s)\.+|\.+(\s|$)//g;
-        $sentence[$x] = lc($sentence[$x]);
-	if ("@sentence" !~ /[A-Za-z0-9\300-\377]/) {
-	    &debug(2, "This line contained no discernable words: @sentence\n");
-	    goto skiptosave;
-	}
-	foreach (@chat_ignore) {
-	    if ($sentence[$x] =~ /$_/) {
-		&debug(2, "Not recording this line: @sentence\n");
-		goto skiptosave;
-	    }
-	}
+		$sentence[$x] =~ s/^[;:].*//;
+		$sentence[$x] =~ s/^=[^=]+//;
+		$sentence[$x] =~ s/[^\300-\377\w\'\/\-\.=\%\$&\+\@]*//g;
+		$sentence[$x] =~ s#(^|\s)\.+|\.+(\s|$)##g;
+		$sentence[$x] = lc($sentence[$x]);
+		if ("@sentence" !~ /[A-Za-z0-9\300-\377]/) {
+			&debug(2, "This line contained no discernable words: @sentence\n");
+			goto skiptosave;
+		}
+		foreach (@chat_ignore) {
+			if ($sentence[$x] =~ /$_/) {
+				&debug(2, "Not recording this line: @sentence\n");
+				goto skiptosave;
+			}
+		}
     }
 
     if ("@sentence" =~ /^\s*$/) {
-	&debug(2, "This line contained no discernable words: @sentence\n");
-	goto skiptosave;
+		&debug(2, "This line contained no discernable words: @sentence\n");
+		goto skiptosave;
     }
     if ($action eq "ACTION") {
-	@sentence = ("__ACTION", @sentence);
+		@sentence = ("__ACTION", @sentence);
     }
     @sentence = ($startblock, @sentence, $endblock);
     my $i = 0;
     while ($i < $#sentence) {
-	if($sentence[$i+1] ne "") {
-	    my $cur_word = $sentence[$i];
-	    my $y = 0;
-	    while ($cur_word eq "") {
-		$y++;
-		$cur_word = $sentence[$i-$y];
-	    }
-	    if ($chat_words{$cur_word}{$sentence[$i+1]}[1]) {
-		$chat_words{$cur_word}{$sentence[$i+1]}[1]++;
-		$chat_words{$sentence[$i+1]}{$cur_word}[0]++;
-		&debug(3, "Updating $cur_word-\>$sentence[$i+1] to " . $chat_words{$cur_word}{$sentence[$i+1]}[1] . "\n");
-		&debug(4, "Updating $sentence[$i+1]-\>$cur_word to " . $chat_words{$sentence[$i+1]}{$cur_word}[0] . " (reverse)\n");
-	    } else {
-		$chat_words{$cur_word}{$sentence[$i+1]}[1] = 1;
-		$chat_words{$sentence[$i+1]}{$cur_word}[0] = 1;
-		&debug(3, "Adding $cur_word-\>$sentence[$i+1]\n");
-		&debug(4, "Adding $sentence[$i+1]-\>$cur_word (reverse)\n");
-	    }
-	}
-	$i++;
+		if($sentence[$i+1] ne "") {
+			my $cur_word = $sentence[$i];
+			my $y = 0;
+			while ($cur_word eq "") {
+				$y++;
+				$cur_word = $sentence[$i-$y];
+			}
+			if ($chat_words{$cur_word}{$sentence[$i+1]}[1]) {
+				$chat_words{$cur_word}{$sentence[$i+1]}[1]++;
+				$chat_words{$sentence[$i+1]}{$cur_word}[0]++;
+				&debug(3, "Updating $cur_word-\>$sentence[$i+1] to " . $chat_words{$cur_word}{$sentence[$i+1]}[1] . "\n");
+				&debug(4, "Updating $sentence[$i+1]-\>$cur_word to " . $chat_words{$sentence[$i+1]}{$cur_word}[0] . " (reverse)\n");
+			} else {
+				$chat_words{$cur_word}{$sentence[$i+1]}[1] = 1;
+				$chat_words{$sentence[$i+1]}{$cur_word}[0] = 1;
+				&debug(3, "Adding $cur_word-\>$sentence[$i+1]\n");
+				&debug(4, "Adding $sentence[$i+1]-\>$cur_word (reverse)\n");
+			}
+		}
+		$i++;
     }
   skiptosave:
     if (($sec % 30) == 0 || $items >= 20) {
-	&save;
+		&save;
     }
 }
 
 # BUILDREPLY: This creates a random reply from the database.
 sub buildreply {
     if (%chat_words) {
-	my @sentence = split(/ /, $_[0]);
+		my @sentence = split(/ /, $_[0]);
 
-	# find an interesting word to base the sentence off
-	my $newword = &find_interesting_word(@sentence);
+		# find an interesting word to base the sentence off
+		my $newword = &find_interesting_word(@sentence);
 
-	my $middleword = $newword;
-	my $return = ($newword ? "$newword " : "");
-	my $punc = "";
-	while ($newword !~ /^__[\!\?]?END$/) {
-	    my $chcount = 0;
-	    if (!$newword) {
-		my %choices = ("__BEGIN", 0,
-			       "__!BEGIN", 0,
-			       "__?BEGIN", 0,
-			       );
-		foreach $key (keys(%choices)) {
-		    foreach (keys(%{$chat_words{$key}})) {
-			$choices{$key} = 0 if !$choices{$key};
-			$choices{$key} += $chat_words{$key}{$_}[1];
-		    }
-		    $chcount += $choices{$key};
-		}
-		my $try = int(rand()*($chcount))+1;
-		foreach(sort {$a cmp $b} keys(%choices)) {
-		    $try -= $choices{$_};
-		    if ($try <= 0) {
-			$newword = $_;
-			m/^__([\!\?])?BEGIN$/;
-			if ($1) {
-			    $punc = $1;
-			    debug(3, "Using '$1' from __BEGIN\n");
+		my $middleword = $newword;
+		my $return = ($newword ? "$newword " : "");
+		my $punc = "";
+		while ($newword !~ /^__[\!\?]?END$/) {
+			my $chcount = 0;
+			if (!$newword) {
+				my %choices = ("__BEGIN", 0,
+							   "__!BEGIN", 0,
+							   "__?BEGIN", 0,
+							   );
+				foreach $key (keys(%choices)) {
+					foreach (keys(%{$chat_words{$key}})) {
+						$choices{$key} = 0 if !$choices{$key};
+						$choices{$key} += $chat_words{$key}{$_}[1];
+					}
+					$chcount += $choices{$key};
+				}
+				my $try = int(rand()*($chcount))+1;
+				foreach(sort {$a cmp $b} keys(%choices)) {
+					$try -= $choices{$_};
+					if ($try <= 0) {
+						$newword = $_;
+						m/^__([\!\?])?BEGIN$/;
+						if ($1) {
+							$punc = $1;
+							debug(3, "Using '$1' from __BEGIN\n");
+						}
+						last;
+					}
+				}
 			}
-			last;
-		    }
-		}
-	    }
-	    $chcount = 0;
-	    if ($newword) {
-		foreach (keys(%{$chat_words{$newword}})) {
-    		    $chcount += $chat_words{$newword}{$_}[1];
-		}
-		debug(4, "$chcount choices for next to $newword\n");
-	    }
-	    my $try = int(rand()*($chcount))+1;
-	    foreach(sort {$a cmp $b} keys(%{$chat_words{$newword}})) {
-    		$try -= $chat_words{$newword}{$_}[1];
-    		if ($try <= 0) {
-		    debug(4, "Selected $_ to follow $newword\n");
-    		    $newword = $_;
-    		    if($newword =~ /^__([\!\?])?END$/) {
-			if ($1 && !$punc) {
-			    $punc = $1;
-			    debug(3, "Using '$1' from __END\n");
+			$chcount = 0;
+			if ($newword) {
+				foreach (keys(%{$chat_words{$newword}})) {
+					$chcount += $chat_words{$newword}{$_}[1] if defined $chat_words{$newword}{$_}[1];
+				}
+				debug(4, "$chcount choices for next to $newword\n");
 			}
-    		    } else {
-			$return .= $newword . " ";
-    		    }
-    		    last;
-    		}
-	    }
-	    if ($try > 0) {
-    		$newword = "__END";
-    		&debug(1, "Database problem!  Hit a dead end in \"$return\"...\n");
-	    }
-	} # ENDS while
+			my $try = int(rand()*($chcount))+1;
+			foreach(sort {$a cmp $b} keys(%{$chat_words{$newword}})) {
+				$try -= $chat_words{$newword}{$_}[1] if defined $chat_words{$newword}{$_}[1];
+				if ($try <= 0) {
+					debug(4, "Selected $_ to follow $newword\n");
+					$newword = $_;
+					if($newword =~ /^__([\!\?])?END$/) {
+						if ($1 && !$punc) {
+							$punc = $1;
+							debug(3, "Using '$1' from __END\n");
+						}
+					} else {
+						$return .= $newword . " ";
+					}
+					last;
+				}
+			}
+			if ($try > 0) {
+				$newword = "__END";
+				&debug(1, "Database problem!  Hit a dead end in \"$return\"...\n");
+			}
+		} # ENDS while
 
-	if($middleword) {
-	    $newword = $middleword;
-	    while ($newword !~ /^__[\!\?]?BEGIN$/) {
-		my $chcount = 0;
-		foreach (keys(%{$chat_words{$newword}})) {
-		    $chcount += $chat_words{$newword}{$_}[0];
+		if($middleword) {
+			$newword = $middleword;
+			while ($newword !~ /^__[\!\?]?BEGIN$/) {
+				my $chcount = 0;
+				foreach (keys(%{$chat_words{$newword}})) {
+					$chcount += $chat_words{$newword}{$_}[0] if defined $chat_words{$newword}{$_}[0];
+				}
+				debug(4, "$chcount choices for next to $newword\n");
+				my $try = int(rand()*($chcount))+1;
+				foreach(sort {$a cmp $b} keys(%{$chat_words{$newword}})) {
+					$try -= $chat_words{$newword}{$_}[0] if defined $chat_words{$newword}{$_}[0];
+					if ($try <= 0) {
+						debug(4, "Selected $_ to follow $newword\n");
+						$newword = $_;
+						if($newword =~ /^__([\!\?])?BEGIN$/) {
+							if ($1) {
+								$punc = $1;
+								debug(3, "Using '$1' from __BEGIN\n");
+							}
+						} else {
+							$return = $newword . " " . $return;
+						}
+						last;
+					}
+				}
+				if ($try > 0) {
+					$newword = "__BEGIN";
+					&debug(1, "Database problem!  Hit a dead beginning in \"$return\"...\n");
+				}
+			} # ENDS while
 		}
-		debug(4, "$chcount choices for next to $newword\n");
-		my $try = int(rand()*($chcount))+1;
-		foreach(sort {$a cmp $b} keys(%{$chat_words{$newword}})) {
-		    $try -= $chat_words{$newword}{$_}[0];
-		    if ($try <= 0) {
-			debug(4, "Selected $_ to follow $newword\n");
-			$newword = $_;
-			if($newword =~ /^__([\!\?])?BEGIN$/) {
-			    if ($1) {
-				$punc = $1;
-				debug(3, "Using '$1' from __BEGIN\n");
-			    }
-			} else {
-			    $return = $newword . " " . $return;
-			}
-			last;
-		    }
+		$return =~ s/\s+$//;
+		$return = uc(substr($return, 0,1)) . substr($return, 1) . ($punc ne "" ? $punc : ".");
+		$return =~ s/\bi(\b|\')/I$1/g;
+		if ($exsenpct && int(rand()*(100/$exsenpct)) == 0) {
+			&debug(3, "Adding another sentence...\n");
+			$return .= "__NEW__" . &buildreply("");
 		}
-		if ($try > 0) {
-		    $newword = "__BEGIN";
-		    &debug(1, "Database problem!  Hit a dead beginning in \"$return\"...\n");
-		}
-	    } # ENDS while
-	}
-	$return =~ s/\s+$//;
-	$return = uc(substr($return, 0,1)) . substr($return, 1) . ($punc ne "" ? $punc : ".");
-	$return =~ s/\bi(\b|\')/I$1/g;
-	if ($exsenpct && int(rand()*(100/$exsenpct)) == 0) {
-	    &debug(3, "Adding another sentence...\n");
-	    $return .= "__NEW__" . &buildreply("");
-	}
-	return $return;
+		return $return;
     } else {
-	&debug(1, "Could not form a reply.\n");
-	return "I'm speechless.";
+		&debug(1, "Could not form a reply.\n");
+		return "I'm speechless.";
     }
 }
 
 # FIND_INTERESTING_WORD: Finds a word to base a sentence off
 sub find_interesting_word {
-    my $curWordScore, $curTableWordA, $curTableWordB, $highestScoreWord,
-        $highestScore, $wordFound, $curWord, $curTableKey;
+    my ($curWordScore, $highestScoreWord, $highestScore, $curWord);
     debug(3, "Word scores: ");
     $highestScoreWord = ""; $highestScore=0;
     foreach $curWord (@_) {
         $curWord = lc($curWord);
         $curWord =~ s/[,\.\?\!\:]*$//;
         if(length($curWord) <= 3
-	   || !defined $chat_words{$curWord}
+		   || !defined $chat_words{$curWord}
            || $curWord =~ /^($chosen_nick|$alttag|$nickname)$/i) {
             next;
         }
         $curWordScore = 5000;
-	foreach(keys(%query_word_score)) {
-	    $curWordScore += &plugin_callback($_, $query_word_score{$_}, ($curWord));
-	}
+		foreach(keys(%query_word_score)) {
+			$curWordScore += &plugin_callback($_, $query_word_score{$_}, ($curWord));
+		}
 
-	foreach $nextWord (keys(%{$chat_words{$curWord}})) {
-	    if($nextWord =~ /__[\.\?\!]?(END|BEGIN)$/) {
-		$curWordScore -= 1.8 * $chat_words{$curWord}{$nextWord}[1];
-		$curWordScore -= 1.8 * $chat_words{$curWord}{$nextWord}[0];
-	    } else {
-		$curWordScore -= $chat_words{$curWord}{$nextWord}[1];
+		foreach $nextWord (keys(%{$chat_words{$curWord}})) {
+			if($nextWord =~ /__[\.\?\!]?(END|BEGIN)$/) {
+				$curWordScore -= 1.8 * $chat_words{$curWord}{$nextWord}[1] if defined $chat_words{$curWord}{$nextWord}[1];
+				$curWordScore -= 1.8 * $chat_words{$curWord}{$nextWord}[0] if defined $chat_words{$curWord}{$nextWord}[0];
+			} else {
+				$curWordScore -= $chat_words{$curWord}{$nextWord}[1] if defined $chat_words{$curWord}{$nextWord}[1];
             }
         }
         $curWordScore += .7 * length($curWord);
@@ -761,14 +768,14 @@ sub send_pieces {
     my @words = split(/\s/, $text);
     my $line = "";
     foreach(@words) {
-	if (length($line) == 0) {
-	    $line = ($prefix ? $prefix : "") . "$_";
-	} elsif (length($line) + length($_) + 1 <= 450) {
-	    $line .= " $_";
-	} else {
-	    $kernel->post(bot => privmsg => $dest, $line);
-	    $line = ($prefix ? $prefix : "") . "$_";
-	}
+		if (length($line) == 0) {
+			$line = ($prefix ? $prefix : "") . "$_";
+		} elsif (length($line) + length($_) + 1 <= 450) {
+			$line .= " $_";
+		} else {
+			$kernel->post(bot => privmsg => $dest, $line);
+			$line = ($prefix ? $prefix : "") . "$_";
+		}
     }
     $kernel->post(bot => privmsg => $dest, $line);
 }
@@ -781,16 +788,17 @@ sub server_connect {
     &debug(3, "Setting invisible user mode...\n");
     $kernel->call(bot => mode => $chosen_nick, "+i");
     foreach(keys(%event_server_connect)) {
-	&plugin_callback($_, $event_server_connect{$_}, ($chosen_server, $chosen_nick));
+		&plugin_callback($_, $event_server_connect{$_}, ($chosen_server, $chosen_nick));
     }
     &debug(3, "Joining $channel...\n");
     $kernel->post(bot => join => $channel);
 }
+
 # SERVER_PING: Allow for certain processes to be run on a regular IRC event,
 # the ping event.
 sub server_ping {
     foreach(keys(%event_server_ping)) {
-	&plugin_callback($_, $event_server_ping{$_}, ($chosen_server, $chosen_nick));
+		&plugin_callback($_, $event_server_ping{$_}, ($chosen_server, $chosen_nick));
     }
     $kernel->post(bot => ison => @list_nicks_ison);
 }
@@ -805,17 +813,17 @@ sub server_ison {
     &debug(4, "Nicknames online: @nicks\n");
 
     foreach (@nicks) {
-	if ($_ eq $nickname) {
-	    $avail = 0;
-	}
+		if ($_ eq $nickname) {
+			$avail = 0;
+		}
     }
     if ($avail == 1) {
-	$kernel->post(bot => nick => $nickname);
-	&debug(3, "Nickname " . $nickname . " is available!  Attempting to recover it...\n");
-	$chosen_nick = $nickname;
+		$kernel->post(bot => nick => $nickname);
+		&debug(3, "Nickname " . $nickname . " is available!  Attempting to recover it...\n");
+		$chosen_nick = $nickname;
     }
     foreach(keys(%event_server_ison)) {
-	&plugin_callback($_, $event_server_ison{$_}, ($chosen_server, $chosen_nick, @nicks));
+		&plugin_callback($_, $event_server_ison{$_}, ($chosen_server, $chosen_nick, @nicks));
     }
 }
 
@@ -858,20 +866,20 @@ sub process_notice {
     my ($target, $text) = @_[ ARG1, ARG2 ];
     my $public = 0;
     foreach(@{$target}) {
-	if($_ =~ /[\#\&].+/) {
-	    $public = 1;
-	}
+		if($_ =~ /[\#\&].+/) {
+			$public = 1;
+		}
     }
     if($public) {
-	&debug(4, "Received public notice from $nick.\n");
-	foreach(keys(%event_channel_notice)) {
-	    &plugin_callback($_, $event_channel_notice{$_}, ($nick, $channel, 'NOTICE', $text));
-	}
+		&debug(4, "Received public notice from $nick.\n");
+		foreach(keys(%event_channel_notice)) {
+			&plugin_callback($_, $event_channel_notice{$_}, ($nick, $channel, 'NOTICE', $text));
+		}
     } else {
-	&debug(4, "Received private notice from $nick.\n");
-	foreach(keys(%event_private_notice)) {
-	    &plugin_callback($_, $event_private_notice{$_}, ($nick, 'NOTICE', $text));
-	}
+		&debug(4, "Received private notice from $nick.\n");
+		foreach(keys(%event_private_notice)) {
+			&plugin_callback($_, $event_private_notice{$_}, ($nick, 'NOTICE', $text));
+		}
     }
 }
 
@@ -881,21 +889,21 @@ sub process_action {
     my ($target, $text) = @_[ ARG1, ARG2 ];
     my $public = 0;
     foreach(@{$target}) {
-	if($_ =~ /[\#\&].+/) {
-	    $public = 1;
-	}
+		if($_ =~ /[\#\&].+/) {
+			$public = 1;
+		}
     }
     if($public) {
-	&debug(3, "Learning from " . $nick . "'s action...\n");
-	&buildrecords($text,"ACTION");
-	foreach(keys(%event_channel_action)) {
-	    &plugin_callback($_, $event_channel_action{$_}, ($nick, $channel, 'ACTION', "$nick $text"));
-	}
+		&debug(3, "Learning from " . $nick . "'s action...\n");
+		&buildrecords($text,"ACTION");
+		foreach(keys(%event_channel_action)) {
+			&plugin_callback($_, $event_channel_action{$_}, ($nick, $channel, 'ACTION', "$nick $text"));
+		}
     } else {
-	debug(4, "Received private action from $nick.\n");
-	foreach(keys(%event_private_action)) {
-	    &plugin_callback($_, $event_private_action{$_}, ($nick, 'PRIVACTION', "$nick $text"));
-	}
+		debug(4, "Received private action from $nick.\n");
+		foreach(keys(%event_private_action)) {
+			&plugin_callback($_, $event_private_action{$_}, ($nick, 'PRIVACTION', "$nick $text"));
+		}
     }
 }
 
@@ -904,7 +912,7 @@ sub private_message {
     my ($nick) = split(/!/, $_[ ARG0 ]);
     my $text = $_[ ARG2 ];
     foreach(keys(%event_private_message)) {
-	&plugin_callback($_, $event_private_message{$_}, ($nick, 'PRIVMSG', $text));
+		&plugin_callback($_, $event_private_message{$_}, ($nick, 'PRIVMSG', $text));
     }
 }
 
@@ -915,60 +923,60 @@ sub channel_message {
     $text =~ s/\003\d{0,2},?\d{0,2}//g;
     $text =~ s/[\002\017\026\037]//g;
     if ($text =~ /^[!\@].+/) {
-	&debug(3, "Alerting " . $nick . " to use % in place of ! or @.\n");
-	$kernel->post(bot => notice => $nick, "Commands must be prefixed with %.");
+		&debug(3, "Alerting " . $nick . " to use % in place of ! or @.\n");
+		$kernel->post(bot => notice => $nick, "Commands must be prefixed with %.");
     } elsif ($text =~ /^\%/) {
-	my @command = split(/\s/, $text);
-	my $cmd = $command[0];
-	$cmd =~ s/^%//;
-	if ($event_plugin_call{$cmd}) {
-	    &plugin_callback($cmd, $event_plugin_call{$cmd}, ($nick, $channel, @command));
-	} else {
-		if($cmd =~ m/[a-z]/) {
-			$kernel->post(bot => privmsg => $channel, "Hmm... @command isn't supported. Try \%help");
+		my @command = split(/\s/, $text);
+		my $cmd = $command[0];
+		$cmd =~ s/^%//;
+		if ($event_plugin_call{$cmd}) {
+			&plugin_callback($cmd, $event_plugin_call{$cmd}, ($nick, $channel, @command));
+		} else {
+			if($cmd =~ m/[a-z]/) {
+				$kernel->post(bot => privmsg => $channel, "Hmm... @command isn't supported. Try \%help");
+			}
+			# otherwise, command has no letters in it, and therefore was probably a smile %-) (a very odd smile, sure, but whatever)
 		}
-		# otherwise, command has no letters in it, and therefore was probably a smile %-) (a very odd smile, sure, but whatever)
-	}
     } elsif ($text =~ /^hi,*\s+($alttag|$nickname)[!\.\?]*/i) {
-	&debug(3, "Greeting " . $nick . "...\n");
-	$kernel->post(bot => privmsg => $channel, &pick(@greeting) . $nick . "!");
+		&debug(3, "Greeting " . $nick . "...\n");
+		$kernel->post(bot => privmsg => $channel, &pick(@greeting) . $nick . "!");
     } elsif ($text =~ /^($chosen_nick|$alttag|$nickname)([,|:]\s+|[!\?]*\s*([;:=][\Wdpo]*)?$)|,\s+($chosen_nick|$alttag|$nickname)[,\.!\?]\s+|,\s+($chosen_nick|$alttag|$nickname)[!\.\?]*\s*([;:=][\Wdpo]*)?$/i) {
-	&debug(3, "Generating a reply for " . $nick . "...\n");
-	my @botreply = split(/__NEW__/, &buildreply($text));
-	my $queue = "";
-	foreach $comment (@botreply) {
-	    if ($comment =~ /__ACTION\s/) {
-		$comment =~ s/$&//;
+		&debug(3, "Generating a reply for " . $nick . "...\n");
+		my @botreply = split(/__NEW__/, &buildreply($text));
+		my $queue = "";
+		foreach $comment (@botreply) {
+			if ($comment =~ /__ACTION\s/) {
+				$comment =~ s/$&//;
+				$kernel->post(bot => privmsg => $channel, $queue) unless ($queue eq "");
+				$kernel->post(bot => ctcp => $channel, 'ACTION', $comment);
+				$queue = "";
+			} else {
+				$queue .= $comment . " ";
+			}
+		}
 		$kernel->post(bot => privmsg => $channel, $queue) unless ($queue eq "");
-		$kernel->post(bot => ctcp => $channel, 'ACTION', $comment);
-		$queue = "";
-	    } else {
-		$queue .= $comment . " ";
-	    }
-	}
-	$kernel->post(bot => privmsg => $channel, $queue) unless ($queue eq "");
 
     } elsif ($text !~ /^[;=:]/) {
-	&debug(3, "Learning from " . $nick . "...\n");
-	&buildrecords($text);
+		&debug(3, "Learning from " . $nick . "...\n");
+		&buildrecords($text);
     }
-    foreach(keys(%event_channel_message)) {
-	&plugin_callback($_, $event_channel_message{$_}, ($nick, $channel, 'SAY', $text));
-    }
+	foreach(keys(%event_channel_message)) {
+		&plugin_callback($_, $event_channel_message{$_}, ($nick, $channel, 'SAY', $text));
+	}
 }
 
 # CHANNEL_KICK: If the bot is kicked, rejoin the channel.  Also let
 # inquiring plugins know about kick events.
 sub channel_kick {
-    my ($kicker) = split(/!/, $_[ ARG0 ]);
+	my ($kicker) = split(/!/, $_[ ARG0 ]);
     my ($chan, $nick, $reason) = @_[ ARG1, ARG2, ARG3 ];
     if ($nick eq $chosen_nick && $chan eq $channel) {
-	&debug(2, "Kicked from $channel... Attempting to rejoin!\n");
-	$kernel->post(bot => join => $chan);
+		&debug(2, "Kicked from $channel... Attempting to rejoin!\n");
+		$kernel->post(bot => join => $chan);
     }
 
     foreach(keys(%event_channel_kick)) {
-	&plugin_callback($_, $event_channel_kick{$_}, ($nick, $chan, 'KICKED', $reason, $kicker));
+		&plugin_callback($_, $event_channel_kick{$_}, ($nick, $chan, 'KICKED', $reason, $kicker));
     }
 }
 
@@ -977,17 +985,17 @@ sub channel_invite {
     my ($nick) = split(/!/, $_[ ARG0 ]);
     my $chan = $_[ ARG1 ];
     foreach(keys(%event_channel_invite)) {
-	&plugin_callback($_, $event_channel_invite{$_}, ($nick, $chan, 'INVITED'));
+		&plugin_callback($_, $event_channel_invite{$_}, ($nick, $chan, 'INVITED'));
     }
     if ($chan eq $channel) {
-	$kernel->post(bot => join => $channel);
+		$kernel->post(bot => join => $channel);
     }
 }
 
 # CHANNEL_NOJOIN: Allow plugins to take actions on failed join attempt.
 sub channel_nojoin {
     foreach(keys(%event_channel_nojoin)) {
-	&plugin_callback($_, $event_channel_nojoin{$_}, ($chosen_nick, $channel, 'NOTJOINED'));
+		&plugin_callback($_, $event_channel_nojoin{$_}, ($chosen_nick, $channel, 'NOTJOINED'));
     }
 }
 
@@ -996,15 +1004,15 @@ sub channel_join {
     my ($nick) = split(/!/, $_[ ARG0 ]);
     my $chan = $_[ ARG1 ];
     if ($nick eq $chosen_nick) {
-	&debug(3, "Successfully joined $chan.\n");
-	foreach(keys(%event_channel_mejoin)) {
-	    &plugin_callback($_, $event_channel_mejoin{$_}, ($nick, $chan, 'JOINED'));
-	}
+		&debug(3, "Successfully joined $chan.\n");
+		foreach(keys(%event_channel_mejoin)) {
+			&plugin_callback($_, $event_channel_mejoin{$_}, ($nick, $chan, 'JOINED'));
+		}
     } else {
-	&debug(4, "$nick has joined $chan.\n");
-	foreach(keys(%event_channel_join)) {
-	    &plugin_callback($_, $event_channel_join{$_}, ($nick, $chan, 'JOINED'));
-	}
+		&debug(4, "$nick has joined $chan.\n");
+		foreach(keys(%event_channel_join)) {
+			&plugin_callback($_, $event_channel_join{$_}, ($nick, $chan, 'JOINED'));
+		}
     }
 }
 
@@ -1014,7 +1022,7 @@ sub channel_part {
     my ($chan, $message) = split(/ :/, $_[ ARG1 ], 2);
     &debug(4, "$nick has parted $chan. ($message)\n");
     foreach(keys(%event_channel_part)) {
-	&plugin_callback($_, $event_channel_part{$_}, ($nick, $chan, 'PARTED', $message));
+		&plugin_callback($_, $event_channel_part{$_}, ($nick, $chan, 'PARTED', $message));
     }
 }
 
@@ -1024,7 +1032,7 @@ sub channel_quit {
     my ($nick) = split(/!/, $_[ ARG0 ]);
     &debug(4, "$nick has quit IRC. ($message)\n");
     foreach(keys(%event_channel_quit)) {
-	&plugin_callback($_, $event_channel_quit{$_}, ($nick, undef, 'QUIT', $message));
+		&plugin_callback($_, $event_channel_quit{$_}, ($nick, undef, 'QUIT', $message));
     }
 }
 
@@ -1033,7 +1041,7 @@ sub channel_novoice {
     my ($chan) = split(/ :/, $_[ ARG1 ]);
     &debug(2, "Last message could not be sent to $chan.\n");
     foreach(keys(%event_channel_novoice)) {
-	&plugin_callback($_, $event_channel_novoice{$_}, ($chosen_nick, $chan, 'CANTSAY'));
+		&plugin_callback($_, $event_channel_novoice{$_}, ($chosen_nick, $chan, 'CANTSAY'));
     }
 }
 
@@ -1043,7 +1051,7 @@ sub channel_topic {
     my ($chan, $text) = @_[ ARG1, ARG2 ];
     &debug(4, "Topic in $chan was changed to '$text' by $nick.\n");
     foreach(keys(%event_channel_topic)) {
-	&plugin_callback($_, $event_channel_topic{$_}, ($nick, $chan, 'TOPIC', $text));
+		&plugin_callback($_, $event_channel_topic{$_}, ($nick, $chan, 'TOPIC', $text));
     }
 }
 
@@ -1052,11 +1060,11 @@ sub channel_mode {
     my ($nick) = split(/!/, $_[ ARG0 ]);
     my ($chan, $modes, @args) = @_[ ARG1, ARG2, ARG3 .. $#_ ];
     if ($nick ne $chan) {
-	&debug(4, "$nick set mode $modes @args in $chan.\n");
-	foreach(keys(%event_channel_mode)) {
-	    &plugin_callback($_, $event_channel_mode{$_}, ($nick, $chan, 'MODE', $modes, @args));
+		&debug(4, "$nick set mode $modes @args in $chan.\n");
+		foreach(keys(%event_channel_mode)) {
+			&plugin_callback($_, $event_channel_mode{$_}, ($nick, $chan, 'MODE', $modes, @args));
+		}
 	}
-    }
 }
 
 # ######### CONNECTION SUBROUTINES ###########
@@ -1073,23 +1081,22 @@ sub quit {
 # RECONNECT: Reconnect to IRC when disconnected.
 sub reconnect {
     if ($terminating == 1) {
-	&debug(2, "Disconnected!\n");
+		&debug(2, "Disconnected!\n");
     } else {
-	&debug(2, "Disconnected!  Reconnecting in 30 seconds...\n");
-	$chosen_server = &pick(@server);
-	sleep 30;
-	$kernel->post(bot => 'connect',
-		      {
-			  Nick    => $chosen_nick,
-			  Server  => $chosen_server,
-			  Port    =>  6667,
-			  Ircname => "$project $version",
-			  Username => $username,
-		      }
-		      );
-	&debug(3, "Connecting to IRC server " . $chosen_server . "...\n");
+		&debug(2, "Disconnected!  Reconnecting in 30 seconds...\n");
+		$chosen_server = &pick(@server);
+		sleep 30;
+		$kernel->post(bot => 'connect',
+					  {
+						  Nick    => $chosen_nick,
+						  Server  => $chosen_server,
+						  Port    =>  6667,
+						  Ircname => "$project $version",
+						  Username => $username,
+					  }
+					  );
+		&debug(3, "Connecting to IRC server " . $chosen_server . "...\n");
     }
-
 }
 
 # MAKE_CONNECTION: Starts up the connection to IRC.
@@ -1101,14 +1108,14 @@ sub make_connection {
 
     $chosen_server = &pick(@server);
     $kernel->post(bot => 'connect',
-		  {
-		      Nick    => $chosen_nick,
-		      Server  => $chosen_server,
-		      Port    =>  6667,
-		      Ircname => "$project $version",
-		      Username => $username,
-		  }
-		  );
+				  {
+					  Nick    => $chosen_nick,
+					  Server  => $chosen_server,
+					  Port    =>  6667,
+					  Ircname => "$project $version",
+					  Username => $username,
+				  }
+				  );
     &debug(3, "Connecting to IRC server " . $chosen_server . "...\n");
 }
 
