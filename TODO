@@ -30,6 +30,7 @@ General
 - Allow for media other than IRC (connection plugins) (maybe).
 - Implement authentication for bot administration.
 - Reduce memory footprint.
+- Look into converting databases to DBD-SQLite.
 - Improve data storage format.
 - Implement a logger plugin.
 - RSS plugin desperately needs too handle all links/guids changing
