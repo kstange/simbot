@@ -1,6 +1,6 @@
 # SimBot Undernet Services Plugin
 #
-# Copyright (C) 2003, Kevin Stange
+# Copyright (C) 2003-04, Kevin Stange
 #
 # This program is free software; you can redistribute it and/or modify
 # under the terms of the GNU General Public License as published by
