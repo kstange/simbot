@@ -74,10 +74,10 @@ sub set_seen {
 # nicknames of people we have seen.
 sub score_word {
     if (defined $seenData{$_[1]}) {
-	&SimBot::debug(3, "$_[1]:+40 seen bonus ");
-	return 40;
+	&SimBot::debug(3, "$_[1]:+1000(seen) ");
+	return 1000;
     }
-    &SimBot::debug(4, "$_[1]:no seen bonus ");
+    &SimBot::debug(4, "$_[1]:+0(seen) ");
     return 0;
 }
 
