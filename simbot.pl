@@ -552,6 +552,21 @@ sub timeago {
     }
 }
 
+# CHAR_SUB: Returns the string with some odd unicode replaced with
+# more ordinary characters.
+sub char_sub {
+    $text = $_[0];
+    
+    $text =~ s/\N{HORIZONTAL ELLIPSIS}/.../g;
+    $text =~ s/\N{TWO DOT LEADER}/../g;
+    $text =~ s/\N{ONE DOT LEADER}/./g;
+    $text =~ s/\N{DOUBLE QUESTION MARK}/??/g;
+    $text =~ s/\N{QUESTION EXCLAMATION MARK}/?!/g;
+    $text =~ s/\N{EXCLAMATION QUESTION MARK}/!?/g;
+    
+    return $text;
+}
+
 # OPTION: Returns the value (or a random value from a list) for a
 # for a particular option.
 sub option {
@@ -1297,14 +1312,8 @@ sub delete_word {
 # into for logging what the bot says for plugins and whatnot.
 sub send_message {
 	my ($dest, $text) = @_;
-	
-	$text =~ s/\N{HORIZONTAL ELLIPSIS}/.../g;
-	$text =~ s/\N{TWO DOT LEADER}/../g;
-	$text =~ s/\N{ONE DOT LEADER}/./g;
-	$text =~ s/\N{DOUBLE QUESTION MARK}/??/g;
-	$text =~ s/\N{QUESTION EXCLAMATION MARK}/?!/g;
-	$text =~ s/\N{EXCLAMATION QUESTION MARK}/!?/g;
-	
+
+	$text = &char_sub($text);
 	$text = &Encode::encode(TARGET_ENCODING, $text);
 	$kernel->post(bot => privmsg => $dest, $text);
     my $public = 0;
@@ -1335,6 +1344,7 @@ sub send_message {
 # into for logging what the bot says for plugins and whatnot.
 sub send_action {
 	my ($dest, $text) = @_;
+	$text = &char_sub($text);
 	$text = &Encode::encode(TARGET_ENCODING, $text);
 	$kernel->post(bot => ctcp => $dest, 'ACTION', $text);
     my $public = 0;
@@ -1364,6 +1374,7 @@ sub send_action {
 # into for logging what the bot says for plugins and whatnot.
 sub send_notice {
 	my ($dest, $text) = @_;
+	$text = &char_sub($text);
 	$text = &Encode::encode(TARGET_ENCODING, $text);
 	$kernel->post(bot => notice => $dest, $text);
     my $public = 0;
@@ -1394,6 +1405,7 @@ sub send_notice {
 # sending the pieces as notices.
 sub send_pieces_with_notice {
     my ($dest, $prefix, $text) = @_;
+    $text = &char_sub($text);
     $kernel->yield('cont_send_pieces', 'NOTICE', $dest, $prefix,
                     $text);
 }
@@ -1402,6 +1414,7 @@ sub send_pieces_with_notice {
 # sending the pieces as messages.
 sub send_pieces {
     my ($dest, $prefix, $text) = @_;
+    $text = &char_sub($text);
     $kernel->yield('cont_send_pieces', 'PRIVMSG', $dest, $prefix,
                     $text);
 }
