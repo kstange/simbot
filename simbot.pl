@@ -501,6 +501,8 @@ sub roll_dice {
     }
     if($numDice == 0) {
         $kernel->post(bot => privmsg => $channel, "$nick: I can't roll zero dice!");
+    } elsif($numDice > 100000000000000) {
+        $kernel->post(bot => privmsg => $channel, "$nick: I can't even count that high!");
     } elsif($numDice > 100) {
         $kernel->post(bot => ctcp => $channel, 'ACTION', "drops $numDice ${numSides}-sided dice on the floor, trying to roll them for ${nick}.");
     } elsif($numSides == 0) {
