@@ -9,7 +9,7 @@
 #   online at <http://www.nws.noaa.gov/tg/siteloc.shtml>.
 #
 # COPYRIGHT:
-#   Copyright (C) 2003-04, Pete Pearson
+#   Copyright (C) 2003-05, Pete Pearson
 #
 #   This program is free software; you can redistribute it and/or modify
 #   under the terms of the GNU General Public License as published by
@@ -26,14 +26,10 @@
 #   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 # TODO:
-# 15:55<FourOhFour> woo-hoo!# 15:55<FourOhFour> Time to rewrite weather.pl
-#     http://www.wired.com/news/technology/0,1282,65919,00.html# 15:55<SimGuy> FourOhFour: nice :)# 15:58<FourOhFour> hmm...# 15:58<FourOhFour> Maybe I'll wait until someone other than NOAA
-#     documents it.# 15:58<SimGuy> why?# 15:59<FourOhFour> http://www.nws.noaa.gov/forecasts/xml/# 15:59<FourOhFour> actually, I suppose I just need to figure out
-#     SOAP...# 15:59<SimGuy> what about current observations?# 16:00<SimGuy> you can read them as RSS apparently :)# 16:00<SimGuy> http://www.nws.noaa.gov/data/current_obs/KJFK.rss# 16:00<TheSchmoo> That you CJ?# 16:01<SimGuy> though this seems to be much better data than
-#     Geo::METAR can get:# 16:01<SimGuy> http://www.nws.noaa.gov/data/current_obs/KJFK.xml# 16:01<FourOhFour> damn it, omniweb, stop trying to treat unknown
-#     xml files as html!# 16:02<SimGuy> http://www.nws.noaa.gov/data/METAR/KJFK.1.txt# 16:02<SimGuy> there's the METAR still# 16:02<FourOhFour> I'll update weather.pl when I have some time# 16:02<SimGuy> but crazy stuff on top of it :)# 16:02<FourOhFour> first to use the XML observations, later to add
-#     a forecast command# 16:02<SimGuy> having the XML breakdown saves us lots of code :)# 16:02<SimGuy> and a bajillion workarounds :)# 16:03<FourOhFour> especially since we already depend on an XML
-#     parser for RSS
+#   * locally cache reports, don't rerequest more than once an hour
+#     SQLite maybe?
+#   * KILL Geo::METAR DAMN IT
+#   * Forecats would be nice. http://www.nws.noaa.gov/forecasts/xml/
 
 package SimBot::plugin::weather;
 
@@ -42,6 +38,9 @@ use warnings;
 
 # The weather, more or less!
 use Geo::METAR;
+
+# the new fangled XML weather reports need to be parsed too!
+use XML::Simple;
 
 use POE;
 
@@ -89,6 +88,7 @@ sub messup_wx {
             _start          => \&bootstrap,
             do_wx           => \&do_wx,
             got_wx          => \&got_wx,
+            got_xml         => \&got_xml,
             got_station_name => \&got_station_name,
             shutdown        => \&shutdown,
         }
@@ -127,7 +127,29 @@ sub do_wx {
 
     $station = uc($station);
 
-    # first off, do we have a station name?
+    # first off, is it a US station? If so, let's use the kick-ass
+    # XML report instead of the annoying METAR
+    # It is OK if this matches non-US sites, we'll figure that out
+    # when NOAA gives us a 404 and get the METAR instead.
+    # K... is the US,
+    # P... is Guam, Hawai'i, and Alaska
+    # T... is Puerto Rico and the Virgin Isl.
+    # NSTU is Pago Pago, American Samoa
+    if($station =~ m/^([KPT]...|NSTU)$/ && !$metar_only) {
+        &SimBot::debug(3, "weather: Appears to be a US station, using XML instead of METAR\n");
+        my $url = 'http://www.nws.noaa.gov/data/current_obs/'
+            . $station . '.xml';
+        my $request = HTTP::Request->new(GET=>$url);
+        $kernel->post('wxua' => 'request', 'got_xml',
+                $request, "$nick!$station");
+        
+        # we're done here.
+        return;
+    }
+    
+    # Damn, guess we need to parse METAR.
+    
+    # do we have a station name?
     unless($stationNames{$station}) {
         &SimBot::debug(4, "weather: Station name not found, looking it up\n");
         my $url =
@@ -178,6 +200,11 @@ sub got_station_name {
 }
 
 sub got_wx {
+    # This parses METAR reports.
+    # This should be replaced with something.
+    # Either stop using Geo::METAR, or find some service that gives
+    # us XML reports like NOAA does for US stations.
+    
     my ($kernel, $request_packet, $response_packet)
         = @_[KERNEL, ARG0, ARG1];
     my ($nick, $station, $metar_only)
@@ -414,13 +441,125 @@ sub got_wx {
         "$nick: $reply");
 }
 
+sub got_xml {
+    my ($kernel, $request_packet, $response_packet)
+        = @_[KERNEL, ARG0, ARG1];
+    my ($nick, $station)
+        = (split(/!/, $request_packet->[1], 2));
+    my $response = $response_packet->[0];
+
+    if ($response->is_error) {
+        if ($response->code eq '404') {
+            &SimBot::debug(3, 
+                "weather: Couldn't get XML weather for $station, falling back on METAR.\n");
+                # do we have a station name?
+            unless($stationNames{$station}) {
+                &SimBot::debug(4, "weather: Station name not found, looking it up\n");
+                my $url =
+                    'http://weather.noaa.gov/cgi-bin/nsd_lookup.pl?station='
+                    . $station;
+                my $request = HTTP::Request->new(GET => $url);
+                $kernel->post('wxua' => 'request', 'got_station_name',
+	        	              $request, "$nick!$station!0");
+                # We're done here - got_station_name will handle
+                # requesting the weather
+                return;
+            }
+            # we already have the station name... let's request the
+            # weather
+            
+            my $url =
+                'http://weather.noaa.gov/pub/data/observations/metar/stations/'
+                . $station . '.TXT';
+            my $request = HTTP::Request->new(GET=>$url);
+            $kernel->post('wxua' => 'request', 'got_wx',
+                            $request, "$nick!$station!0");
+        } else {
+            &SimBot::send_message(&SimBot::option('network', 'channel'), "$nick: " . CANNOT_ACCESS);
+        }
+        return;
+    }
+    &SimBot::debug(4, 'weather: Got XML weather for ' . $nick
+        . " for $station\n");
+    my $raw_xml = $response->content;
+    
+    my $cur_obs = XMLin($raw_xml, SuppressEmpty => 1);
+    
+    my $u_time     = $cur_obs->{'observation_time'};
+    my $location   = $cur_obs->{'location'};
+    my $weather    = $cur_obs->{'weather'};
+    my $temp       = $cur_obs->{'temperature_string'};
+    my $rhumid     = $cur_obs->{'relative_humidity'};
+    my $wdir       = $cur_obs->{'wind_dir'};
+    my $wmph       = $cur_obs->{'wind_mph'};
+    my $wgust      = $cur_obs->{'wind_gust_mph'};
+    my $hidx       = $cur_obs->{'heat_index_string'};
+    my $wchill     = $cur_obs->{'windchill_string'};
+    my $visibility = $cur_obs->{'visibility'};
+    
+    my $msg = 'As reported ';
+    my @reply_with;
+    
+    if(defined $u_time) {
+        $u_time =~ s/Last Updated on //;
+        $msg .= 'on ' . $u_time . ' ';
+    }
+    
+    if(defined $location)   { $msg .= 'at ' . $location; }
+    else                    { $msg .= 'at ' . $station; }
+    
+    $msg .= ' it is ';
+    
+    if(defined $weather && $weather !~ m/(Not Applicable|na)/i)
+        { $msg .= lc($weather) . ' and '; }
+    if(defined $temp)       { $msg .= $temp; }
+    
+    $msg .= ', with';
+    
+    if(defined $hidx && $hidx !~ m/Not Applicable/i) {
+        push(@reply_with, "a heat index of $hidx");
+    }
+    
+    if(defined $wchill && $wchill !~ m/Not Applicable/i) {
+        push(@reply_with, "a wind chill of $wchill");
+    }
+    
+    if(defined $rhumid && $rhumid != 0) {
+        push(@reply_with, "${rhumid}% humidity");
+    }
+    
+    if(defined $wmph) {
+        my $mmsg;
+        $mmsg = "$wmph MPH winds from the $wdir";
+        if(defined $wgust && $wgust > 0)
+            { $mmsg .= " gusting to $wgust MPH"; }
+        push(@reply_with, $mmsg);
+    }
+    
+    if(defined $visibility && $visibility !~ m/Not Applicable/i) {
+        push(@reply_with, "$visibility visibility");
+    }
+    
+    my $sep;
+    if($#reply_with == 1) {
+        $sep = ' and ';
+    } elsif($#reply_with > 1) {
+        $sep = ', ';
+        $reply_with[-1] = 'and ' . $reply_with[-1];
+    }
+    $msg .= ' ' . join($sep, @reply_with);
+    
+    &SimBot::send_message(&SimBot::option('network', 'channel'),
+        "$nick: $msg");
+}
+
 sub nlp_match {
     my ($kernel, $nick, $channel, $plugin, @params) = @_;
 
 	my $station;
 
 	foreach (@params) {
-		if (m/(\w+)\'s weather/i) {
+		if (m/(\w+)\'s weather/i) { #'
 			$station = $1;
 		} elsif (m/(at|in|for) (\w+)/i) {
 			$station = $2;

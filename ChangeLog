@@ -1,3 +1,9 @@
+Version 1.0 alpha: (05 Dec 2004)
+	* plugins/weather.pl:
+	  - Uses NOAA's new XML current observations instead of the rather
+	    brittle METAR for stations in the US. Other stations will still
+	    use METAR.
+
 Version 1.0 alpha: (04 Dec 2004)
 	* plugins/sqlite-logger.pl:
 	  - New plugin! Logs all chat to a SQLite database. Supports
