@@ -318,7 +318,7 @@ sub handle_query {
         if($factFlags & FACT_ARE)   { $isare = 'are'; }
         
         if($factFlags & FACT_SEE_OTHER
-           && !($factFlags & NO_RECURSE)) {
+           && !($flags & NO_RECURSE)) {
             &handle_query($factoid, $nick, $channel, undef,
                           $flags | NO_RECURSE);
             return;

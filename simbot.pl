@@ -1377,7 +1377,7 @@ sub quit_session {
 
 # QUIT: Quit IRC.
 sub quit {
-    if($terminating < 1) {
+    if($terminating != 1) {
         
         my ($message) = @_;
     	if ($message eq "TERM") {
