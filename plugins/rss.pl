@@ -67,6 +67,9 @@ $announce_feed{'lpetr'}     = 1;
 $feeds{'ala'}               = 'http://www.alistapart.com/rss.xml';
 $announce_feed{'ala'}       = 1;
 
+$feeds{'mironv'}            = 'http://www.mironv.com/blog/MironV_RSS.xml';
+$announce_feed{'mironv'}    = 1;
+
 use constant CHANNEL => &SimBot::option('network', 'channel');
 
 ### messup_rss
