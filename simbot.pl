@@ -665,10 +665,13 @@ sub build_records {
     $items++;
 
     my $tail = -1;
-    while ($sentence[$tail] =~ /^[:;=].*/) {
-        $tail--;
-    }
-    $sentence[$tail] =~ /([\!\?])[^\!\?]*$/;
+
+	if (defined $sentence[$tail]) {
+		while ($sentence[$tail] =~ /^[:;=].*/) {
+			$tail--;
+		}
+		$sentence[$tail] =~ /([\!\?])[^\!\?]*$/;
+	}
     my $startblock = "__" . ($1 ? $1 : "") . "BEGIN";
     my $endblock = "__END";
 
