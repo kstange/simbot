@@ -3,6 +3,8 @@ Version 6.0 alpha: (26 Feb 2004)
 	   - Added a new configuration option that allows you to change the
 	     prefix that the bot will use to recognize commands.  The default
 	     will remain as %.
+	* plugins/dice.pl:
+	   - It is now possible to flip more than 1 coin at a time.
 
 Version 6.0 alpha: (25 Feb 2004)
 	* simbot.pl:

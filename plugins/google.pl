@@ -23,12 +23,19 @@ sub google_find {
     my ($kernel, $nick, $channel, @terms) = @_;
     shift(@terms);
     my $query = "@terms";
+
+    &SimBot::debug(3, "Received find command from " . $nick . ".\n");
+
+	if (!$query) {
+		&SimBot::send_message($channel, "$nick: Nothing was found.  I didn't look, but I think that was a safe bet.");
+		return;
+	}
+
     $query =~ s/\&/\%26/g;
     $query =~ s/\%/\%25/g;
     $query =~ s/\+/\%2B/g;
     $query =~ s/\s/+/g;
     my $url = "http://www.google.com/search?q=" . $query . "&btnI=1&safe=active";
-    &SimBot::debug(3, "Received find command from " . $nick . ".\n");
     my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
     $useragent->agent("$SimBot::project/1.0");
     $useragent->timeout(5);
