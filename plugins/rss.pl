@@ -142,46 +142,47 @@ sub got_response {
         open(OUT, ">$file");
         print OUT $response->content;
         close(OUT);
+	}
 
-        if($announce_feed{$curFeed}) {
-
-            $rss->parsefile("caches/${curFeed}.xml");
-
-			if (defined $mostRecentPost{$curFeed}) {
-				foreach my $item (@{$rss->{'items'}}) {
-					if((defined $item->{'guid'} && $item->{'guid'} eq $mostRecentPost{$curFeed})
-					   || $item->{'link'} eq $mostRecentPost{$curFeed}) {
-						last;
-					} else {
-						($link, $title) = &get_link_and_title($item);
-
-						push(@newPosts, "$title  $link");
-					}
-				}
-			}
-            if(defined $rss->{'items'}->[0]->{'guid'}) {
-                $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'guid'};
-            } else {
-                $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
-            }
-
-            if(@newPosts) {
-                $title = $rss->{'channel'}->{'title'};
-                if($title =~ m/Slashdot Journals/) {
-                    $title = $rss->{'channel'}->{'description'};
-                }
-                &SimBot::send_message(CHANNEL,
-                    &SimBot::parse_style(&colorize_feed($title)
-                            . " has been updated! Here's what's new:"));
-                foreach(@newPosts) {
-                    &SimBot::send_message(CHANNEL, $_);
-                }
-            }
-        }
-    }
     if(defined $nick) {
         $kernel->yield('announce_top', $curFeed, $nick, CHANNEL);
-    }
+		return;
+	} elsif($announce_feed{$curFeed}) {
+
+		$rss->parsefile("caches/${curFeed}.xml");
+
+		if (defined $mostRecentPost{$curFeed}) {
+			foreach my $item (@{$rss->{'items'}}) {
+				if((defined $item->{'guid'} && $item->{'guid'} eq $mostRecentPost{$curFeed})
+				   || $item->{'link'} eq $mostRecentPost{$curFeed}) {
+					last;
+				} else {
+					($link, $title) = &get_link_and_title($item);
+
+					push(@newPosts, "$title  $link");
+				}
+			}
+		}
+		if(defined $rss->{'items'}->[0]->{'guid'}) {
+			$mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'guid'};
+		} else {
+			$mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
+		}
+
+		if(@newPosts) {
+			$title = $rss->{'channel'}->{'title'};
+			if($title =~ m/Slashdot Journals/) {
+				$title = $rss->{'channel'}->{'description'};
+			}
+			&SimBot::send_message(CHANNEL,
+			  &SimBot::parse_style(&colorize_feed($title)
+								   . " has been updated! Here's what's new:"));
+			foreach(@newPosts) {
+				&SimBot::send_message(CHANNEL, $_);
+			}
+		}
+	}
+
 }
 
 ### latest_headlines_stub
