@@ -27,7 +27,7 @@ use warnings;
 use Net::Dict;
 
 # Server
-use constant DICT_SERVER => "pan.alephnull.com";
+use constant DICT_SERVER => "dict.org";
 
 # LOOK UP: Prints a defintion to the channel.
 sub look_up {
