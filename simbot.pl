@@ -132,11 +132,16 @@ if (defined $args{help}) {
 &load_config(defined $args{config} ? $args{config} : "./config.ini");
 
 # Check some config options or bail out!
-die("Your configuration is lacking an IRC server to connect to") unless option_list('network', 'server');
-die("Your configuration is lacking a channel to join") unless option('network', 'channel');
-die("Your configuration is lacking a valid default nickname") unless option('global', 'nickname');
-die("Your configuration has an extra sentence % >= 100%") unless option('chat', 'new_sentence_chance') < 100;
-die("Your configuration has no rulefile to load") unless option('global', 'rules');
+die("Your configuration is lacking an IRC server to connect to")
+	unless option_list('network', 'server');
+die("Your configuration is lacking a channel to join")
+	unless option('network', 'channel');
+die("Your configuration is lacking a valid default nickname")
+	unless option('global', 'nickname');
+die("Your configuration has an extra sentence % >= 100%")
+	unless option('chat', 'new_sentence_chance') < 100;
+die("Your configuration has no rulefile to load")
+	unless option('global', 'rules');
 
 # These are intializations of the hash tables we'll be using for
 # callbacks and plugin information.
@@ -756,11 +761,11 @@ sub load_config {
 			$conf{'global'}{'command_prefix'}[0] = '%';
 			debug(2, "global/command_prefix missing from config. Using '%'.\n");
 		}
-		if (!option('chat', 'new_sentence_chance')) {
+		if (!defined option('chat', 'new_sentence_chance')) {
 			$conf{'chat'}{'new_sentence_chance'}[0] = 0;
 			debug(2, "chat/new_sentence_chance missing from config. Using 0 (off).\n");
 		}
-		if (!option('chat', 'delete_usage_max')) {
+		if (!defined option('chat', 'delete_usage_max')) {
 			$conf{'chat'}{'delete_usage_max'}[0] = -1;
 			debug(2, "chat/delete_usage_max missing from config. Using -1 (off).\n");
 		}
