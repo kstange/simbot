@@ -150,8 +150,7 @@ sub nlp_match {
 	return 1;
 }
 
-package SimBot::plugin::flip;
-sub nlp_match {
+sub SimBot::plugin::flip::nlp_match {
 	&SimBot::plugin::roll::nlp_match(@_);
 }
 
