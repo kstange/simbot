@@ -43,6 +43,7 @@ $verbose = 3;
 	    "added: config.pl splits the configuration from the main script",
 	    "added: ChangeLog splits the ChangeLog from the main script",
 	    "added: some error checking should die on a bad configuration",
+	    "removed: evil hacky privmsg functions that could be abused",
 	    "this will be the first version to appear in SF.net CVS",
 	    );
 
