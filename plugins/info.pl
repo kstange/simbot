@@ -150,7 +150,7 @@ sub handle_chat {
     $content = &munge_pronouns($content, $nick, $person_being_referenced);
     $content = &normalize_urls($content);
     
-    if($being_addressed && $content =~ m{^forget ([\w\s]+)}i) {
+    if($being_addressed && $content =~ m{^forget ([\'\-\w\s]+)}i) {
         # someone wants us to forget
         
         my($forgotten, $key) = (0, lc($1));
@@ -166,7 +166,7 @@ sub handle_chat {
                 &parse_message(&SimBot::pick(CANT_FORGET),
                                $nick, $key));
         }
-    } elsif($content =~ m{(where|what|who) is ([\'\w\s]+)}i) {
+    } elsif($content =~ m{(where|what|who) is ([\'\-\w\s]+)}i) {
         # looks like a query
         # if $1 is where, we should try to respond with a URL
         # otherwise, we should try to respond with a non-URL
@@ -183,7 +183,7 @@ sub handle_chat {
         &handle_query($2, $nick, $channel, $person_being_referenced,
                       ($being_addressed ? BEING_ADDRESSED : 0)
                       | PREFER_LOCATION);
-    } elsif($content =~ m{([\'\w\s]+) is[\s\w]* (also )(\w+://\S+)}i) {
+    } elsif($content =~ m{([\'\-\w\s]+) is[\s\w]* (also )(\w+://\S+)}i) {
         # looks like a URL to me!
         my ($key, $also, $factoid) = (lc($1), $2, $3);
         
@@ -209,7 +209,7 @@ sub handle_chat {
                                $key, $isare, $oldFactoid))
                 if $being_addressed;
         }
-    } elsif($content =~ m{([\'\w\s]+?) (is|are) ((aka|also) )?([\'\w\s]+)}i) {
+    } elsif($content =~ m{([\'\-\w\s]+?) (is|are) ((aka|also) )?([\'\-\w\s]+)}i) {
 		no warnings;
         my ($key, $isare, $akaalso, $factoid) = (lc($1), $2, $4, $5);
         
@@ -256,7 +256,7 @@ sub handle_chat {
             $info{$key} = "$flags|$factoid";
             &report_learned($channel, $nick, $key, $factoid, $flags);
         }
-    } elsif($being_addressed && $content =~ m{^([\'\w\s]+)$}) {
+    } elsif($being_addressed && $content =~ m{^([\'\-\w\s]+)$}) {
         # KEEP THIS ELSIF LAST
         # Single phrase, doesn't match anything else and we are being
         # addressed. Let's do a query.
@@ -405,11 +405,13 @@ sub parse_message {
 sub munge_pronouns {
     my ($content, $nick, $person_being_referenced, $thirdperson) = @_;
     
-    $content =~ s/(^|\s)i am /$1$nick is /ig;
-    $content =~ s/(^|\s)my /$1${nick}'s /ig;
+    $content =~ s{\bi am\b} {$nick is}ig;
+    $content =~ s{\bmy\b}   {${nick}'s}ig;
+    $content =~ s{\bme\b}   {$nick}ig;
+    $content =~ s{\bmine\b} {${nick}'s}ig;
     if($person_being_referenced) {
-        $content =~ s/(^|\s)(you're|you are) /$1${person_being_referenced} is /ig;
-        $content =~ s/(^|\s)your /$1${person_being_referenced}\'s /ig;
+        $content =~ s/\b(you're|you are)/${person_being_referenced} is/ig;
+        $content =~ s/\byour/${person_being_referenced}\'s/ig;
     }
     
     return $content;
