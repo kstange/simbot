@@ -28,8 +28,8 @@
 #   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 # TODO:
-#   * Switch to PoCo::Client::HTTP for the startup RSS fetch
 #   * Find a better way to detect new posts in feeds
+#   * Make rss feed IDs case insensitive
 #
 
 package SimBot::plugin::rss;
@@ -72,8 +72,8 @@ sub messup_rss {
             do_rss          => \&do_rss,
             got_response    => \&got_response,
             announce_top    => \&announce_top,
-            real_latest_headlines
-                            => \&real_latest_headlines,
+            latest_headlines
+                            => \&latest_headlines,
             shutdown        => \&shutdown,
         }
     );
@@ -103,7 +103,7 @@ sub shutdown {
 sub do_rss {
     my $kernel = $_[KERNEL];
     my (@newPosts, $title, $request, $file);
-    &SimBot::debug(3, "Updating RSS...\n");
+    &SimBot::debug(3, "rss: Updating cache...\n");
 
     foreach my $curFeed (keys %feeds) {
         if($announce_feed{$curFeed}) {
@@ -130,8 +130,10 @@ sub got_response {
     my $response = $response_packet->[0];
     my $rss = new XML::RSS;
     $file = "caches/${curFeed}.xml";
-    &SimBot::debug(3, "  got RSS for $curFeed: "
-                      . $response->status_line . "\n");
+	my ($error_code) = split(/ /, $response->status_line, 1);
+    &SimBot::debug((($error_code >= 400) ? 1 : 3),
+				   "rss:   fetching feed for $curFeed: "
+				   . $response->status_line . "\n");
 
     if($response->code == RC_NOT_MODIFIED) {
         # File wasn't modified. We touch the file so we don't
@@ -184,27 +186,28 @@ sub got_response {
     }
 }
 
-### latest_headlines
-# gets the latest headlines for the specified feed.
-sub latest_headlines {
+### latest_headlines_stub
+# SimBot does not know this is a POE session.  It will call this function to
+# and we'll post our event.
+sub latest_headlines_stub {
     my ($kernel, $nick, $channel, undef, $feed) = @_;
-    $kernel->post($session => 'real_latest_headlines', $nick, $channel, $feed);
+    $kernel->post($session => 'latest_headlines', $nick, $channel, $feed);
 }
 
-### real_latest_headlines
-# POE calls this. This actually does the work for latest_headlines.
-sub real_latest_headlines {
+### latest_headlines
+# This outputs the latest headlines for the requested feed to IRC.
+sub latest_headlines {
     my ($kernel, $nick, $channel, $feed) = @_[ KERNEL, ARG0, ARG1, ARG2 ];
     my ($item, $title, $link);
     my $rss = new XML::RSS;
 
-    &SimBot::debug(3, "Got RSS command from $nick" .
-				   (defined $feed ? " for $feed: " : ": "));
+    &SimBot::debug(4, "rss: Got request from $nick" .
+				   (defined $feed ? " for $feed...\n" : "...\n"));
 
     if(defined $feed && defined $feeds{$feed}) {
         my $file = "caches/${feed}.xml";
         if(!-e $file || -M $file > (EXPIRE / 86400)) {
-            &SimBot::debug(3, "Old/missing, fetching...\n");
+            &SimBot::debug(4, "rss: $feed is old or missing.\n");
             # cache is stale or missing, we need to go fetch it
             # before we announce anything.
             my $request = HTTP::Request->new(GET => $feeds{$feed});
@@ -215,11 +218,11 @@ sub real_latest_headlines {
             $kernel->post( 'ua' => 'request', 'got_response',
                             $request, "$feed!!$nick");
         } else {
-            &SimBot::debug(3, "Up to date, displaying\n");
+            &SimBot::debug(4, "rss: $feed is up to date; Displaying.\n");
             $kernel->post($session => 'announce_top', $feed, $nick, $channel);
         }
     } else {
-        &SimBot::debug(3, "feed not recognized\n");
+        &SimBot::debug(4, "rss: No feed matched request.\n");
         my $message = "$nick: "
             . ($feed ? "I have no feed $feed."
                      : "What feed do you want latest posts from?")
@@ -300,7 +303,7 @@ sub nlp_match {
 	}
 
 	if (defined $feed) {
-		&latest_headlines($kernel, $nick, $channel, undef, $feed);
+		$kernel->post($session => 'latest_headlines', $nick, $channel, $feed);
 		return 1;
 	} else {
 		return 0;
@@ -310,7 +313,7 @@ sub nlp_match {
 &SimBot::plugin_register(
     plugin_id   => 'rss',
     plugin_desc => 'Lists the three most recent posts in the requested RSS feed.',
-    event_plugin_call     => \&latest_headlines,
+    event_plugin_call     => \&latest_headlines_stub,
     event_plugin_load     => \&messup_rss,
     event_plugin_unload   => \&cleanup_rss,
 
