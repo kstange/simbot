@@ -198,9 +198,9 @@ sub got_response {
                 } else {
                     $title = $item->{'title'};
                     $link = $item->{'link'};
-                    $title =~ s/&quot;/\"/;
-                    $title =~ s/&amp;/&/;
-                    $title =~ s/\t/  /;
+                    $title =~ s/&quot;/\"/ig;
+                    $title =~ s/&amp;/&/ig;
+                    $title =~ s/\t/  /g;
                     
                     $link =~ s{^http://go\.fark\.com/cgi/fark/go\.pl\?\S*&location=(\S*)$}{$1};
                     
