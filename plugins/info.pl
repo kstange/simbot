@@ -230,7 +230,7 @@ sub handle_chat {
             $info{$key} = "$flags|$factoid";
             &report_learned($channel, $nick, $key, $factoid, $flags);
         }
-    } elsif($content =~ m{([\'\-\w\s]+?) (is|are) ((aka|also) )?(.*)}i) {
+    } elsif($content =~ m{([\'\w][\'\-\w\s]*?) (is|are) ((aka|also) )?(.*)}i) {
 		no warnings;
         my ($key, $isare, $akaalso, $factoid) = (lc($1), $2, $4, $5);
         
