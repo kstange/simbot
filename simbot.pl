@@ -544,7 +544,6 @@ sub get_wx {
 	return;
     }
     $station = uc($station);
-    #Fetch report from http://weather.noaa.gov/pub/data/observations/metar/stations/$station.TXT
     my $url = 'http://weather.noaa.gov/pub/data/observations/metar/stations/' 
         . $station . '.TXT';
     &debug(3, 'Received weather command from ' . $nick . 
@@ -584,7 +583,7 @@ sub get_wx {
         push(@reply_with, sprintf('%d', $humidity) . '% humidity');
             
 	if($m->WIND_MPH) {
-	    my $tmp = $m->WIND_MPH . ' mph winds';
+	    my $tmp = int($m->WIND_MPH) . ' mph winds';
             $tmp .= ' from the ' . $m->WIND_DIR_ENG if defined $m->WIND_DIR_ENG;
 	    push(@reply_with, $tmp);
 	}
