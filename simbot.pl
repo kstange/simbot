@@ -209,6 +209,7 @@ if(option('chat','snooze') !~ m/always|never/) {
 		     
 		     event_plugin_call     => \&set_snooze,
 		     );
+}
     
     &plugin_register(plugin_id   => "stats",
 		     plugin_desc => "Shows useless stats about the database.",
@@ -221,7 +222,7 @@ if(option('chat','snooze') !~ m/always|never/) {
 		     
 		     event_plugin_call     => \&print_help,
 		     );
-}
+
 
 # Register the delete plugin only if the option is enabled
 if(option('chat', 'delete_usage_max') != -1) {
