@@ -85,6 +85,11 @@ use constant X_IS_X => (
     '$nick: Wouldn\'t $key $isare $factoid be a truism?',
 );
 
+use constant X_IS_NOT_X => (
+    '$nick: I don\'t know what reality you are residing in, but in mine $key $isare $factoid doesn\'t hold.',
+    '$nick: Maybe in %bold%your%bold% universe $key $isare $factoid, but I beg to differ.',
+);
+
 use constant I_CANNOT => (    # used to respond to requests with bad words
     'I cannot do that, $nick.',
 );
@@ -151,6 +156,8 @@ sub handle_chat {
 #        $being_addressed = 1;
     }
     
+    # Let's expand all the pronouns in the chat so we can learn something
+    # useful. Also, try to expand any lazy URLs.
     $content = &munge_pronouns($content, $nick, $person_being_referenced);
     $content = &normalize_urls($content);
     
@@ -176,20 +183,20 @@ sub handle_chat {
         # otherwise, we should try to respond with a non-URL
         my $key = $2;
         my $flags;
-        if($1 =~ m/where/i) { $flags =  PREFER_LOCATION;    }
-        else                { $flags =  PREFER_DESC;        }
-        if($being_addressed){ $flags |= BEING_ADDRESSED;    }
+        if($1 =~ m/where/i)     { $flags =  PREFER_LOCATION;    }
+        else                    { $flags =  PREFER_DESC;        }
+        if($being_addressed)    { $flags |= BEING_ADDRESSED;    }
         
         &handle_query($key, $nick, $channel, $person_being_referenced,
                       $flags);
     } elsif($content =~ m{where can (I|one) find ([\'\w\s]+)}i) {
-        # looks like a query, try to respond with a URL
+        # looks like a query, try to respond with a location
         &handle_query($2, $nick, $channel, $person_being_referenced,
                       ($being_addressed ? BEING_ADDRESSED : 0)
                       | PREFER_LOCATION);
     } elsif($content =~ m{([\'\-\w\s]+) is( also)?[\s\w]* (\w+://\S+)}i) {
         # looks like a URL to me!
-        warn;
+        # let's try to learn it.
         my ($key, $also, $factoid) = (lc($1), $2, $3);
         
         my $flags = FACT_URL;
@@ -197,22 +204,28 @@ sub handle_chat {
         
         if($also) {
             # We are learning something *also*
-
+            # add it to the existing key if any. If there isn't, well,
+            # I guess 'also' didn't make sense but let's learn it anyway.
             if($info{$key}) { $info{$key} .= "||$flags|$factoid"; }
             else            { $info{$key} =    "$flags|$factoid"; }
             
             &report_learned($channel, $nick, $key, $factoid, $flags);
         } elsif($info{$key}) {
-            my ($keyFlags, $oldFactoid) = split(/\|/, $info{$key}, 2);
-            
-            my $isare = 'is';
-            if   ($keyFlags & FACT_ARE)         { $isare = 'are';       }
-            elsif($keyFlags & FACT_SEE_OTHER)   { $isare = 'is aka';    }
-            
-            &SimBot::send_message($channel,
-                &parse_message(&SimBot::pick(BUT_X_IS_Y), $nick,
-                               $key, $isare, $oldFactoid))
-                if $being_addressed;
+            # The key already exists, but the user didn't specify 'also'
+            # We should whine if we are being addressed, and just ignore
+            # it if we aren't.
+            if($being_addressed) {
+                my ($keyFlags, $oldFactoid) = split(/\|/, $info{$key}, 2);
+                my ($isare);
+                
+                if   ($keyFlags & FACT_ARE)         { $isare = 'are';    }
+                elsif($keyFlags & FACT_SEE_OTHER)   { $isare = 'is aka'; }
+                else                                { $isare = 'is';     }
+                
+                &SimBot::send_message($channel,
+                    &parse_message(&SimBot::pick(BUT_X_IS_Y), $nick,
+                                   $key, $isare, $oldFactoid));
+            }
         } else {
             $info{$key} = "$flags|$factoid";
             &report_learned($channel, $nick, $key, $factoid, $flags);
@@ -226,7 +239,9 @@ sub handle_chat {
         if   ($isare =~ m/are/i)    { $flags |= FACT_ARE;           }
         if   ($being_addressed)     { $flags |= BEING_ADDRESSED;    }
         
-
+        # if the line contains something on simbot's block list, we
+        # refuse to learn it. If we are being addressed, we give a
+        # nondescript error message.
         foreach(&SimBot::option_list('filters')) {
             if($content =~ /$_/) {
                 &SimBot::send_message($channel,
@@ -304,8 +319,8 @@ sub handle_query {
         my @factoids = split(/\|\|/, $info{$query});
         my($factFlags, $factoid);
         
-        # If we are to prefer URLs or nonURLs, let's remove everything
-        # else from the list.
+        # If we are to prefer locations or descriptions, let's remove
+        # everything else from the list.
         if(($flags & PREFER_LOCATION) || ($flags & PREFER_DESC)) {
             for(my $i=0;$i<=$#factoids;$i++) {
                 ($factFlags,$factoid) = split(/\|/, $factoids[$i], 2);
@@ -420,12 +435,15 @@ sub parse_message {
 sub munge_pronouns {
     my ($content, $nick, $person_being_referenced, $thirdperson) = @_;
     
-    $content =~ s{\bi am\b} {$nick is}ig;
-    $content =~ s{\bmy\b}   {${nick}'s}ig;
-    $content =~ s{\bme\b}   {$nick}ig;
-    $content =~ s{\bmine\b} {${nick}'s}ig;
+    $content =~ s{\bi am\b} {$nick is}ig;   # I am -> $nick is
+    $content =~ s{\bmy\b}   {${nick}'s}ig;  # my   -> $nick's
+    $content =~ s{\bmine\b} {${nick}'s}ig;  # mine -> $nick's
+    $content =~ s{\bme\b}   {$nick}ig;      # me   -> $nick
     if($person_being_referenced) {
+        # you're, you are   -> $person_being_referenced is
         $content =~ s/\b(you\'re|you are)/${person_being_referenced} is/ig;
+        
+        # your              -> $person_being_referenced's
         $content =~ s/\byour/${person_being_referenced}\'s/ig;
     }
     
@@ -458,7 +476,9 @@ sub normalize_urls {
             my ($host, $path) = split(m{/}, $curWord, 2);
             
             # does the first segment have a TLD?
-            if($host =~ m{\.(com|org|net|int|mil|gov|edu|biz|pro|info|aero|coop|name|museum|\w\w)$}g) {
+            if($host =~ m{\.(com|org|net|edu|gov|mil|int
+                            |biz|pro|info|aero|coop|name
+                            |museum|\w\w)$}ix) {
                 # Yup. Let's assume it's a web site...
                 $host = 'http://' . $host;
             }
