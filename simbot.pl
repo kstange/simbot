@@ -1300,6 +1300,10 @@ sub send_message {
 	
 	$text =~ s/\N{HORIZONTAL ELLIPSIS}/.../g;
 	$text =~ s/\N{TWO DOT LEADER}/../g;
+	$text =~ s/\N{ONE DOT LEADER}/./g;
+	$text =~ s/\N{DOUBLE QUESTION MARK}/??/g;
+	$text =~ s/\N{QUESTION EXCLAMATION MARK}/?!/g;
+	$text =~ s/\N{EXCLAMATION QUESTION MARK}/!?/g;
 	
 	$text = &Encode::encode(TARGET_ENCODING, $text);
 	$kernel->post(bot => privmsg => $dest, $text);
