@@ -25,6 +25,13 @@
 # Hi, my name is:
 package SimBot;
 
+# Let's be chatty!
+use warnings;
+
+
+use constant ERROR_DESCRIPTIONS
+        => ('', 'ERROR: ', 'WARNING: ', '', 'SPAM: ',);
+        
 # Declaring these as empty is better for the case when the config file
 # is missing them.
 @greeting = ();
@@ -71,9 +78,10 @@ $version = "6.0 alpha";
 
 # We want to catch signals to make sure we clean up and save if the
 # system wants to kill us.
-$SIG{'TERM'} = 'SimBot::cleanup';
-$SIG{'INT'}  = 'SimBot::cleanup';
-$SIG{'HUP'}  = 'SimBot::cleanup';
+$SIG{'TERM'} = 'SimBot::quit';
+$SIG{'INT'}  = 'SimBot::quit';
+$sig{'HUP'}  = 'SimBot::quit';
+#$SIG{'HUP'}  = 'SimBot::cleanup';
 $SIG{'USR1'} = 'SimBot::restart';
 $SIG{'USR2'} = 'SimBot::reload';
 
@@ -237,14 +245,8 @@ POE::Session->new
 
 # DEBUG: Print out messages with the desired verbosity.
 sub debug {
-    my @errors = ("",
-				  "ERROR: ",
-				  "WARNING: ",
-				  "",
-				  "SPAM: ",
-				  );
     if ($_[0] <= $verbose) {
-		print STDERR $errors[$_[0]] . $_[1];
+		print STDERR (ERROR_DESCRIPTIONS)[$_[0]] . $_[1];
     }
 }
 
@@ -1071,10 +1073,11 @@ sub channel_mode {
 
 # QUIT: Quit IRC.
 sub quit {
-    my $message = "@_";
+#    my $message = "@_";
+    my $message = "Bye everyone!";
     $terminating = 1;
     $kernel->call(bot => quit => "$project $version: $message");
-    $kernel->post(bot => unregister => "all");
+    
     &debug(2, "Quitting IRC... $message\n");
 }
 
@@ -1082,6 +1085,9 @@ sub quit {
 sub reconnect {
     if ($terminating == 1) {
 		&debug(2, "Disconnected!\n");
+		$kernel->post(bot => unregister => "all");
+		# since the event loop should soon have nothing to do
+		# it'll exit. Or something like that.
     } else {
 		&debug(2, "Disconnected!  Reconnecting in 30 seconds...\n");
 		$chosen_server = &pick(@server);
@@ -1127,7 +1133,12 @@ sub pick_new_nick {
     $kernel->post(bot => nick => $chosen_nick);
 }
 
-while ($terminating != 1) {
-    $kernel->run();
+$kernel->run();
+&debug(3, "Exited event loop!\n");
+foreach(keys(%event_plugin_unload)) {
+    &plugin_callback($_, $event_plugin_unload{$_});
 }
+&save;
+# &debug(3, "Disconnecting from IRC...\n");
+#    &quit("Bye everyone!");
 exit 0;
