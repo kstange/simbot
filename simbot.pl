@@ -28,7 +28,8 @@ package SimBot;
 # Let's be chatty!
 use warnings;
 
-
+# Declare some constants so reduce allocating and deallocating memory
+# repeatedly for frequently used values.
 use constant ERROR_DESCRIPTIONS
         => ('', 'ERROR: ', 'WARNING: ', '', 'SPAM: ',);
 
@@ -619,7 +620,7 @@ sub buildreply {
 					$chcount += $choices{$key};
 				}
 				my $try = int(rand()*($chcount))+1;
-				foreach(sort {$a cmp $b} keys(%choices)) {
+				foreach(keys(%choices)) {
 					$try -= $choices{$_};
 					if ($try <= 0) {
 						$newword = $_;
@@ -640,7 +641,7 @@ sub buildreply {
 				debug(4, "$chcount choices for next to $newword\n");
 			}
 			my $try = int(rand()*($chcount))+1;
-			foreach(sort {$a cmp $b} keys(%{$chat_words{$newword}})) {
+			foreach(keys(%{$chat_words{$newword}})) {
 				$try -= $chat_words{$newword}{$_}[1] if defined $chat_words{$newword}{$_}[1];
 				if ($try <= 0) {
 					debug(4, "Selected $_ to follow $newword\n");
@@ -671,7 +672,7 @@ sub buildreply {
 				}
 				debug(4, "$chcount choices for next to $newword\n");
 				my $try = int(rand()*($chcount))+1;
-				foreach(sort {$a cmp $b} keys(%{$chat_words{$newword}})) {
+				foreach(keys(%{$chat_words{$newword}})) {
 					$try -= $chat_words{$newword}{$_}[0] if defined $chat_words{$newword}{$_}[0];
 					if ($try <= 0) {
 						debug(4, "Selected $_ to follow $newword\n");
