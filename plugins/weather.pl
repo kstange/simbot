@@ -26,8 +26,14 @@
 #   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 # TODO:
-#   * Either fix the issues in Geo::METAR or stop using it.
-#
+# 15:55<FourOhFour> woo-hoo!# 15:55<FourOhFour> Time to rewrite weather.pl
+#     http://www.wired.com/news/technology/0,1282,65919,00.html# 15:55<SimGuy> FourOhFour: nice :)# 15:58<FourOhFour> hmm...# 15:58<FourOhFour> Maybe I'll wait until someone other than NOAA
+#     documents it.# 15:58<SimGuy> why?# 15:59<FourOhFour> http://www.nws.noaa.gov/forecasts/xml/# 15:59<FourOhFour> actually, I suppose I just need to figure out
+#     SOAP...# 15:59<SimGuy> what about current observations?# 16:00<SimGuy> you can read them as RSS apparently :)# 16:00<SimGuy> http://www.nws.noaa.gov/data/current_obs/KJFK.rss# 16:00<TheSchmoo> That you CJ?# 16:01<SimGuy> though this seems to be much better data than
+#     Geo::METAR can get:# 16:01<SimGuy> http://www.nws.noaa.gov/data/current_obs/KJFK.xml# 16:01<FourOhFour> damn it, omniweb, stop trying to treat unknown
+#     xml files as html!# 16:02<SimGuy> http://www.nws.noaa.gov/data/METAR/KJFK.1.txt# 16:02<SimGuy> there's the METAR still# 16:02<FourOhFour> I'll update weather.pl when I have some time# 16:02<SimGuy> but crazy stuff on top of it :)# 16:02<FourOhFour> first to use the XML observations, later to add
+#     a forecast command# 16:02<SimGuy> having the XML breakdown saves us lots of code :)# 16:02<SimGuy> and a bajillion workarounds :)# 16:03<FourOhFour> especially since we already depend on an XML
+#     parser for RSS
 
 package SimBot::plugin::weather;
 
