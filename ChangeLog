@@ -1,3 +1,9 @@
+Version 6.0 alpha: (05 Sep 2004)
+	* simbot.pl:
+	  - Added command line options --debug and --config to override the
+	    default configuration file and debug level for the session.
+	  - Added ANSI colors to output messages.
+
 Version 6.0 alpha: (31 Jul 2004)
 	* plugins/dice.pl:
 	  - Added a %rps command, which makes the bot play the Rock, Paper,

@@ -51,12 +51,19 @@ use vars qw( %conf %chat_words $chosen_nick $chosen_server $alarm_sched_60
 
 # Error Descriptions
 use constant ERROR_DESCRIPTIONS
-        => ('', 'ERROR: ', 'ALERT: ', '', 'DEBUG: ', 'SPAM: ');
+	=> ('', 'ERROR: ', 'ALERT: ', '', 'DEBUG: ', 'SPAM: ');
 
-# Force debug on with this:
+# Terminal Colors
+use Term::ANSIColor;
+$Term::ANSIColor::AUTORESET = 1;
+
+use constant ERROR_COLORS
+	=> ("bold green", "bold red", "red", "", "bold blue", "blue");
+
+# Default verbosity level
 # 0 is silent, 1 shows errors, 2 shows alert, 3 shows normal information,
 # 4 shows debug information, and 5 everything you never wanted to see.
-use constant VERBOSE => 4;
+use constant VERBOSE => 3;
 
 # Software Name
 use constant PROJECT => "SimBot";
@@ -92,8 +99,37 @@ our %numbers_digits = (one => 1, two => 2,   three => 3, four => 4, five => 5,
 
 &debug(0, PROJECT . " " . VERSION . "\n\n");
 
+# Read command line options
+our %args = ();
+
+foreach (@ARGV) {
+	if (m/^--/) {
+		my ($flag, $value) = split(/=/);
+		$flag =~ s/^--//;
+		$value = 1 if (!defined $value);
+		$args{$flag} = $value;
+	} elsif (m/^-/) {
+		my (@params) = split(//);
+		foreach (@params) {
+			$args{$_} = 1 unless $_ eq "-";
+		}
+	}
+}
+
+# Help output
+if (defined $args{help}) {
+	print "Usage: simbot.pl [options]\n\n"
+		. "  --config=\"filename\"\tLoads filename.ini as the config file\n"
+		. "  --debug=#\t\tOverrides the default debug level.\n"
+		. "\t\t\t  0 is silent, 1 shows errors, 2 shows alerts\n"
+		. "\t\t\t  3 shows IRC output, 4 shows debug output,\n"
+		. "\t\t\t  5 shows excessive debug output,\n"
+		. "\n";
+	exit(0);
+}
+
 # Load the configuration file.
-&load_config;
+&load_config(defined $args{config} ? $args{config} : "./config.ini");
 
 # Check some config options or bail out!
 die("Your configuration is lacking an IRC server to connect to") unless option_list('network', 'server');
@@ -322,8 +358,15 @@ POE::Session->new
 
 # DEBUG: Print out messages with the desired verbosity.
 sub debug {
-    if ($_[0] <= VERBOSE) {
-		print STDERR (ERROR_DESCRIPTIONS)[$_[0]] . $_[1];
+     if ((!defined $args{debug} && $_[0] <= VERBOSE) ||
+		(defined $args{debug} && $_[0] <= $args{debug})) {
+		if ($_[0] != 3 && $_[0] != 0) {
+			print STDERR colored ((ERROR_DESCRIPTIONS)[$_[0]] . $_[1],
+			(ERROR_COLORS)[$_[0]]);
+		} else {
+			print STDOUT colored ((ERROR_DESCRIPTIONS)[$_[0]] . $_[1],
+			(ERROR_COLORS)[$_[0]]);
+		}
     }
 }
 
@@ -679,8 +722,8 @@ sub save {
 
 # LOAD_CONFIG: Load the configuration data into %conf.
 sub load_config {
-	debug(3, "Loading configuration file...\n");
-	if (open(CONFIG, "./config.ini")) {
+	debug(3, "Loading configuration file $_[0]...\n");
+	if (open(CONFIG, $_[0])) {
 		my $section;
 		foreach (<CONFIG>) {
 			chomp;
@@ -737,7 +780,7 @@ sub load_config {
 		debug(3, "Configuration file loaded successfully!\n");
 
 	} else {
-		 die("\nYour configuration file (config.ini) is missing or unreadable."
+		 die("\nYour configuration file ($_[0]) is missing or unreadable."
 			 . "\nMake sure you copied and customized the config.default.ini");
 	 }
 
@@ -1894,7 +1937,9 @@ $kernel->run();
 &save;
 if ($terminating == 2) {
     &debug(3, "Restarting script...\n");
-	exec "./simbot.pl";
+	exec "./simbot.pl"
+		. (defined $args{debug} ? " --debug=$args{debug}" : "")
+		. (defined $args{config} ? " --config=\"$args{config}\"" : "");
 } else {
     &debug(3, "Terminated.\n");
 	exit 0;
