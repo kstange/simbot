@@ -181,7 +181,7 @@ sub handle_chat {
         # looks like a query
         # if $1 is where, we should try to respond with a URL
         # otherwise, we should try to respond with a non-URL
-        my $key = $2;
+        my $key = $3;
         my $flags;
         if($1 =~ m/where/i)     { $flags =  PREFER_LOCATION;    }
         else                    { $flags =  PREFER_DESC;        }
