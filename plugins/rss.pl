@@ -145,6 +145,8 @@ sub do_rss {
 						$mostRecentPost{$curFeed}
 						= $rss->{'items'}->[0]->{'link'};
 					}
+				} else {
+					&SimBot::debug(1, "rss:  Parse error in $file: $@");
 				}
 			}
         }
@@ -192,7 +194,7 @@ sub got_response {
 	} elsif($announce_feed{$curFeed} && -e $file) {
 
 		if (!eval { $rss->parsefile($file); }) {
-			&SimBot::debug(1, "rss:  Parse error in $file\n");
+			&SimBot::debug(1, "rss:  Parse error in $file: $@");
 			return;
 		}
 
@@ -294,7 +296,7 @@ sub announce_top {
     if(-e $file) {
 		$rss = new XML::RSS;
 		if (!eval { $rss->parsefile($file); }) {
-			&SimBot::debug(1, "rss:  Parse error in $file\n");
+			&SimBot::debug(1, "rss:  Parse error in $file: $@");
 			&SimBot::send_message($channel, "$nick: I have no idea what's going on with the $feed feed because the file I got didn't make sense to me.  If the feed owner corrects the feed, you should be able to ask me again later.");
 			return;
 		}
