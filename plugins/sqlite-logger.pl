@@ -143,7 +143,7 @@ sub get_nickchan_name {
 sub log_nick_change {
     my (undef, undef, $nick, $newnick) = @_;
     my $channel_id = &get_nickchan_id(
-        &SimBot::option('network', 'channel')
+        &SimBot::option('network', 'channel'), 0
     );
     
     my $source_nick_id = &get_nickchan_id($nick, 1);
@@ -323,7 +323,7 @@ sub access_log {
             }
         
             while(my $cur_arg = shift(@args)) {
-                if($cur_arg =~ /(say|join|part|quit|kick|notice|action)/i) {
+                if($cur_arg =~ /(say|join|part|quit|nick|kick|notice|action)/i) {
                     my $cur_event = $1;
                     if($cur_event =~ /^(join|part|quit|kick)$/i) 
                         { $cur_event .= 'ed'; }
