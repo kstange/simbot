@@ -51,7 +51,7 @@ sub look_up {
 			$definition =~ s/\s+/ /g;
 
 			if (length($definition) > 400 && $command !~ /_private$/) {
-				&SimBot::send_message($channel, "$nick: I found a definition in the $dbs{$dictionary}, but is is " . length($definition) . " bytes long. Type \"" . $command . "_private $term $dictionary\" to see it privately.");
+				&SimBot::send_message($channel, "$nick: I found a definition in the $dbs{$dictionary}, but it is " . length($definition) . " bytes long. Type \"" . $command . "_private $term $dictionary\" to see it privately.");
 			} elsif ($command =~ /_private$/) {
 				&SimBot::send_pieces($nick, undef, "From the $dbs{$dictionary}: $definition");
 			} else {
@@ -65,24 +65,17 @@ sub look_up {
 	}
 }
 
-package SimBot::plugin::define_private;
-
-# LOOK UP: Prints definition privately to the user.
-sub look_up {
-	&SimBot::plugin::define::look_up(@_);
-}
-
 # Register Plugin
 &SimBot::plugin_register(plugin_id   => "define",
 						 plugin_desc => "Defines the term. Defaults to Jargon.  Follow a term by a dictionary name to search an alternate dictionary.",
 						 modules     => "Net::Dict",
 
-						 event_plugin_call => "look_up",
+						 event_plugin_call => \&look_up,
 						 );
 
 &SimBot::plugin_register(plugin_id   => "define_private",
 						 plugin_desc => "Defines the term privately to you.",
 						 modules     => "Net::Dict",
 
-						 event_plugin_call => "look_up",
+						 event_plugin_call => \&look_up,
 						 );

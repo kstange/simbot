@@ -46,7 +46,7 @@ sub print_todo {
 						 plugin_desc => "Where the hell am I going?",
 						 modules     => "",
 
-						 event_plugin_call => "print_todo",
+						 event_plugin_call => \&print_todo,
 						 );
 
 

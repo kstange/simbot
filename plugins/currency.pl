@@ -154,13 +154,14 @@ while(<DATA>) {
     my ($tld, $country) = split /\s/, $_, 2;
     $tld2country{$tld} = $country;
 }
+close(DATA);
 
 &SimBot::plugin_register(
 						 plugin_id   => 'currency',
 						 plugin_desc => 'Converts between currencies. Give it <number> <from> <to>, where from and to are countries or currency codes.',
 						 modules     => 'LWP::UserAgent,HTTP::Request::Common',
 
-						 event_plugin_call   => 'conv_currency',
+						 event_plugin_call   => \&conv_currency,
 						 );
 
 __DATA__

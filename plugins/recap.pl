@@ -72,11 +72,11 @@ sub record_recap {
 # Register Plugin
 &SimBot::plugin_register(plugin_id   => "recap",
 						 plugin_desc => "Privately recaps up to $max_backlog lines of chat backlog. The default is to recap $std_backlog lines.",
-						 event_plugin_call         => "send_recap",
-						 event_channel_kick        => "record_recap",
-						 event_channel_message     => "record_recap",
-						 event_channel_message_out => "record_recap",
-						 event_channel_action      => "record_recap",
-						 event_channel_action_out  => "record_recap",
-						 event_channel_topic       => "record_recap",
+						 event_plugin_call         => \&send_recap,
+						 event_channel_kick        => \&record_recap,
+						 event_channel_message     => \&record_recap,
+						 event_channel_message_out => \&record_recap,
+						 event_channel_action      => \&record_recap,
+						 event_channel_action_out  => \&record_recap,
+						 event_channel_topic       => \&record_recap,
 						 );

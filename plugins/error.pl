@@ -34,5 +34,5 @@ sub random_error {
 						 plugin_desc => "Prints out a random error message.",
 						 modules     => "",
 
-						 event_plugin_call => "random_error",
+						 event_plugin_call => \&random_error,
 						 );

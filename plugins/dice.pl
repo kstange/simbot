@@ -46,8 +46,6 @@ sub roll_dice {
     }
 }
 
-package SimBot::plugin::flip;
-
 sub flip_coin {
     my ($kernel, $nick, $channel) = @_;
     &SimBot::send_action($channel, "flips a coin for $nick: "
@@ -59,12 +57,12 @@ sub flip_coin {
 						 plugin_desc => "Rolls dice. You can specify how many dice, and how many sides, in the format 3D6.",
 						 modules     => "",
 
-						 event_plugin_call => "roll_dice",
+						 event_plugin_call => \&roll_dice,
 						 );
 
 &SimBot::plugin_register(plugin_id   => "flip",
 						 plugin_desc => "Flips a coin.",
 						 modules     => "",
 
-						 event_plugin_call => "flip_coin",
+						 event_plugin_call => \&flip_coin,
 						 );

@@ -1,8 +1,17 @@
+Version 6.0 alpha: (25 Feb 2004)
+	* simbot.pl:
+	   - Plugins now register their callbacks with references to functions
+	     instead of a string representing the functions name.  This keeps
+	     us from having to care about what package the plugin is in, so
+	     long as it's got a function we can talk to, and we no longer
+	     need to define separate packages for separate commands in a
+	     single plugin.
+
 Version 6.0 alpha: (23 Feb 2004)
-    * plugins/info.pl:
-       - Infobot style sentence learning. Tries to learn x (is/are) y
-         from chat it sees or explicit setting with %info.
-         Factoid retrieval is only through %info currently.
+	* plugins/info.pl:
+	   - Infobot style sentence learning. Tries to learn x (is/are) y
+	     from chat it sees or explicit setting with %info.
+	     Factoid retrieval is only through %info currently.
 
 Version 6.0 alpha: (20 Feb 2004)
 	* plugins/dict.pl:

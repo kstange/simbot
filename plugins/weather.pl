@@ -182,22 +182,15 @@ sub messup_wx {
     dbmopen (%stationNames, 'metarStationNames', 0664) || &SimBot::debug(2, "Could not open cache.  Names will not be stored for future sessions.\n");
 }
 
-package SimBot::plugin::metar;
-
-# GET_METAR: Asks the weather plugin to return the raw METAR report
-sub get_metar {
-    &SimBot::plugin::weather::get_wx(@_);
-}
-
 # Register Plugins
 &SimBot::plugin_register(
 						 plugin_id   => "weather",
 						 plugin_desc => "Gets a weather report for the given station.",
 						 modules     => "Geo::METAR,LWP::UserAgent",
 
-						 event_plugin_call    => "get_wx",
-						 event_plugin_load    => "messup_wx",
-						 event_plugin_unload  => "cleanup_wx",
+						 event_plugin_call    => \&get_wx,
+						 event_plugin_load    => \&messup_wx,
+						 event_plugin_unload  => \&cleanup_wx,
 						 );
 
 &SimBot::plugin_register(
@@ -205,5 +198,5 @@ sub get_metar {
 						 plugin_desc => "Gives a raw METAR report for the given station.",
 						 modules     => "LWP::UserAgent",
 
-						 event_plugin_call   => "get_metar",
+						 event_plugin_call   => \&get_wx,
 						 );

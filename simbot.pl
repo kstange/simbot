@@ -30,8 +30,6 @@ use warnings;
 
 # Declare some constants to reduce allocating and deallocating memory
 # repeatedly for frequently used values.
-use constant ERROR_DESCRIPTIONS
-        => ('', 'ERROR: ', 'WARNING: ', '', 'SPAM: ',);
 
 # Declaring these as empty is better for the case when the config file
 # is missing them.
@@ -65,10 +63,14 @@ if($gender eq 'M') {
 # *********** Random Variables ***********
 # ****************************************
 
+# Error Descriptions
+use constant ERROR_DESCRIPTIONS
+        => ('', 'ERROR: ', 'WARNING: ', '', 'SPAM: ',);
+
 # Force debug on with this:
 # 0 is silent, 1 shows errors, 2 shows warnings, 3 shows lots of fun things,
 # 4 shows everything you never wanted to see.
-$verbose = 3;
+use constant VERBOSE => 3;
 
 # Software Name
 $project = "SimBot";
@@ -91,14 +93,6 @@ $SIG{'USR2'} = 'SimBot::reload';
 # callbacks and plugin information.  We'll initialize the built-in
 # plugins here, since there's no need to do registration checks.
 
-# This is the plugin's type.  A plugin cannot currently set this
-# itself, meaning only internal plugins can be anything but "EXT"
-%plugin_type = (
-				"stats",   "INT",
-				"help",    "INT",
-				"list",    "INT",
-		);
-
 # This provides the descriptions of plugins.  If a plugin has no
 # defined description, it is "hidden" and will not appear in help.
 %plugin_desc = (
@@ -117,9 +111,9 @@ $SIG{'USR2'} = 'SimBot::reload';
 # Call event gets params:
 #  (kernel, from, channel, command string)
 %event_plugin_call     = (
-						  "stats",   "print_stats",
-						  "help",    "print_help",
-						  "list",    "print_list",
+						  "stats",   \&print_stats,
+						  "help",    \&print_help,
+						  "list",    \&print_list,
 						  );
 
 ### Channel Events ###
@@ -173,25 +167,25 @@ $SIG{'USR2'} = 'SimBot::reload';
 opendir(DIR, "./plugins");
 foreach $plugin (readdir(DIR)) {
     if($plugin =~ /.*\.pl$/) {
-	if($plugin =~ /^services\.(.+)\.pl$/) {
-	    debug(4, "$1 services plugin found.\n");
-	    if ($services_type eq $1) {
-		debug(4, "$1 services plugin was selected. Attempting to load...\n");
-		if (eval { require "./plugins/$plugin"; }) {
-		    debug(3, "$1 services plugin loaded successfully.\n");
+		if($plugin =~ /^services\.(.+)\.pl$/) {
+			debug(4, "$1 services plugin found.\n");
+			if ($services_type eq $1) {
+				debug(4, "$1 services plugin was selected. Attempting to load...\n");
+				if (eval { require "./plugins/$plugin"; }) {
+					debug(3, "$1 services plugin loaded successfully.\n");
+				} else {
+					debug(1, "$@");
+					debug(2, "$1 service plugin did not load due to errors.\n");
+				}
+			} else {
+				debug(4, "$1 services plugin was not selected.\n");
+			}
+		} elsif(eval { require "./plugins/$plugin"; }) {
+			debug(3, "$plugin plugin loaded successfully.\n");
 		} else {
-		    debug(1, "$@");
-		    debug(2, "$1 service plugin did not load due to errors.\n");
+			debug(1, "$@");
+			debug(2, "$plugin plugin did not load due to errors.\n");
 		}
-	    } else {
-		debug(4, "$1 services plugin was not selected.\n");
-	    }
-	} elsif(eval { require "./plugins/$plugin"; }) {
-	    debug(3, "$plugin plugin loaded successfully.\n");
-	} else {
-	    debug(1, "$@");
-	    debug(2, "$plugin plugin did not load due to errors.\n");
-	}
     }
 }
 closedir(DIR);
@@ -253,7 +247,7 @@ POE::Session->new
 
 # DEBUG: Print out messages with the desired verbosity.
 sub debug {
-    if ($_[0] <= $verbose) {
+    if ($_[0] <= VERBOSE) {
 		print STDERR (ERROR_DESCRIPTIONS)[$_[0]] . $_[1];
     }
 }
@@ -390,18 +384,16 @@ sub plugin_register {
 				&debug(4, $data{plugin_id} . ": $_ module was loaded as a plugin dependency\n");
 			} else {
 				&debug(1, $data{plugin_id} . ": $_ module could not be loaded as a plugin dependency\n");
-				return 0;
+				die("$data{plugin_id}: the plugin is missing dependencies");
 			}
 		}
     }
-    if(!$plugin_type{$data{plugin_id}}) {
+    if(!$event_plugin_call{$data{plugin_id}}) {
 		&debug(4, $data{plugin_id} . ": no plugin conflicts detected\n");
     } else {
-		&debug(1, $data{plugin_id} . ": a plugin is already registered to this handle\n");
-		return 0;
+		die("$data{plugin_id}: a plugin is already registered to this handle");
     }
     $event_plugin_call{$data{plugin_id}} = $data{event_plugin_call};
-    $plugin_type{$data{plugin_id}} = "EXT";
     if(!$data{plugin_desc}) {
 		&debug(4, $data{plugin_id} . ": this plugin has no description and will be hidden\n");
     } else {
@@ -409,8 +401,7 @@ sub plugin_register {
     }
     if ($data{event_plugin_load}) {
 		if (!&plugin_callback($data{plugin_id}, $data{event_plugin_load})) {
-			&debug(1, $data{plugin_id} . ": plugin returned an error code on load\n");
-			return 0;
+			die("$data{plugin_id}: the plugin returned an error on load");
 		}
 		$event_plugin_load{$data{plugin_id}} = $data{event_plugin_load};
 
@@ -437,13 +428,8 @@ sub plugin_register {
 # PLUGIN_CALLBACK: Calls the given plugin function with paramters.
 sub plugin_callback {
     my ($plugin, $function, @params) = @_;
-    if($plugin_type{$plugin} eq "EXT") {
-		debug(4, "Running callback to $function in $plugin.\n");
-		return &{"SimBot::plugin::$plugin\:\:$function"}($kernel, @params);
-    } else {
-		debug(4, "Running callback to $function in $plugin (INTERNAL).\n");
-		return &{$function}($kernel, @params);
-    }
+	debug(4, "Running callback to $function in $plugin.\n");
+	return &$function($kernel, @params);
 }
 
 # PRINT_HELP: Prints a list of valid commands privately to the user.

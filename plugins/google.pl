@@ -72,5 +72,5 @@ sub google_find {
 						 plugin_desc => "Searches Google with \"I'm Feeling Lucky\"",
 						 modules     => "LWP::UserAgent,HTML::Entities",
 
-						 event_plugin_call => "google_find",
+						 event_plugin_call => \&google_find,
 						 );

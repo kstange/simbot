@@ -144,7 +144,7 @@ sub munge_pronouns {
     $content =~ s/(^|\s)my /$1${nick}'s /ig;
     if($person_being_referenced) {
         $content =~ s/(^|\s)(you're|you are) /$1${person_being_referenced} is /ig;
-        $content =~ s/(^|\s)your /$1${person_being_referenced}'s /ig;
+        $content =~ s/(^|\s)your /$1${person_being_referenced}\'s /ig;
     }
     
     return $content;
@@ -181,8 +181,8 @@ sub normalize_urls {
 &SimBot::plugin_register(
     plugin_id   => 'info',
     plugin_desc => 'Tells you what simbot has learned about something.',
-    event_plugin_call   => 'get_info',
-    event_plugin_load   => 'messup_info',
-    event_plugin_unload => 'cleanup_info',
-    event_channel_message   => 'learn_info',
+    event_plugin_call   => \&get_info,
+    event_plugin_load   => \&messup_info,
+    event_plugin_unload => \&cleanup_info,
+    event_channel_message   => \&learn_info,
 );
