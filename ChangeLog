@@ -1,8 +1,28 @@
+Version 6.0 alpha: (26 Apr 2004)
+
+	* simbot.pl:
+	   - Added a new event handler that allows plugins to identify when
+	     the bot is addressed and do something else.  Returning false
+	     lets the plugin stop the normal output addressing creates.
+	   - Plugins can now define hashes, which effectively allows them to
+	     pass back arbitrary objects and associate them with a hash entry
+	     for their specific plugin id.  Some other plugin (or the core)
+	     could then use such hash tables to get information from a plugin.
+	   - We try to ignore bits of leading text that appear to come from
+	     logs now.  This should reduce the amount of junk that gets added
+	     to the database.
+	* plugins/nlp.pl:
+	   - New plugin allows "addressing text" sent to the channel to be
+	     caught by the plugin and parsed for natural language commands.
+	     Plugins (so far weather, dice, and seen... which turn out to all
+	     be plugins I did not write) can now add to hashes that define
+	     what type of language represents a request they can understand.
+
 Version 6.0 alpha: (23 Apr 2004)
-    * plugins/info.pl:
-       - If you address the bot while teaching, it will correctly take
-         the entire line after the 'is' as the factoid, instead of cutting
-         at punctuation.
+	* plugins/info.pl:
+	   - If you address the bot while teaching, it will correctly take
+	     the entire line after the 'is' as the factoid, instead of cutting
+	     at punctuation.
 
 Version 6.0 alpha: (02 Mar 2004)
 	* plugins/dict.pl:

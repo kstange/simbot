@@ -314,6 +314,29 @@ sub messup_wx {
     dbmopen (%stationNames, 'metarStationNames', 0664) || &SimBot::debug(2, "Could not open cache.  Names will not be stored for future sessions.\n");
 }
 
+sub nlp_match {
+    my ($kernel, $nick, $channel, $plugin, @params) = @_;
+
+	my $station;
+
+	foreach (@params) {
+		if (m/(\w+)\'s weather/i) {
+			$station = $1;
+		} elsif (m/(at|in|for) (\w+)/i) {
+			$station = $2;
+		} elsif (m/([A-Z]{4})/) {
+			$station = $1;
+		}
+	}
+
+	if (defined $station) {
+		&get_wx($kernel, $nick, $channel, " weather", $station);
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
 # Register Plugins
 &SimBot::plugin_register(
 						 plugin_id   => "weather",
@@ -322,6 +345,16 @@ sub messup_wx {
 						 event_plugin_call    => \&get_wx,
 						 event_plugin_load    => \&messup_wx,
 						 event_plugin_unload  => \&cleanup_wx,
+
+						 hash_plugin_nlp_verbs =>
+						 ["weather", "rain", "snow", "windy", "hail",
+						  "freez", "warm", "hot", "cold", "sleet"],
+						 hash_plugin_nlp_formats =>
+						 ["{at} {w}", "{for} {w}",
+						  "{w}\'s weather", "{w4}"],
+						 hash_plugin_nlp_questions =>
+						 ["what-is", "how-is", "is-it", "command",
+						  "i-want", "i-need", "how-about", "you-must"],
 						 );
 
 &SimBot::plugin_register(
@@ -329,4 +362,5 @@ sub messup_wx {
 						 plugin_desc => "Gives a raw METAR report for the given station.",
 
 						 event_plugin_call   => \&get_wx,
+
 						 );

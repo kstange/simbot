@@ -110,6 +110,30 @@ sub cleanup_seen {
     dbmclose(%seenData);
 }
 
+sub nlp_match {
+    my ($kernel, $nick, $channel, $plugin, @params) = @_;
+
+	my $person;
+
+	foreach (@params) {
+		if (m/(\w+) (seen|here)/i) {
+			$person = $1;
+		} elsif (m/(see|seen) (\w+)/i) {
+			$person = $2;
+		}
+	}
+
+	if (defined $person) {
+		$person = $SimBot::chosen_nick if ($person eq "you"
+										   || $person eq "yourself");
+		$person = $nick if ($person eq "me");
+		&get_seen($kernel, $nick, $channel, undef, $person);
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
 # Register Plugin
 &SimBot::plugin_register(plugin_id   => "seen",
 						 plugin_desc => "Tells you the last time I saw someone.",
@@ -122,4 +146,12 @@ sub cleanup_seen {
 						 event_channel_topic   => \&set_seen,
 						 event_channel_notice  => \&set_seen,
 						 query_word_score      => \&score_word,
+
+						 hash_plugin_nlp_verbs =>
+						 ["seen", "see"],
+						 hash_plugin_nlp_formats =>
+						 ["{w} here", "see {w}",
+						  "{w} seen", "seen {w}"],
+						 hash_plugin_nlp_questions =>
+						 ["have-you", "did-you", "when-is", ],
 						 );

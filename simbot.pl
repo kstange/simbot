@@ -159,6 +159,10 @@ our %event_plugin_call     = (
 						  "help",    \&print_help,
 						  );
 
+# Bot addressing gets params:
+#  (kernel, from, channel, text string)
+our %event_bot_addressed   = ();
+
 # Register the delete plugin only if the option is enabled
 if(option('chat', 'delete_usage_max') != -1) {
 	$event_plugin_call{"delete"} = \&delete_words;
@@ -542,6 +546,9 @@ sub plugin_register {
     if ($data{event_plugin_reload}) {
 		$event_plugin_reload{$data{plugin_id}} = $data{event_plugin_reload};
     }
+    if ($data{event_bot_addressed}) {
+		$event_bot_addressed{$data{plugin_id}} = $data{event_bot_addressed};
+    }
     foreach (keys(%data)) {
 		if ($_ =~ /^event_(channel|private|server)_.*/) {
 			$$_{$data{plugin_id}} = $data{$_};
@@ -550,6 +557,8 @@ sub plugin_register {
         } elsif ($_ =~ /^list_.*/) {
 			my @list = split(/,\s*/, $data{$_});
 			push(@{$_}, @list);
+        } elsif ($_ =~ /^hash_.*/) {
+			$$_{$data{plugin_id}} = $data{$_};
         }
     }
     return 1;
@@ -684,6 +693,13 @@ sub build_records {
 		# Eat smileys. The second line tries to eat smileys with ='s for eyes.
 		$sentence[$x] =~ s/^[;:].*//;
 		$sentence[$x] =~ s/^=[^=]+//;
+
+		if($sentence[$x] =~ m/.>$/) {
+			while($x+1 > 0) {
+				shift(@sentence);
+				$x--;
+			}
+		}
 
 		# Remove all characters that we don't like.  Right now we accept
 		# letters, numbers, international characters (ASCII), as well as:
@@ -1294,21 +1310,27 @@ sub channel_message {
 		&debug(3, "Greeting " . $nick . "...\n");
 		&send_message($channel, option('chat', 'greeting') . " $nick!");
     } elsif ($text =~ /(^|.[\.!\?,]+\s+)$nickmatch([\.!\?:,]+|$)/i) {
-		&debug(3, "Generating a reply for " . $nick . "...\n");
-		my @botreply = split(/__NEW__/, &build_reply($text));
-		my $queue = "";
-		foreach my $comment (@botreply) {
-			if ($comment =~ /__ACTION\s/) {
-				$comment =~ s/$&//;
-				&send_message($channel, $queue) unless ($queue eq "");
-				&send_action($channel, $comment);
-				$queue = "";
-			} else {
-				$queue .= $comment . " ";
-			}
+		my $continue = 1;
+		foreach(keys(%event_bot_addressed)) {
+			$continue = 0 if(!&plugin_callback($_, $event_bot_addressed{$_}, ($nick, $channel, $text)));
 		}
-		&send_message($channel, $queue) unless ($queue eq "");
 
+		if ($continue) {
+			&debug(3, "Generating a reply for " . $nick . "...\n");
+			my @botreply = split(/__NEW__/, &build_reply($text));
+			my $queue = "";
+			foreach my $comment (@botreply) {
+				if ($comment =~ /__ACTION\s/) {
+					$comment =~ s/$&//;
+					&send_message($channel, $queue) unless ($queue eq "");
+					&send_action($channel, $comment);
+					$queue = "";
+				} else {
+					$queue .= $comment . " ";
+				}
+			}
+			&send_message($channel, $queue) unless ($queue eq "");
+		}
     } elsif ($text !~ /^[;=:]/) {
 		&debug(3, "Learning from " . $nick . "...\n");
 		&build_records($text);
