@@ -32,9 +32,10 @@ package SimBot;
 use Encode;
 use constant TARGET_ENCODING => 'iso-8859-1';
 
-# We hold our code up to some standards.  If anyone knows how to use
-# symbolic refs with strict refs on, you should tell us.  From the Perl
-# documentation this is decidely not possible.
+# We hold our code up to some standards.
+# For some well-meaning reason, strict does not allow the use of strings
+# for literal references to functions and objects so we'll just tell Perl
+# to let us do that without complaining.
 use warnings;
 use strict;
 no strict 'refs';
@@ -778,20 +779,10 @@ sub plugin_register {
 		if (!&plugin_callback($data{plugin_id}, $data{event_plugin_load})) {
 			die("$data{plugin_id}: the plugin returned an error on load");
 		}
-		$event_plugin_load{$data{plugin_id}} = $data{event_plugin_load};
 
     }
-    if ($data{event_plugin_unload}) {
-		$event_plugin_unload{$data{plugin_id}} = $data{event_plugin_unload};
-    }
-    if ($data{event_plugin_reload}) {
-		$event_plugin_reload{$data{plugin_id}} = $data{event_plugin_reload};
-    }
-    if ($data{event_bot_addressed}) {
-		$event_bot_addressed{$data{plugin_id}} = $data{event_bot_addressed};
-    }
     foreach (keys(%data)) {
-		if ($_ =~ /^event_(channel|private|server)_.*/) {
+		if ($_ =~ /^event_(plugin|bot|channel|private|server)_.*/) {
 			$$_{$data{plugin_id}} = $data{$_};
 		} elsif ($_ =~ /^query_.*/) {
 			$$_{$data{plugin_id}} = $data{$_};

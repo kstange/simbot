@@ -151,16 +151,13 @@ sub nlp_match {
 	return 1;
 }
 
-sub SimBot::plugin::flip::nlp_match {
-	&SimBot::plugin::roll::nlp_match(@_);
-}
-
 # Register Plugins
 &SimBot::plugin_register(plugin_id   => "roll",
 						 plugin_desc => "Rolls dice. You can specify how many dice, and how many sides, in the format 3D6.",
 
 						 event_plugin_call => \&roll_dice,
 
+						 event_plugin_nlp_call => \&nlp_match,
 						 hash_plugin_nlp_verbs =>
 						 ["roll"],
 						 hash_plugin_nlp_subjects =>
@@ -181,6 +178,7 @@ sub SimBot::plugin::flip::nlp_match {
 
 						 event_plugin_call => \&flip_coin,
 
+						 event_plugin_nlp_call => \&nlp_match,
 						 hash_plugin_nlp_verbs =>
 						 ["flip", "toss"],
 						 hash_plugin_nlp_subjects =>

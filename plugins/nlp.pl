@@ -21,10 +21,6 @@ package SimBot::plugin::nlp;
 
 # We'll behave, I swear!
 use strict;
-# For some well-meaning reason, strict does not allow the use of strings
-# for literal references to functions and objects so we'll just tell Perl
-# to let us do that without complaining.
-no strict 'refs';
 use warnings;
 
 # This function is called back from IRC when it seems that someone is trying
@@ -299,7 +295,7 @@ sub process_nlp {
 			# plugin whose overall grammar was good enough to make it to the
 			# formats level.  This allows another plugin to take this match,
 			# if our first choice decide it wasn't really what it wanted.
-			if (@params && &{"SimBot::plugin::" . $plugin . "::nlp_match"}($kernel, $nick, $channel, $plugin, @params)) {
+			if (@params && &{$SimBot::event_plugin_nlp_call{$plugin}}($kernel, $nick, $channel, $plugin, @params)) {
 				$acted = 1;
 				$succeeded_plugin = $plugin;
 				last;

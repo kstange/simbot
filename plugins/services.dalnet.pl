@@ -2,7 +2,7 @@
 #
 # Copyright (C) 2004, Vincent Gevers <http://allowee.net/>
 #
-# $id$
+# $id:$
 #
 # This program is free software; you can redistribute it and/or modify
 # under the terms of the GNU General Public License as published by
@@ -186,17 +186,17 @@ sub mask_userhost {
 
 # Register Plugin
 &SimBot::plugin_register(plugin_id   => "services::dalnet",
-                                                 event_server_connect  => \&services_login,
-                                                 event_server_ison     => \&process_notify,
-                                                 event_private_notice  => \&check_response,
-                                                 event_channel_nojoin  => \&request_invite,
-                                                 event_channel_mejoin  => \&process_join,
-                                                 event_channel_novoice => \&request_voice,
+						 event_server_connect  => \&services_login,
+						 event_server_ison     => \&process_notify,
+						 event_private_notice  => \&check_response,
+						 event_channel_nojoin  => \&request_invite,
+						 event_channel_mejoin  => \&process_join,
+						 event_channel_novoice => \&request_voice,
 
-                                                 query_userhost_mask   => \&mask_userhost,
+						 query_userhost_mask   => \&mask_userhost,
 
-                                                 list_nicks_ison       => "ChanServ",
-                        );
+						 list_nicks_ison       => "ChanServ",
+						 );
 
 # Override Default Command Operations
 $SimBot::commands{kick}  = \&kick_user;

@@ -438,6 +438,7 @@ sub new_get_wx {
 						 event_plugin_load    => \&messup_wx,
 						 event_plugin_unload  => \&cleanup_wx,
 
+						 event_plugin_nlp_call => \&nlp_match,
 						 hash_plugin_nlp_verbs =>
 						 ["weather", "rain", "snow", "windy", "hail",
 						  "freez", "warm", "hot", "cold", "sleet"],

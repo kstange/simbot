@@ -49,13 +49,15 @@ use Encode;
 
 use constant CHANNEL => &SimBot::option('network', 'channel');
 use constant FEED_TITLE_STYLE => &SimBot::option('plugin.rss','title_style');
+use constant DELAY => (&SimBot::option('plugin.rss', 'delay') ?
+					   &SimBot::option('plugin.rss', 'delay') : 3600);
 
 ### messup_rss
 # This runs when simbot loads. We need to make sure we know the
 # most recent post on each feed at this time so when we update in an hour
 # we can announce only new stuff.
 sub messup_rss {
-    foreach my $cur_feed 
+    foreach my $cur_feed
             (&SimBot::options_in_section('plugin.rss.feeds')) {
         $feeds{$cur_feed}=&SimBot::option('plugin.rss.feeds', $cur_feed);
         $announce_feed{$cur_feed} = 0;
@@ -77,9 +79,10 @@ sub messup_rss {
         }
     );
     POE::Component::Client::HTTP->spawn
-      ( Alias => 'ua',
-        Timeout => 120,
-      );
+		( Alias => 'ua',
+		  Timeout => 120,
+		  Agent => SimBot::PROJECT . "/" . SimBot::VERSION,
+		  );
     1;
 }
 
@@ -135,7 +138,7 @@ sub bootstrap {
         }
     }
 
-    $kernel->delay(do_rss => 3600);
+    $kernel->delay(do_rss => DELAY);
 }
 
 ### do_rss
@@ -158,7 +161,7 @@ sub do_rss {
                             $request, $curFeed);
         }
     }
-    $kernel->delay(do_rss => 3600);
+    $kernel->delay(do_rss => DELAY);
 }   
 
 ### got_response
@@ -320,10 +323,42 @@ sub get_link_and_title {
     return ($link, $title);
 }
 
+sub nlp_match {
+    my ($kernel, $nick, $channel, $plugin, @params) = @_;
+
+	my $feed;
+
+	foreach (@params) {
+		if (m/(\w+)\'s (rss|feed|posts|headlines)/i) {
+			$feed = $1;
+		} elsif (m/(at|for) (\w+)/i) {
+			$feed = $2;
+		}
+	}
+
+	if (defined $feed) {
+		&latest_headlines($kernel, $nick, $channel, undef, $feed);
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
 &SimBot::plugin_register(
     plugin_id   => 'rss',
     plugin_desc => 'Lists the three most recent posts in the requested RSS feed.',
-    event_plugin_call   => \&latest_headlines,
-    event_plugin_load   => \&messup_rss,
-    event_plugin_unload => \&cleanup_rss,
+    event_plugin_call     => \&latest_headlines,
+    event_plugin_load     => \&messup_rss,
+    event_plugin_unload   => \&cleanup_rss,
+
+	event_plugin_nlp_call => \&nlp_match,
+	hash_plugin_nlp_verbs =>
+						 ["rss", "feed", "posts", "headlines", "news"],
+	hash_plugin_nlp_formats =>
+						 ["{at} {w}", "{on} {w}", "{for} {w}", "{from} {w}",
+						  "{w}\'s rss", "{w}\'s feed", "{w}\'s posts",
+						  "{w}\'s headlines"],
+	hash_plugin_nlp_questions =>
+						 ["what-are", "command","i-want",
+						  "i-need", "how-about", "you-must"],
 );

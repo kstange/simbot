@@ -147,6 +147,7 @@ sub nlp_match {
 						 event_channel_notice  => \&set_seen,
 						 query_word_score      => \&score_word,
 
+						 event_plugin_nlp_call => \&nlp_match,
 						 hash_plugin_nlp_verbs =>
 						 ["seen", "see"],
 						 hash_plugin_nlp_formats =>
