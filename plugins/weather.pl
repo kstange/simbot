@@ -320,7 +320,7 @@ sub got_wx {
             }
             
             # Lightning.
-            if($remarks =~ m/\b((OCNL|FRQ|CONS) )?LTG(CG|IC|CC|CA)*( (OHD|VC|DSNT))?( (\S+))?\b/) {
+            if($remarks =~ m/\b((OCNL|FRQ|CONS) )?LTG(CG|IC|CC|CA)*( (OHD|VC|DSNT))?( ([NESW\-]+))?\b/) {
                 my ($freq, $loc, $dir) = ($2, $5, $7);
                 my $rmk;
                 
@@ -347,7 +347,7 @@ sub got_wx {
             }
         
             # Thunderstorm.
-            if($remarks =~ m/\bTS( VC)?( \S*?)?( MOV (N|NE|E|SE|S|SW|W|NW))?\b/) {
+            if($remarks =~ m/\bTS( VC)?( [NESW\-]+)?( MOV (N|NE|E|SE|S|SW|W|NW))?\b/) {
                 my ($in_vc, $in_dir, $mov_dir) = ($1, $2, $4);
                 my $rmk = 'thunderstorm ';
                 if(defined $in_vc)      { $rmk .= 'in the vicinity ';   }
@@ -392,6 +392,9 @@ sub got_wx {
         $reply .= ' with ' . join(', ', @reply_with) if @reply_with;
     }
     $reply .= '.';
+
+    
+    $reply =~ s/\bthunderstorm\b/t'storm/   if (length($reply)>430); #'
 
     &SimBot::send_message(&SimBot::option('network', 'channel'),
         "$nick: $reply");
