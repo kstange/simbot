@@ -427,8 +427,8 @@ sub get_seen {
             $doing = "getting kicked by $kicker ($reason)";
         }
         if($doing eq 'KICKING') {
-            my ($kicker,$reason) = split(/!/, $seenData, 2);
-            $doing = "kicking $kicker ($reason)";
+            my ($kicked,$reason) = split(/!/, $seenData, 2);
+            $doing = "kicking $kicked ($reason)";
         }
         my $response = "I last saw $person at " . localtime($when) . " ${doing}.";
         $kernel->post(bot => privmsg => $channel, "$nick: $response");
@@ -440,10 +440,16 @@ sub get_seen {
 # SET_SEEN: Updates seen data
 sub set_seen {
     my($nick, $doing, $content) = @_;
-    $nick = lc($nick);
     &debug(4, "Seeing $nick ($doing $content)\n");
     my $time = time;
-    $seenData{$nick} = "$time!$doing!$content";
+    $seenData{lc($nick)} = "$time!$doing!$content";
+    
+    if($doing eq 'KICKED') {
+        $doing = 'KICKING';
+        my ($kicker, $reason) = split(/!/, $content, 2);
+        $seenData{lc($kicker)} = "$time!$doing!$nick!$reason";
+        &debug(4, "Seeing $kicker ($doing $nick!$reason)\n");
+    }
 }
 
 # CLEANUP_SEEN: Cleans up when we're quitting
@@ -456,6 +462,8 @@ sub cleanup_seen {
 ### BEGIN dice
 $plugin{'%roll'} = "roll_dice";
 $plugin_desc{'%roll'} = 'Rolls dice. You can specify how many dice, and how many sides, in the format 3D6.';
+$plugin{'%flip'} = "flip_coin";
+$plugin_desc{'%roll'} = 'Flips a coin.';
 
 sub roll_dice {
     my $numDice = 2;
@@ -480,6 +488,11 @@ sub roll_dice {
     }
 }
 
+sub flip_coin {
+    my $nick = $_[0];
+    $kernel->post(bot => ctcp => $channel, 'ACTION', "flips a coin for $nick: "
+        . ((int rand(2)==0) ? 'heads' : 'tails'));
+}
 ### END dice
 
 # GET_WX: Fetches a METAR report and gives a few weather conditions
@@ -814,10 +827,15 @@ sub check_nickname {
 #CHECK_KICK: If the bot is kicked, rejoin.
 sub check_kick {
     my ($nick) = $_[ ARG2 ];
+    my $kicker = $_[ ARG0 ];
+    my $reason = $_[ ARG3 ];
+    ($kicker, undef) = split(/!/, $kicker, 2);
     if ($nick eq $chosen_nick) {
 	&debug(2, "Kicked from $channel... Attempting to rejoin!\n");
 	$kernel->post(bot => join => $channel);
     }
+    
+    &set_seen($nick, 'KICKED', "${kicker}!$reason");
 }
 
 #REQUEST_INVITE: Ask channel service for an invitation
