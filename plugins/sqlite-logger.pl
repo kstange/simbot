@@ -63,7 +63,7 @@ sub messup_sqlite_logger {
     # and the query to fetch a nick ID
     $get_nickchan_id_query = $dbh->prepare(
         'SELECT id FROM names'
-        . ' WHERE name = ?'
+        . ' WHERE lower(name) = lower(?)'
         . ' LIMIT 1'
     );
     
