@@ -56,6 +56,9 @@ $announce_feed{'slashdot'}  = 1;
 $feeds{'fark'}              = 'http://www.pluck.com/rss/fark.rss';
 $announce_feed{'fark'}      = 0;
 
+$feeds{'lpetr'}             = 'http://slashdot.org/journal.pl?op=display&uid=557952&content_type=rss';
+$announce_feed{'lpetr'}     = 1;
+
 use constant CHANNEL => &SimBot::option('network', 'channel');
 
 ### messup_rss
