@@ -5,8 +5,8 @@
 #   Provides the ability to get the current weather conditions for one's
 #   locale  to SimBot. Responds to "%weather xxxx" with the current
 #   conditions for the location xxxx, where xxxx is a station providing
-#   METAR reports. The four character station IDs can be looked up online
-#   at <http://www.nws.noaa.gov/tg/siteloc.shtml>.
+#   METAR reports. The four character station IDs can be looked up
+#   online at <http://www.nws.noaa.gov/tg/siteloc.shtml>.
 #
 # COPYRIGHT:
 #   Copyright (C) 2003-04, Pete Pearson
@@ -57,7 +57,7 @@ use constant STATION_LOOKS_WRONG =>
 use constant STATION_UNSPECIFIED =>
     'Please provide a METAR station ID. ';
 
-use constant FIND_STATION_AT => 'You can look up station IDs at http://www.nws.noaa.gov/tg/siteloc.shtml.';
+use constant FIND_STATION_AT => 'You can look up station IDs at http://www.nws.noaa.gov/tg/siteloc.shtml .';
 
 use constant CANNOT_ACCESS => 'Sorry; I could not access NOAA.';
 
