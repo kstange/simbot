@@ -65,7 +65,7 @@ sub get_wx {
 
 	# If the user asked for a metar, we'll give it to them now!
 	if ($command =~ /^.metar$/) {
-	    $kernel->post(bot => privmsg => $channel, "$nick: METAR report for $stationNames{$station} is $raw_metar.");
+	    $kernel->post(bot => privmsg => $channel, "$nick: METAR report for " . (defined $stationNames{$station} ? $stationNames{$station} : $station) .  " is $raw_metar.");
 	    return;
 	}
 
@@ -82,7 +82,9 @@ sub get_wx {
 	# Let's form a response!
         $m->{date_time} =~ m/\d\d(\d\d)(\d\d)Z/;
         my $time = "$1:$2";
-	my $reply = "As reported at $time GMT at $stationNames{$station}";
+	my $reply = "As reported at $time GMT at " .
+	   (defined $stationNames{$station} ? $stationNames{$station}
+	                                    : $station);
 	my @reply_with;
 
 	# There's no point in this exercise unless there's data in there
