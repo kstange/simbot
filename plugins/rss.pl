@@ -39,7 +39,7 @@ $feeds{'simguy.xml'}        = 'http://simguy.net/rss';
 $feeds{'fourohfour-test.xml'} = 'http://fourohfour.info/rss-test.xml';
 $feeds{'fark.xml'}          = 'http://www.pluck.com/rss/fark.rss';
 
-use constant CHANNEL => '#simgames';
+use constant CHANNEL => &SimBot::option('network', 'channel');
 
 ### messup_rss
 # This runs when simbot loads. We need to make sure we know the
