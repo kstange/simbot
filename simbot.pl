@@ -470,7 +470,7 @@ sub roll_dice {
     my $numSides = 6;
     my ($nick, undef, $dice) = @_;
     if($dice =~ m/(\d*)[Dd](\d+)/) {
-        $numDice = ($1 ? $1 : 1);
+        $numDice = (defined $1 ? $1 : 1);
         $numSides = $2;
     }
     if($numDice == 0) {
