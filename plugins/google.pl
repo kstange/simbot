@@ -30,7 +30,7 @@ sub google_find {
     my $url = "http://www.google.com/search?q=" . $query . "&btnI=1&safe=active";
     SimBot::debug(3, "Received find command from " . $nick . ".\n");
     my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
-    $useragent->agent("$project/1.0");
+    $useragent->agent("$SimBot::project/1.0");
     $useragent->timeout(5);
     my $request = HTTP::Request->new(GET => $url);
     my $response = $useragent->request($request);
@@ -48,14 +48,15 @@ sub google_find {
 	    my $result = $1;
 	    $result =~ s|<sup>(.*?)</sup>|^$1|g;
 	    $result =~ s|<font size=-2> </font>|,|g;
-	    $result =~ s|&times;|x|g;
+	    $result = HTML::Entities::decode($result);
 	    $kernel->post(bot => privmsg => $channel, "$nick: $result");
 	} elsif ($response->content =~ m|Definitions of <b>(.*?)</b> on the Web:|) {
 	    my $term = $1;
 	    $response->content =~ m|<blockquote><p> (.*?)<br>|;
 	    my $result = $1;
 	    $result =~ s|[\n\r]||g;
-	    $kernel->post(bot => privmsg => $channel, "$nick: \"$term\" is $result");
+	    $result = HTML::Entities::decode($result);
+	    SimBot::send_pieces($channel, "$nick: ", "\"$term\" is $result");
 	} elsif ($response->content =~ m|No definitions were found for|) {
 	    $kernel->post(bot => privmsg => $channel, "$nick: Making up words again?");
 	} else {
@@ -69,7 +70,7 @@ sub google_find {
 # Register Plugin
 SimBot::plugin_register(plugin_id   => "find",
 			plugin_desc => "Searches Google with \"I'm Feeling Lucky\"",
-			modules     => "LWP::UserAgent",
+			modules     => "LWP::UserAgent,HTML::Entities",
 
 			event_plugin_call => "google_find",
 			);

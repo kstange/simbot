@@ -1,3 +1,17 @@
+Version 6.0 alpha: (17 Dec 2003)
+
+	* simbot.pl:
+	   - Added: send_pieces() method that will automatically break up
+	     given text into pieces that fit into the standard IRC message
+	     length and send them on to their destination.
+	   - Fixed: the plugin loader will not display any compile time
+	     errors that prevent a plugin from loading successfully.
+	* plugins/google.pl:
+	   - Fixed: Google define: results so that they will appear in cases
+	     where the result is too long for one IRC message and added a
+	     requirement for HTML::Entities so we can convert the define
+	     string into plain text.
+
 Version 6.0 alpha: (15 Dec 2003)
 
 	* plugins/weather.pl:

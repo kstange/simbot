@@ -25,6 +25,11 @@
 # Hi, my name is:
 package SimBot;
 
+# Declaring these as empty is better for the case when the config file
+# is missing them.
+@greeting = ();
+@chat_ignore = ();
+
 # Load the configuration file in.  We're not going to try to deal with what
 # happens if this fails.  If you have no configuration, you should get one
 # before you try to do anything.
@@ -138,6 +143,7 @@ foreach(readdir(DIR)) {
 	if(eval { require "./plugins/$_"; }) {
 	    debug(3, "$_ plugin loaded successfully.\n");
 	} else {
+	    debug(1, "$@");
 	    debug(2, "$_ plugin did not load due to errors.\n");
 	}
     }
@@ -609,6 +615,26 @@ sub buildreply {
 	&debug(1, "Could not form a reply.\n");
 	return "I'm speechless.";
     }
+}
+
+# SEND_PIECES: This will break the message up into blocks of no more
+# than 450 characters and send them separately.  This works around
+# IRC message limitations.
+sub send_pieces {
+    my ($dest, $prefix, $text) = @_;
+    my @words = split(/\s/, $text);
+    my $line = "";
+    foreach(@words) {
+	if (length($line) == 0) {
+	    $line = ($prefix ? $prefix : "") . "$_";
+	} elsif (length($line) + length($_) + 1 <= 450) {
+	    $line .= " $_";
+	} else {
+	    $kernel->post(bot => privmsg => $dest, $line);
+	    $line = ($prefix ? $prefix : "") . "$_";
+	}
+    }
+    $kernel->post(bot => privmsg => $dest, $line);
 }
 
 # ######### IRC FUNCTION CALLS ###########
