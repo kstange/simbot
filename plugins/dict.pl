@@ -34,7 +34,13 @@ sub look_up {
 
 	my $dict = Net::Dict->new("pan.alephnull.com",
 							  Client => SimBot::PROJECT . " " . SimBot::VERSION,
+							  Timeout => 10,
 							  );
+
+	if (!defined $dict) {
+		&SimBot::send_message($channel, "$nick: The dictionary server was unavailable.");
+		return;
+	}
 
 	my %dbs = $dict->dbs();
 
@@ -69,7 +75,7 @@ sub look_up {
 			$definition =~ s/\s+/ /g;
 
 			if (length($definition) > 400 && $command !~ /_private$/) {
-				&SimBot::send_message($channel, "$nick: I found a definition in the $dbs{$dictionary}, but it is " . length($definition) . " bytes long. Type \"" . $command . "_private $term $dictionary\" to see it privately.");
+				&SimBot::send_message($channel, "$nick: I found a definition in the $dbs{$dictionary}, but it is " . length($definition) . " bytes long. Type \"" . $command . "_private $term in $dictionary\" to see it privately.");
 			} elsif ($command =~ /_private$/) {
 				&SimBot::send_pieces($nick, undef, "From the $dbs{$dictionary}: $definition");
 			} else {
