@@ -31,6 +31,14 @@ die("Your config.pl is lacking a valid default nickname!") unless (length($nickn
 die("Your config.pl has a extra sentence % >= 100%!") unless ($exsenpct < 100);
 die("Your config.pl has no rulefile to load!") unless $rulefile;
 
+if($gender eq 'M') {
+    $hisher = 'his';
+} elsif ($gender eq 'F') {
+    $hisher = 'her';
+} else {
+    $hisher = 'its';
+}
+
 # ****************************************
 # *********** Random Variables ***********
 # ****************************************
@@ -43,15 +51,14 @@ $verbose = 3;
 @todo = (
 	 "1) %delete: allow users to delete words used less than x times",
 	 "2) %recap: allow users to request scrollback of up to x lines",
-	 "3) %seen: allow users to request the last seen time for a user",
-	 "4) create a means for automatic dead words cleanup",
-	 "5) add detection for the return of X and log back in",
-	 "6) automatically perform regular db backups",
-	 "7) split out a plugin architecture",
+	 "3) create a means for automatic dead words cleanup",
+	 "4) add detection for the return of X and log back in",
+	 "5) automatically perform regular db backups",
+	 "6) split out a plugin architecture",
 	 "--- Finish above this line and we'll increment to 6.0 final ---",
-	 "8) maybe: grab contextual hinting",
-	 "9) maybe: do some runaway loop detection",
-	 "10) pray for IRC module to start supporting QUIT properly",
+	 "7) maybe: grab contextual hinting",
+	 "8) maybe: do some runaway loop detection",
+	 "9) pray for IRC module to start supporting QUIT properly",
 	 );
 
 # Software Name
@@ -191,6 +198,7 @@ sub hostmask() {
 sub restart {
     &debug(3, "Received restart call...\n");
     &save;
+    &cleanup_seen;
     &debug(3, "Disconnecting from IRC...\n");
     &quit("Restarting, brb...");
     &debug(3, "Restarting script...\n");
@@ -201,6 +209,7 @@ sub restart {
 sub cleanup {
     &debug(3, "Received cleanup call...\n");
     &save;
+    &cleanup_seen;
     &debug(3, "Disconnecting from IRC...\n");
     &quit("Bye everyone!");
     &debug(3, "Terminated.\n");
@@ -219,7 +228,8 @@ sub load {
 	}
 	foreach(<RULES>) {
 	    chomp;
-	    s///;
+	    s/
+//;
 	    my @rule = split (/\t/);
 	    $chat_words{"$rule[0]-\>$rule[1]"} = $rule[2];
 	}
@@ -394,6 +404,52 @@ sub print_stats {
     $kernel->post(bot => privmsg => $channel, $message);
 }
 
+### BEGIN seen stuff
+dbmopen (%seenData, 'seen', 0664) || die("Can't open dbm\n");
+
+$plugin{'%seen'} = "get_seen";
+$plugin_desc{'%seen'} = 'FIXME: Documentation blows!';
+# GET_SEEN: Checks to see if a person has done anything lately...
+sub get_seen {
+    my ($nick, undef, $person) = @_;
+    if($person eq $chosen_nick) {
+        $kernel->post(bot => ctcp => $channel, 'action', "waves $hisher hand in front of $hisher face. \"Yup,  I can see myself!\"");
+    } elsif($seenData{$person}) {
+        my ($when, $doing, $seenData) = split(/!/, $seenData{$person}, 3);
+        $doing = "saying \"$seenData\"" if($doing eq 'SAY');
+        $doing = 'in a private message' if($doing eq 'PMSG');
+        $doing = "($seenData)" if ($doing eq 'ACTION');
+        if($doing eq 'KICKED') {
+            my ($kicker,$reason) = split(/!/, $seenData, 2);
+            $doing = "getting kicked by $kicker ($reason)";
+        }
+        if($doing eq 'KICKING') {
+            my ($kicker,$reason) = split(/!/, $seenData, 2);
+            $doing = "kicking $kicker ($reason)";
+        }
+        my $response = "I last saw $person at " . localtime($when) . " ${doing}.";
+        $kernel->post(bot => privmsg => $channel, "$nick: $response");
+    } else {
+        $kernel->post(bot => privmsg => $channel, "$nick: I have not seen $person.");
+    }
+}
+ 
+# SET_SEEN: Updates seen data
+sub set_seen {
+    my($nick, $doing, $content) = @_;
+    $nick = lc($nick);
+    &debug(4, "Seeing $nick ($doing $content)\n");
+    my $time = time;
+    $seenData{$nick} = "$time!$doing!$content";
+}
+
+# CLEANUP_SEEN: Cleans up when we're quitting
+sub cleanup_seen {
+    &debug(3, "Saving seen data\n");
+    dbmclose(%seenData);
+}
+### END seen stuff
+
 # GET_WX: Fetches a METAR report and gives a few weather conditions
 sub get_wx {
     my ($nick, undef, $station) = @_;
@@ -437,7 +493,8 @@ sub get_wx {
 	push(@reply_with, @weather);
 	push(@reply_with, @sky);
 
-	$reply = $reply . "with " . join(', ', @reply_with) if @reply_with;
+        $reply .= "with " . join(', ', @reply_with) if @reply_with;
+        $reply .= '.';
 	# Let's respond!
 	$kernel->post(bot => privmsg => $channel, "$nick: $reply");
     } else {
@@ -467,7 +524,7 @@ sub buildrecords {
 	$sentence[$x] =~ s/^=[^=]+//;
 	$sentence[$x] =~ s/[^\300-\377\w\'\/\-\.=\%\$&\+\@]*//g;
 	$sentence[$x] =~ s/(^|\s)\.+|\.+(\s|$)//g;
-	$sentence[$x] = lc($sentence[$x]);
+        $sentence[$x] = lc($sentence[$x]);
 	if ("@sentence" !~ /[A-Za-z0-9\300-\377]/) {
 	    &debug(2, "This line contained no discernable words: @sentence\n");
 	    goto skiptosave;
@@ -669,6 +726,7 @@ sub process_public {
 	&debug(3, "Learning from " . $nick . "...\n");
 	&buildrecords($text);
     }
+    &set_seen($nick, 'SAY', $text);
 }
 
 # PROCESS_ACTION: Handle actions sent to the channel.
@@ -677,6 +735,7 @@ sub process_action {
     my ($nick) = split(/!/, $usermask);
     &debug(3, "Learning from " . $nick . "'s action...\n");
     &buildrecords($text,"ACTION");
+    &set_seen($nick, 'ACTION', "($nick $text)");
 }
 
 # PRCESS_PRIV: Handle private messages to the bot.

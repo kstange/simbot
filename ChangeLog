@@ -1,3 +1,6 @@
+Version 6.0 alpha: (05 Dec 2003)
+        * added: seen support! Well, somewhat. %seen SomeLoser (Pete Pearson)
+
 Version 6.0 alpha: (04 Dec 2003)
 	* added: support for %weather via Geo::METAR (Pete Pearson)
 	* added: google search via %find now turns itself off without LWP
