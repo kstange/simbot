@@ -268,7 +268,29 @@ sub got_response {
 				   "rss:   fetching feed for $key: "
 				   . $response->status_line . "\n");
 
-    if($response->code == RC_NOT_MODIFIED) {
+    if($response->code == RC_GONE) {
+        # Server is telling us the file is gone.
+        
+        &SimBot::debug(1,
+                     "rss:   *** FEED $key IS NO LONGER AVAILABLE\n"
+            . "              *** Removing $key from cache\n"
+            . "              *** Please remove $key from your config file\n");
+        
+        my $delete_feed_query = $dbh->prepare(
+            'DELETE FROM feeds WHERE key = ?'
+        );
+        $delete_feed_query->execute($key);
+        
+        if(defined $nick) {
+            # either we are responding to someone's initial request
+            # or $nick is '-' and this is the initial cache update
+            if($nick ne '-') {
+                &SimBot::send_message(CHANNEL, "$nick: Sorry, that feed is no longer available.");
+            }
+        }
+        return;
+        
+    } elsif($response->code == RC_NOT_MODIFIED) {
         # File wasn't modified. We update the modified time...
         $last_update = time;
     } elsif($response->is_success) {
