@@ -40,11 +40,8 @@ die("Your config.pl has no rulefile to load!") unless $rulefile;
 $verbose = 3;
 
 @changes = (
-	    "added: config.pl splits the configuration from the main script",
-	    "added: ChangeLog splits the ChangeLog from the main script",
-	    "added: some error checking should die on a bad configuration",
-	    "removed: evil hacky privmsg functions that could be abused",
-	    "this will be the first version to appear in SF.net CVS",
+	    "added: support for %weather KXXX via Geo::METAR (Pete Pearson)",
+	    "added: you can now add \"plugins\" inside simbot.pl, a feature which will be split out later",
 	    );
 
 @todo = (
@@ -54,16 +51,17 @@ $verbose = 3;
 	 "4) create a means for automatic dead words cleanup",
 	 "5) add detection for the return of X and log back in",
 	 "6) automatically perform regular db backups",
-	 "--- Finish above this line and we'll increment to version 6.0 ---",
-	 "7) maybe: grab contextual hinting",
-	 "8) maybe: do some runaway loop detection",
-	 "9) pray for IRC module to start supporting QUIT properly",
+	 "7) split out a plugin architecture",
+	 "--- Finish above this line and we'll increment to 6.0 final ---",
+	 "8) maybe: grab contextual hinting",
+	 "9) maybe: do some runaway loop detection",
+	 "10) pray for IRC module to start supporting QUIT properly",
 	 );
 
 # Software Name
 $project = "SimBot";
 # Software Version
-$version = "5.99.16";
+$version = "6.0 alpha";
 
 # Channel information will be written to these files.
 # These actually don't do anything at all.
@@ -75,6 +73,23 @@ $version = "5.99.16";
 # ************ Start of Script ***********
 # ****************************************
 
+%plugin = (
+	   "%stats",   "print_stats",
+	   "%help",    "print_help",
+	   "%version", "print_version",
+	   "%todo",    "print_todo",
+	   "%list",    "print_list",
+	   "%find",    "google_find",
+	   );
+
+%plugin_desc = (
+		"%stats",   "Shows useless stats about the database",
+		"%help",    "Shows this message",
+		"%version", "Shows version number and recent changes",
+		"%todo",    "Where the hell am I going?",
+		"%find",    "Searches Google with \"I'm Feeling Lucky\"",
+		);		
+
 # We'll need this perl module to be able to do anything meaningful.
 $kernel = new POE::Kernel;
 use POE;
@@ -82,6 +97,16 @@ use POE::Component::IRC;
 
 # Google search requires this.
 use LWP::UserAgent;
+
+# Weather needs Geo::METAR to be useable.
+
+if (eval { require Geo::METAR; }) {
+    $plugin{"%weather"} = "get_wx";
+    $plugin_desc{"%weather"} = "Gets a weather report for the given station";
+    debug(3, "Geo::METAR loaded: Weather plugin will be used\n");
+} else {
+    debug(3, "Geo::METAR failed: Weather plugin will not be available\n");
+}
 
 # We want to catch signals to make sure we clean up and save if the
 # system wants to kill us.
@@ -266,12 +291,9 @@ sub google_find {
 sub print_help {
     my $nick = $_[0];
     &debug(3, "Received help command from " . $nick . ".\n");
-    $kernel->post(bot => privmsg => $nick, "%find - Searches Google with \"I'm Feeling Lucky\"");
-    $kernel->post(bot => privmsg => $nick, "%stats - Shows useless stats about the database");
-    $kernel->post(bot => privmsg => $nick, "%version - Shows version number and recent changes");
-    $kernel->post(bot => privmsg => $nick, "%todo - Where the hell am I going?");
-    $kernel->post(bot => privmsg => $nick, "%list - Pointless");
-    $kernel->post(bot => privmsg => $nick, "%help - Shows this message");
+    foreach(sort {$a cmp $b} keys(%plugin_desc)) {
+	$kernel->post(bot => privmsg => $nick, $_ . " - " . $plugin_desc{$_});
+    }
 }
 
 # PRINT_LIST: Stupid replies.
@@ -371,6 +393,57 @@ sub print_stats {
 	$message .= " They are: @deadwords";
     }
     $kernel->post(bot => privmsg => $channel, $message);
+}
+
+# GET_WX: Fetches a METAR report and gives a few weather conditions
+sub get_wx {
+    my ($nick, undef, $station) = @_;
+    if(length($station) != 4) {
+	# Whine and bail
+	$kernel->post(bot => privmsg => $channel, "$nick: That doesn't look like a METAR station.");
+	return;
+    }
+    $station = uc($station);
+    #Fetch report from http://weather.noaa.gov/pub/data/observations/metar/stations/$station.TXT
+    my $url = 'http://weather.noaa.gov/pub/data/observations/metar/stations/' . $station . '.TXT';
+    &debug(3, 'Received weather command from ' . $nick . 
+	   " for $station\n");
+    my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
+    $useragent->agent("$project/1.0");
+    $useragent->timeout(5);
+    my $request = HTTP::Request->new(GET => $url);
+    my $response = $useragent->request($request);
+    if (!$response->is_error) {
+	my (undef, $raw_metar) = split(/\n/, $response->content);
+	my $m = new Geo::METAR;
+	&debug(3, "METAR is " . $raw_metar . "\n");
+	$m->metar($raw_metar);
+#	&debug(3, $m->dump);
+	# Let's form a response!
+	my $f_temp = $m->TEMP_F;
+	my $c_temp = $m->TEMP_C;
+	my $wind_dir = $m->WIND_DIR_ENG;
+	my $wind_mph = $m->WIND_MPH;
+	my @sky = @{$m->SKY};
+	my @weather = @{$m->WEATHER};
+	my $reply = "At $station it is ";
+	my @reply_with;
+	$reply .= "$f_temp F ($c_temp C) " if $f_temp;
+	if($wind_mph) {
+	    my $tmp = "$wind_mph mph winds";
+	    $tmp .= " from the $wind_dir" if $wind_dir;
+	    push(@reply_with, $tmp);
+	}
+
+	push(@reply_with, @weather);
+	push(@reply_with, @sky);
+
+	$reply = $reply . "with " . join(', ', @reply_with) if @reply_with;
+	# Let's respond!
+	$kernel->post(bot => privmsg => $channel, "$nick: $reply");
+    } else {
+	$kernel->post(bot => privmsg => $channel, "$nick: Sorry, I could not access NOAA.");
+    }
 }
 
 # ######### CONVERSATION LOGIC ###########
@@ -571,7 +644,6 @@ sub process_version {
 
 # PROCESS_PUBLIC: Handle messages sent to the channel.
 sub process_public {
-    use Switch;
 
     my ($usermask, $channel, $text) = @_[ ARG0, ARG1, ARG2 ];
     my ($nick) = split(/!/, $usermask);
@@ -582,15 +654,10 @@ sub process_public {
 	$kernel->post(bot => notice => $nick, "Commands must be prefixed with %.");
     } elsif ($text =~ /^\%/) {
 	my @command = split(/\s/, $text);
-	switch ($command[0]) {
-	    case "\%stats" { &print_stats(); }
-	    case "\%help" { &print_help($nick); }
-	    case "\%version" { &print_version($nick); }
-	    case "\%todo" { &print_todo($nick); }
-	    case "\%list" { &print_list($nick); }
-	    case "\%find" { &google_find($nick, @command); }
-        case "\%" { }
-	    else { $kernel->post(bot => privmsg => $channel, "Hmm... @command isn't supported. Try \%help"); }
+	if ($plugin{@command[0]}) {
+	    &{$plugin{@command[0]}}($nick, @command);
+	} else {
+	    $kernel->post(bot => privmsg => $channel, "Hmm... @command isn't supported. Try \%help");
 	}
     } elsif ($text =~ /^hi,*\s+($alttag|$nickname)[!\.\?]*/i) {
 	&debug(3, "Greeting " . $nick . "...\n");

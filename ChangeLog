@@ -1,3 +1,8 @@
+Version 6.0 alpha: (CVS)
+	* added: support for %weather KXXX via Geo::METAR (Pete Pearson)
+	* added: you can now add "plugins" inside simbot.pl, a feature which
+	  will be split out later
+
 Version 5.99.16: (03 Dec 2003)
 	* added: config.pl splits the configuration from the main script
 	* added: ChangeLog splits the ChangeLog from the main script

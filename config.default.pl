@@ -24,7 +24,14 @@ $rulefile = "./rules.db";
 # these will put your bot where it is not welcome, and you don't want it
 # or you being killed by IRC ops because it's breaking server rules.
 @server = (
+	   "mesa.az.us.undernet.org",
+	   "washington.dc.us.undernet.org",
 	   "princeton.nj.us.undernet.org",
+	   "sanjose.ca.us.undernet.org",
+	   "miami.fl.us.undernet.org",
+	   "panamacity.pa.us.undernet.org",
+	   "Helsinki.FI.EU.Undernet.org",
+	   "Zagreb.Hr.EU.UnderNet.org",
 	   );
 
 # This is the channel that you want the bot to join when it connects to
