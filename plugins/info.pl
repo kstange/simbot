@@ -81,6 +81,10 @@ use constant BUT_X_IS_Y => (
     '$nick: I thought $key $isare $factoid.',
 );
 
+use constant X_IS_X => (
+    '$nick: Wouldn\'t $key $isare $factoid be a truism?',
+);
+
 use constant I_CANNOT => (    # used to respond to requests with bad words
     'I cannot do that, $nick.',
 );
@@ -230,6 +234,13 @@ sub handle_chat {
                     if $being_addressed;
                 return;
             }
+        }
+        
+        if($key eq lc($factoid)) {
+            &SimBot::send_message($channel,
+                &parse_message(&SimBot::pick(X_IS_X), $nick, $key,
+                $isare, $factoid)) if $being_addressed;
+            return;
         }
         
         if($key =~ m/(your|you're|you are)/i) {
