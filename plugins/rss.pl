@@ -42,7 +42,7 @@ use POE;
 use POE::Component::Client::HTTP;
 use HTTP::Request::Common qw(GET POST);
 use HTTP::Status;
-use vars qw( %mostRecentPost %feeds %announce_feed $session %feed_inited );
+use vars qw( %mostRecentPost %feeds %announce_feed $session );
 use Encode;
 
 use constant CHANNEL => &SimBot::option('network', 'channel');
@@ -59,7 +59,6 @@ sub messup_rss {
             (&SimBot::options_in_section('plugin.rss.feeds')) {
         $feeds{$cur_feed}=&SimBot::option('plugin.rss.feeds', $cur_feed);
         $announce_feed{$cur_feed} = 0;
-		$feed_inited{$cur_feed} = 0;
     }
     foreach my $cur_feed
             (split(/,/, &SimBot::option('plugin.rss', 'announce'))) {
@@ -130,7 +129,7 @@ sub got_response {
     my $response = $response_packet->[0];
     my $rss = new XML::RSS;
     $file = "caches/${curFeed}.xml";
-	my ($error_code) = split(/ /, $response->status_line, 1);
+	my ($error_code) = split(/\s/, $response->status_line, 1);
     &SimBot::debug((($error_code >= 400) ? 1 : 3),
 				   "rss:   fetching feed for $curFeed: "
 				   . $response->status_line . "\n");
@@ -149,23 +148,25 @@ sub got_response {
 
             $rss->parsefile("caches/${curFeed}.xml");
 
-            foreach my $item (@{$rss->{'items'}}) {
-                if((defined $item->{'guid'} && $item->{'guid'} eq $mostRecentPost{$curFeed})
-                    || $item->{'link'} eq $mostRecentPost{$curFeed}) {
-                    last;
-                } else {
-                    ($link, $title) = &get_link_and_title($item);
+			if (defined $mostRecentPost{$curFeed}) {
+				foreach my $item (@{$rss->{'items'}}) {
+					if((defined $item->{'guid'} && $item->{'guid'} eq $mostRecentPost{$curFeed})
+					   || $item->{'link'} eq $mostRecentPost{$curFeed}) {
+						last;
+					} else {
+						($link, $title) = &get_link_and_title($item);
 
-                    push(@newPosts, "$title  $link");
-                }
-            }
+						push(@newPosts, "$title  $link");
+					}
+				}
+			}
             if(defined $rss->{'items'}->[0]->{'guid'}) {
                 $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'guid'};
             } else {
                 $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
             }
 
-            if(@newPosts && $feed_inited{$curFeed}) {
+            if(@newPosts) {
                 $title = $rss->{'channel'}->{'title'};
                 if($title =~ m/Slashdot Journals/) {
                     $title = $rss->{'channel'}->{'description'};
@@ -176,9 +177,7 @@ sub got_response {
                 foreach(@newPosts) {
                     &SimBot::send_message(CHANNEL, $_);
                 }
-            } else {
-				$feed_inited{$curFeed} = 1;
-			}
+            }
         }
     }
     if(defined $nick) {
