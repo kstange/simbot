@@ -9,9 +9,10 @@
 #   * Perl 5.8 or better (for Encode)
 #   * XML::RSS
 #   * LWP::UserAgent (you should have this already)
+#   * POE::Component::Client::HTTP
 #
 # COPYRIGHT:
-#   Copyright (C) 2004, Pete Pearson
+#   Copyright (C) 2004, Pete Pearson <http://fourohfour.info/>
 #
 #   This program is free software; you can redistribute it and/or modify
 #   under the terms of the GNU General Public License as published by
@@ -31,10 +32,15 @@
 #   * 
 #
 
+package SimBot::plugin::rss;
+
 use strict;
 use warnings;
 use XML::RSS;
 use LWP::UserAgent;
+use POE;
+use POE::Component::Client::HTTP;
+use HTTP::Request::Common qw(GET POST);
 use Encode;
 use vars qw( %mostRecentPost %feeds $session);
 
@@ -56,11 +62,17 @@ use constant ENCODING => 'iso-8859-1';
 sub messup_rss {    
     $session = POE::Session->create(
         inline_states => {
-            _start => \\&bootstrap,
-            do_rss => \\&do_rss,
-            shutdown => \\&shutdown,
+            _start          => \&bootstrap,
+            do_rss          => \&do_rss,
+            got_response    => \&got_response,
+            shutdown        => \&shutdown,
         }
     );
+    POE::Component::Client::HTTP->spawn
+      ( Alias => 'ua',
+        Timeout => 120,
+      );
+    1;
 }
 
 ### cleanup_rss
@@ -84,7 +96,7 @@ sub bootstrap {
     $useragent->agent(SimBot::PROJECT . "/" . SimBot::VERSION);
     $useragent->timeout(8);
     
-    &SimBot::debug(3, "Updating RSS cache... \\n");
+    &SimBot::debug(3, "Updating RSS cache... \n");
     foreach my $curFeed (keys %feeds) {
         if(!-e "caches/$curFeed" || -M "caches/$curFeed" > 0.042) {
             # cache is nonexistent or stale
@@ -102,7 +114,7 @@ sub bootstrap {
         $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
     }
         
-    &SimBot::debug(3, "...done!\\n");
+    &SimBot::debug(3, "...done!\n");
     
     $kernel->delay(do_rss => 3600)
 }
@@ -113,53 +125,62 @@ sub bootstrap {
 sub do_rss {
     my $kernel = $_[KERNEL];
     my (@newPosts, $title);
-    my $rss = new XML::RSS;
-    &SimBot::debug(3, "Updating RSS...\\n");
-    my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
-    $useragent->agent(SimBot::PROJECT . "/" . SimBot::VERSION);
-    $useragent->timeout(8);
+    &SimBot::debug(3, "Updating RSS...\n");
+#    my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
+#    $useragent->agent(SimBot::PROJECT . "/" . SimBot::VERSION);
+#    $useragent->timeout(8);
     
     foreach my $curFeed (keys %feeds) {
-        #system('curl', '-o', "caches/$curFeed", $feeds{$curFeed});
-        my $request = HTTP::Request->new(GET => $feeds{$curFeed});
-        my $response = $useragent->request($request);
-        @newPosts = ();
-        unless($response->is_error) {
-            open(OUT, ">caches/$curFeed");
-            print OUT $response->content;
-            close(OUT);
-        
-            $rss->parsefile("caches/$curFeed");
-    
-            foreach my $item (@{$rss->{'items'}}) {
-                if($item->{'link'} eq $mostRecentPost{$curFeed}) {
-                    last;
-                } else {
-                    $title = $item->{'title'};
-                    Encode::from_to($title, 'utf8', ENCODING);                  
-                    $title =~ s/&quot;/"/;
-                    $title =~ s/&amp;/&/;
-                    push(@newPosts, "$title <$item->{'link'}>");
-                }
-            }
-            $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
-        
-            if(@newPosts) {
-                &SimBot::send_message(CHANNEL, "$rss->{'channel'}->{'title'} has been updated! Here's what's new:");
-                foreach(@newPosts) {
-                    &SimBot::send_message(CHANNEL, $_);
-                }
-            }
-        }
+        $kernel->post( 'ua' => 'request', 'got_response',
+                        (GET $feeds{$curFeed}), $curFeed);
     }
     $kernel->delay(do_rss => 3600);
 }   
+
+### got_response
+# This is run whenever we have retrieved a RSS feed. We dump it
+# to disk and ask and post an event to parse it later.
+sub got_response {
+    my ($request_packet, $response_packet) = @_[ ARG0, ARG1 ];
+    my (@newPosts, $title);
+    my $curFeed = $request_packet->[1];
+    my $response = $response_packet->[0];
+    my $rss = new XML::RSS;
+    &SimBot::debug(3, "...got RSS for $curFeed\n");
     
+    unless($response->is_error) {
+        open(OUT, ">caches/$curFeed");
+        print OUT $response->content;
+        close(OUT);
+    
+        $rss->parsefile("caches/$curFeed");
+    
+        foreach my $item (@{$rss->{'items'}}) {
+            if($item->{'link'} eq $mostRecentPost{$curFeed}) {
+                last;
+            } else {
+                $title = $item->{'title'};
+                Encode::from_to($title, 'utf8', ENCODING);                  
+                $title =~ s/&quot;/\"/;
+                $title =~ s/&amp;/&/;
+                push(@newPosts, "$title <$item->{'link'}>");
+            }
+        }
+        $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
+    
+        if(@newPosts) {
+            &SimBot::send_message(CHANNEL, "$rss->{'channel'}->{'title'} has been updated! Here's what's new:");
+            foreach(@newPosts) {
+                &SimBot::send_message(CHANNEL, $_);
+            }
+        }
+    }
 }
+
 &SimBot::plugin_register(
     plugin_id   => 'rss',
 #    plugin_desc => 'Tells you what simbot has learned about something.',
 #    event_plugin_call   => sub {}, # Do nothing.
-    event_plugin_load   => \\&messup_rss,
-    event_plugin_unload => \\&cleanup_rss,
+    event_plugin_load   => \&messup_rss,
+    event_plugin_unload => \&cleanup_rss,
 );
