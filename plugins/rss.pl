@@ -303,7 +303,7 @@ sub got_response {
         if($feed_name =~ m/Slashdot Journals/) {
             $feed_name = $rss->{'channel'}->{'description'};
         }
-        foreach my $item (@{$rss->{'items'}}) {
+        foreach my $item (reverse @{$rss->{'items'}}) {
             no warnings qw( uninitialized );
             
             my ($url, $title) = &get_link_and_title($item);
@@ -423,8 +423,12 @@ sub announce_top {
     my $get_top_headlines_query = $dbh->prepare(
         'SELECT title, url FROM headlines'
         . ' WHERE feed_id = ?'
+        . ' ORDER BY id desc'
         . ' LIMIT 3'
-    );
+    ); # FIXME: we should be ordering by a time of some sort
+    # ID is *not* necessarily in the order we want (but should be
+    # until it wraps around)
+    
     $get_top_headlines_query->execute($id);
 	
 	$get_feed_by_id_query->execute($id);
