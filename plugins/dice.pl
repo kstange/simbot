@@ -102,10 +102,10 @@ sub flip_coin {
 }
 
 sub rps_shoot {
-    my ($kernel, $nick, $channel, undef, $object) = @_;
-	$object = lc($object);
+    my ($kernel, $nick, $channel, undef, @words) = @_;
+	my $object = lc(join(" ", @words));
 	my $text;
-	if (!defined $object) {
+	if (!defined $object || $object eq "") {
 		&SimBot::send_message($channel, "$nick: Well?  Rock, paper, or scissors?");
 	} elsif ($object =~ /^(rock|paper|scissors)$/) {
 		my $pick = &SimBot::pick(('rock', 'paper','scissors'));
