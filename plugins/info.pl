@@ -354,7 +354,7 @@ sub handle_query {
             return;
         }
         
-        if($factFlags & FACT_URL)   { $factoid = "at $factoid"; }
+        if($factFlags & FACT_URL)   { $factoid = "at <${factoid}>"; }
         
         &SimBot::send_message($channel,
                     &parse_message(&SimBot::pick(QUERY_RESPONSE),
