@@ -24,9 +24,7 @@ $rulefile = "./rules.db";
 # these will put your bot where it is not welcome, and you don't want it
 # or you being killed by IRC ops because it's breaking server rules.
 @server = (
-	   "mesa.az.us.undernet.org",
 	   "princeton.nj.us.undernet.org",
-	   "sanjose.ca.us.undernet.org",
 	   "miami.fl.us.undernet.org",
 	   "Zagreb.Hr.EU.UnderNet.org",
 	   );
@@ -102,15 +100,18 @@ $exsenpct = "10";
 		qr/^asshole$/,
 		qr/^http\/\//,
 		qr/^ftp\/\//,
+		qr/^irc\/\//,
 		qr/^cum$/,
 		qr/^sodom/,
 		qr/^titf/,
 		qr/nigg/,
-		qr/niqq/,
+		qr/qq/,
+		qr/^(pw[pw]*$|pwn)/,
 		qr/(ph|f)ux/,
 		qr/ghe[iy]/,
 		qr/^(ph|f)ag/,
 		qr/^nigs?$/,
+		qr/^[a-z]+=$/,
 		);
 
 # End of Config

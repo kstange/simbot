@@ -373,7 +373,7 @@ sub save {
 		foreach(keys(%{$chat_words{$a}})) {
 		    my $b = $_;
 		    my $c = $chat_words{$a}{$b}[1];
-		    print RULES "$a\t$b\t$c\n";
+		    print RULES "$a\t$b\t$c\n" if defined $c;
 		}
 	    }
 	    flock(RULES, 8);
