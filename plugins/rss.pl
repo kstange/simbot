@@ -5,6 +5,11 @@
 #   This plugin announces to the channel when some web site using RSS
 #   updates.
 #
+# REQUIRES:
+#   * Perl 5.8 or better (for Encode)
+#   * XML::RSS
+#   * LWP::UserAgent (you should have this already)
+#
 # COPYRIGHT:
 #   Copyright (C) 2004, Pete Pearson
 #
@@ -30,16 +35,19 @@ use strict;
 use warnings;
 use XML::RSS;
 use LWP::UserAgent;
+use Encode;
 use vars qw( %mostRecentPost %feeds $session);
 
 # Configure feeds here. Key should be local cache name; value should be
 # url to the RSS feed
 $feeds{'fourohfour.xml'}    = 'http://fourohfour.info/rss.xml';
 $feeds{'simguy.xml'}        = 'http://simguy.net/rss';
-$feeds{'fourohfour-test.xml'} = 'http://fourohfour.info/rss-test.xml';
-$feeds{'fark.xml'}          = 'http://www.pluck.com/rss/fark.rss';
+$feeds{'slashdot.xml'}      = 'http://slashdot.org/index.rss';
+# Fark updates FREQUENTLY; this is probably a Bad Idea
+#$feeds{'fark.xml'}          = 'http://www.pluck.com/rss/fark.rss';
 
 use constant CHANNEL => &SimBot::option('network', 'channel');
+use constant ENCODING => 'iso-8859-1';
 
 ### messup_rss
 # This runs when simbot loads. We need to make sure we know the
@@ -48,9 +56,9 @@ use constant CHANNEL => &SimBot::option('network', 'channel');
 sub messup_rss {    
     $session = POE::Session->create(
         inline_states => {
-            _start => \&bootstrap,
-            do_rss => \&do_rss,
-            shutdown => \&shutdown,
+            _start => \\&bootstrap,
+            do_rss => \\&do_rss,
+            shutdown => \\&shutdown,
         }
     );
 }
@@ -76,7 +84,7 @@ sub bootstrap {
     $useragent->agent(SimBot::PROJECT . "/" . SimBot::VERSION);
     $useragent->timeout(8);
     
-    &SimBot::debug(3, "Updating RSS cache... \n");
+    &SimBot::debug(3, "Updating RSS cache... \\n");
     foreach my $curFeed (keys %feeds) {
         if(!-e "caches/$curFeed" || -M "caches/$curFeed" > 0.042) {
             # cache is nonexistent or stale
@@ -94,7 +102,7 @@ sub bootstrap {
         $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
     }
         
-    &SimBot::debug(3, "...done!\n");
+    &SimBot::debug(3, "...done!\\n");
     
     $kernel->delay(do_rss => 3600)
 }
@@ -104,9 +112,9 @@ sub bootstrap {
 # there is anything new, announce it.
 sub do_rss {
     my $kernel = $_[KERNEL];
-    my (@newPosts);
+    my (@newPosts, $title);
     my $rss = new XML::RSS;
-    &SimBot::debug(3, "Updating RSS...\n");
+    &SimBot::debug(3, "Updating RSS...\\n");
     my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
     $useragent->agent(SimBot::PROJECT . "/" . SimBot::VERSION);
     $useragent->timeout(8);
@@ -127,7 +135,11 @@ sub do_rss {
                 if($item->{'link'} eq $mostRecentPost{$curFeed}) {
                     last;
                 } else {
-                    push(@newPosts, "$item->{'title'} <$item->{'link'}>");
+                    $title = $item->{'title'};
+                    Encode::from_to($title, 'utf8', ENCODING);                  
+                    $title =~ s/&quot;/"/;
+                    $title =~ s/&amp;/&/;
+                    push(@newPosts, "$title <$item->{'link'}>");
                 }
             }
             $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
@@ -141,12 +153,13 @@ sub do_rss {
         }
     }
     $kernel->delay(do_rss => 3600);
+}   
+    
 }
-
 &SimBot::plugin_register(
     plugin_id   => 'rss',
 #    plugin_desc => 'Tells you what simbot has learned about something.',
 #    event_plugin_call   => sub {}, # Do nothing.
-    event_plugin_load   => \&messup_rss,
-    event_plugin_unload => \&cleanup_rss,
+    event_plugin_load   => \\&messup_rss,
+    event_plugin_unload => \\&cleanup_rss,
 );
