@@ -421,7 +421,7 @@ sub get_seen {
             my ($kicked,$reason) = split(/!/, $seenData, 2);
             $doing = "kicking $kicked ($reason)";
         }
-        my $response = "I last saw $person " . timeago($when) . " ago ${doing}.";
+        my $response = "I last saw $person " . timeago($when) . " ${doing}.";
         $kernel->post(bot => privmsg => $channel, "$nick: $response");
     } else {
         $kernel->post(bot => privmsg => $channel, "$nick: I have not seen $person.");
@@ -455,7 +455,11 @@ sub timeago {
     $reply .= "$hours hour" . (($hours == 1) ? ' ' : 's ') if $hours;
     $reply .= "$minutes minute" . (($minutes == 1) ? ' ' : 's ') if $minutes;
     $reply .= "$seconds second" . (($seconds == 1) ? ' ' : 's ') if $seconds;
-    chop($reply);
+    if($reply) {
+        $reply .= 'ago';
+    } else {
+        $reply = 'very recently';
+    }
     return $reply;
 }
  
