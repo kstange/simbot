@@ -1,3 +1,8 @@
+Version 1.0 alpha: (17 Dec 2004)
+	* plugins/dict.pl:
+	  - Added a feature that lists the dictionaries containing a specific
+	    word.  Syntax is %define dictionaries with [word].
+
 Version 1.0 alpha: (05 Dec 2004)
 	* plugins/weather.pl:
 	  - Uses NOAA's new XML current observations instead of the rather

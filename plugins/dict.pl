@@ -16,7 +16,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-# TODO: add support for listing the dictionaries containing a word
+# TODO: allow the user to fetch individual definitions for a given word
 
 package SimBot::plugin::define;
 
@@ -33,10 +33,17 @@ use constant DICT_SERVER => "pan.alephnull.com";
 sub look_up {
     my ($kernel, $nick, $channel, $command) = @_;
 	my $line = join(' ', @_[ 4 .. $#_ ]);
-	$line =~ /^\"?(.+?)\"?( in (\w+))?( (privately|publicly))?$/i;
-	my $term = $1;
-	my $dictionary = $3;
-	my $destination = (defined $5 ? $5 : "default");
+	$line =~ /^\"?(.+?)\"?( (in|with) \"?(.+?)\"?)?( (privately|publicly))?$/i;
+	my $dictionary;
+	my $term;
+	if ($1 eq "dictionaries" && $3 eq "with") {
+		$dictionary = "?";
+		$term = $4
+	} else {
+		$dictionary = $4;
+		$term = $1;
+	}
+	my $destination = (defined $6 ? $6 : "default");
 
 	&SimBot::debug(3, "define: Received request from " . $nick . ".\n");
 
@@ -96,6 +103,23 @@ sub look_up {
 		} else {
 			&SimBot::send_message($channel, "$nick: I could not find a definition for $term in " . (defined $dictionary ? "the $dbs{$dictionary}" : "any available dictionaries") . ".");
 		}
+	} elsif (defined $dictionary && $dictionary eq "?") {
+		my $def = $dict->define($term);
+
+		if (@{$def} != 0) {
+			my %dictionaries = ();
+			foreach my $entry (@{$def}) {
+				if (!defined $dictionaries{${$entry}[0]}) {
+					$dictionaries{${$entry}[0]} = 1;
+				} else {
+					$dictionaries{${$entry}[0]}++;
+				}
+			}
+			&SimBot::send_message($channel, "$nick: A definition for $term is available in the following dictionaries: " . join(", ", keys (%dictionaries)) . ".");
+		} else {
+			&SimBot::send_message($channel, "$nick: I could not find a definition for $term in any available dictionaries.");
+		}
+
 	} else {
 		&SimBot::send_message($channel, "$nick: There is no dictionary called '$dictionary' available. Try one of " . join(", ", keys(%dbs)) . ".");
 	}
