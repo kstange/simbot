@@ -1123,7 +1123,7 @@ sub channel_invite {
 
 # CHANNEL_NOJOIN: Allow plugins to take actions on failed join attempt.
 sub channel_nojoin {
-    my ($chan) = split(/ :/, $_[ ARG1 ], 1);
+    my ($chan) = split(/ :/, $_[ ARG1 ]);
     foreach(keys(%event_channel_nojoin)) {
 		&plugin_callback($_, $event_channel_nojoin{$_}, ($chosen_nick, $chan, 'NOTJOINED'));
     }
