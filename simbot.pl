@@ -69,28 +69,56 @@ $version = "6.0 alpha";
 # ************ Start of Script ***********
 # ****************************************
 
-%event_plugin_call = (
-		      "stats",   "print_stats",
-		      "help",    "print_help",
-		      "list",    "print_list",
-		      );
+# We want to catch signals to make sure we clean up and save if the
+# system wants to kill us.
+$SIG{'TERM'} = 'SimBot::cleanup';
+$SIG{'INT'}  = 'SimBot::cleanup';
+$SIG{'HUP'}  = 'SimBot::cleanup';
+$SIG{'USR1'} = 'SimBot::restart';
+$SIG{'USR2'} = 'SimBot::reload';
 
+# These are intializations of the hash tables we'll be using for
+# callbacks and plugin information.  We'll initialize the built-in
+# plugins here, since there's no need to do registration checks.
+
+# This is the plugin's type.  A plugin cannot currently set this
+# itself, meaning only internal plugins can be anything but "EXT"
 %plugin_type = (
 		"stats",   "INT",
 		"help",    "INT",
 		"list",    "INT",
 		);
 
+# This provides the descriptions of plugins.  If a plugin has no
+# defined description, it is "hidden" and will not appear in help.
 %plugin_desc = (
 		"stats",   "Shows useless stats about the database.",
 		"help",    "Shows this message.",
 		);		
 
-# We'll need this perl module to be able to do anything meaningful.
-$kernel = new POE::Kernel;
-use POE;
-use POE::Component::IRC;
+# These are the events you can currently attach to.
 
+### Plugin Events ###
+%event_plugin_load     = ();
+%event_plugin_reload   = ();
+%event_plugin_unload   = ();
+%event_plugin_call     = (
+			  "stats",   "print_stats",
+			  "help",    "print_help",
+			  "list",    "print_list",
+			  );
+
+### Channel Events ###
+%event_channel_public  = ();
+%event_channel_action  = ();
+%event_channel_kick    = ();
+
+### Private Events ###
+%event_private_notice  = ();
+%event_private_message = ();
+
+# Now that we've initialized the callback tables, let's load
+# all the plugins that we can from the plugins directory.
 opendir(DIR, "./plugins");
 foreach(readdir(DIR)) {
     if($_ =~ /.*\.pl$/) {
@@ -103,23 +131,20 @@ foreach(readdir(DIR)) {
 }
 closedir(DIR);
 
-# We want to catch signals to make sure we clean up and save if the
-# system wants to kill us.
-$SIG{'TERM'} = 'SimBot::cleanup';
-$SIG{'INT'}  = 'SimBot::cleanup';
-$SIG{'HUP'}  = 'SimBot::cleanup';
-$SIG{'USR1'} = 'SimBot::restart';
-$SIG{'USR2'} = 'SimBot::reload';
+# Here are some globals that should be initialized because someone
+# might try to look at them before they get set to something.
+$loaded      = 0; # The rules are not loaded yet.
+$items       = 0; # We haven't seen any lines yet.
+$terminating = 0; # We are not terminating in the default case.
 
 # Load the massive table of rules simbot will need.
 &load;
 
-# Set line counter to zero.  We'll save when this hits a threshold,
-# or if the time is right.
-$items = 0;
-
-# We are not terminating in the default case.  Duh.
-$terminating = 0;
+# Now that everything is loaded, let's prepare to connect to IRC.
+# We'll need this perl module to be able to do anything meaningful.
+$kernel = new POE::Kernel;
+use POE;
+use POE::Component::IRC;
 
 # Create a new IRC connection.
 POE::Component::IRC->new('bot');
@@ -161,7 +186,7 @@ sub debug {
 		  "ERROR: ",
 		  "WARNING: ",
 		  "",
-		  "",
+		  "SPAM: ",
 		  );
     if ($_[0] <= $verbose) {
 	print STDERR $errors[$_[0]] . $_[1];
@@ -268,8 +293,7 @@ sub load {
 	}
 	foreach(<RULES>) {
 	    chomp;
-	    s/
-//;
+	    s/\r//;
 	    my @rule = split (/\t/);
 	    $chat_words{"$rule[0]-\>$rule[1]"} = $rule[2];
 	}
@@ -430,8 +454,8 @@ sub print_stats {
 	$message .= " They are: @deadwords";
     }
     $kernel->post(bot => privmsg => $channel, $message);
-    $count=0;
-    $message="";
+    $count = 0;
+    $message = "";
     @deadwords = ();
     foreach(keys(%left)) {
 	if(!$right{$_} && $_ !~ /^__.?BEGIN$/) {
@@ -688,21 +712,27 @@ sub process_action {
     }
 }
 
-# PRCESS_PRIV: Handle private messages to the bot.
+# PROCESS_PRIV: Handle private messages to the bot.
 sub process_priv {
     my ($usermask, undef, $text) = @_[ ARG0, ARG1, ARG2 ];
     my ($nick) = split(/!/, $usermask);
 
     $kernel->post(bot => notice => $nick, "Please don't send me private messsages.");
+    foreach(keys(%event_private_message)) {
+	&plugin_callback($_, $event_private_message{$_}, ($nick, 'PRIVMSG', $text));
+    }
 }
 
-# PRCESS_NOTICE: Handle notices to the bot.
+# PROCESS_NOTICE: Handle notices to the bot.
 sub process_notice {
     my ($usermask, undef, $text) = @_[ ARG0, ARG1, ARG2 ];
     my ($nick) = split(/!/, $usermask);
 
     if ($nick eq "X" && $password) {
 	&debug(3, "Channel Service message: $text\n");
+    }
+    foreach(keys(%event_private_notice)) {
+	&plugin_callback($_, $event_private_notice{$_}, ($nick, 'NOTICE', $text));
     }
 }
 
@@ -729,7 +759,8 @@ sub check_nickname {
     }
 }
 
-#CHECK_KICK: If the bot is kicked, rejoin.
+# CHECK_KICK: If the bot is kicked, rejoin the channel.  Also let
+# inquiring plugins know about kicks events.
 sub check_kick {
     my ($nick) = $_[ ARG2 ];
     my $kicker = $_[ ARG0 ];
@@ -745,7 +776,7 @@ sub check_kick {
     }
 }
 
-#REQUEST_INVITE: Ask channel service for an invitation
+# REQUEST_INVITE: Ask channel service for an invitation
 sub request_invite {
     if ($password) {
 	&debug(2, "Could not rejoin.  Asking channel service...\n");
@@ -753,7 +784,7 @@ sub request_invite {
     }
 }
 
-#CHECK_INVITE: Check to see if an invite should be accepted
+# CHECK_INVITE: Check to see if an invite should be accepted
 sub check_invite {
     my ($chan) = $_[ ARG1 ];
     if ($chan eq $channel) {
