@@ -1585,7 +1585,7 @@ sub channel_message {
     } elsif ($text =~ /^hi,*\s+$nickmatch[!\.\?]*/i && !$snooze) {
 		&debug(4, "Greeting " . $nick . "...\n");
 		&send_message($channel, option('chat', 'greeting') . " $nick!");
-    } elsif ($text =~ /(^|.[\.!\?,]+\s+)$nickmatch([\.!\?:,]+|$)/i && !$snooze) {
+    } elsif ($text =~ /(^|.[\.!\?,]+\s+)$nickmatch([\.!\?:,]+|\s*$)/i && !$snooze) {
 		my $continue = 1;
 		foreach(keys(%event_bot_addressed)) {
 			$continue = 0 if(!&plugin_callback($_, $event_bot_addressed{$_}, ($nick, $channel, $text)));

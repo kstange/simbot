@@ -7,7 +7,6 @@
 #
 # REQUIRES:
 #   * XML::RSS
-#   * LWP::UserAgent (you should have this already)
 #   * POE::Component::Client::HTTP
 #   * HTML::Entities
 #
@@ -18,12 +17,12 @@
 #   under the terms of the GNU General Public License as published by
 #   the Free Software Foundation; either version 2 of the License, or
 #   (at your option) any later version.
-#   
+#
 #   This program is distributed in the hope that it will be useful,
 #   but WITHOUT ANY WARRANTY; without even the implied warranty of
 #   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #   GNU General Public License for more details.
-#   
+#
 #   You should have received a copy of the GNU General Public License
 #   along with this program; if not, write to the Free Software
 #   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
@@ -38,13 +37,12 @@ package SimBot::plugin::rss;
 use strict;
 use warnings;
 use XML::RSS;
-use LWP::UserAgent;
 use HTML::Entities;
 use POE;
 use POE::Component::Client::HTTP;
 use HTTP::Request::Common qw(GET POST);
 use HTTP::Status;
-use vars qw( %mostRecentPost %feeds %announce_feed $session );
+use vars qw( %mostRecentPost %feeds %announce_feed $session %feed_inited );
 use Encode;
 
 use constant CHANNEL => &SimBot::option('network', 'channel');
@@ -61,6 +59,7 @@ sub messup_rss {
             (&SimBot::options_in_section('plugin.rss.feeds')) {
         $feeds{$cur_feed}=&SimBot::option('plugin.rss.feeds', $cur_feed);
         $announce_feed{$cur_feed} = 0;
+		$feed_inited{$cur_feed} = 0;
     }
     foreach my $cur_feed
             (split(/,/, &SimBot::option('plugin.rss', 'announce'))) {
@@ -69,7 +68,7 @@ sub messup_rss {
 
     $session = POE::Session->create(
         inline_states => {
-            _start          => \&bootstrap,
+            _start          => \&do_rss,
             do_rss          => \&do_rss,
             got_response    => \&got_response,
             announce_top    => \&announce_top,
@@ -96,52 +95,6 @@ sub cleanup_rss {
 # This is run when POE tells us to die.
 sub shutdown {
     $_[KERNEL]->alarm_remove_all();
-}
-
-### bootstrap
-# This is called by POE when it loads.
-sub bootstrap {
-    my $kernel = $_[KERNEL];
-    my $rss = new XML::RSS;
-    my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
-    $useragent->agent(SimBot::PROJECT . "/" . SimBot::VERSION);
-    $useragent->timeout(8);
-
-    &SimBot::debug(3, "Updating RSS cache... \n");
-    my $file;
-    foreach my $curFeed (keys %feeds) {
-        $file = "caches/${curFeed}.xml";
-        if(($announce_feed{$curFeed})              # we should announce the feed
-           && (!-e $file || -M $file > 0.042)) {   # and cache missing or stale
-            &SimBot::debug(3, "   Fetching ${curFeed}: ");
-            my $request = HTTP::Request->new(GET => $feeds{$curFeed});
-            if(-e $file) {
-                my $mtime = (stat($file))[9];
-                $request->if_modified_since($mtime);
-            }
-            my $response = $useragent->request($request);
-            &SimBot::debug(3, $response->status_line . "\n");
-            if($response->code == RC_NOT_MODIFIED) {
-                # File wasn't modified. We touch the file so we don't
-                # request it again for an hour
-                my $now = time;
-                utime($now, $now, $file);
-            } elsif($response->is_success) {
-                open(OUT, ">$file");
-                print OUT $response->content;
-                close(OUT);
-            }
-            
-            $rss->parsefile($file);
-            if(defined $rss->{'items'}->[0]->{'guid'}) {
-                $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'guid'};
-            } else {
-                $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
-            }
-        }
-    }
-
-    $kernel->delay(do_rss => EXPIRE);
 }
 
 ### do_rss
@@ -210,7 +163,7 @@ sub got_response {
                 $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
             }
 
-            if(@newPosts) {
+            if(@newPosts && $feed_inited{$curFeed}) {
                 $title = $rss->{'channel'}->{'title'};
                 if($title =~ m/Slashdot Journals/) {
                     $title = $rss->{'channel'}->{'description'};
@@ -221,7 +174,9 @@ sub got_response {
                 foreach(@newPosts) {
                     &SimBot::send_message(CHANNEL, $_);
                 }
-            }
+            } else {
+				$feed_inited{$curFeed} = 1;
+			}
         }
     }
     if(defined $nick) {
