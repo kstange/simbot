@@ -183,7 +183,7 @@ sub handle_chat {
         if($info{$key}) {
             delete $info{$key};
             
-            &SimBot::debug(3, "Forgot $key (req'd by $nick)\n");
+            &SimBot::debug(4, "info: Forgot $key (req'd by $nick)\n");
             &SimBot::send_message($channel,
                 &parse_message(&SimBot::pick(OK_FORGOTTEN),
                                $nick, $key));
@@ -450,7 +450,7 @@ sub report_learned {
     else                            { $flagTxt =  '=is=>';          }
     if   ($flags & FACT_URL)        { $flagTxt .= ' =url=';         }
     
-    &SimBot::debug(3, "Learning from $nick: $key $flagTxt $factoid\n");
+    &SimBot::debug(4, "info: Learning from $nick: $key $flagTxt $factoid\n");
     &SimBot::send_message($channel,
         &parse_message(&SimBot::pick(OK_LEARNED), $nick)
         . " ($key $flagTxt $factoid)")

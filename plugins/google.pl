@@ -31,7 +31,7 @@ sub google_find {
     shift(@terms);
     my $query = "@terms";
 
-    &SimBot::debug(3, "Received find command from " . $nick . ".\n");
+    &SimBot::debug(3, "google: Got request from " . $nick . ".\n");
 
 	if (!$query) {
 		&SimBot::send_message($channel, "$nick: Nothing was found.  I didn't look, but I think that was a safe bet.");

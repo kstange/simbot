@@ -37,7 +37,7 @@ use vars qw( %seenData );
 
 # MESSUP_SEEN: Opens the seen database for use
 sub messup_seen {
-    &SimBot::debug(3, "Loading seen database...\n");
+    &SimBot::debug(3, "seen: Loading seen database...\n");
     dbmopen (%seenData, 'seen', 0664) || return 0;
 }
 
@@ -80,7 +80,7 @@ sub get_seen {
 # SET_SEEN: Updates seen data
 sub set_seen {
     my($kernel, $nick, $channel, $doing, $content, $target) = @_;
-    SimBot::debug(4, "Seeing $nick ($doing $content)\n");
+    SimBot::debug(4, "seen: Seeing $nick ($doing $content)\n");
     my $time = time;
     $seenData{lc($nick)} = "$time!$doing!" . ($target ? "$target!" : "")
                             . "$content";
@@ -88,7 +88,7 @@ sub set_seen {
     if($doing eq 'KICKED') {
         $doing = 'KICKING';
         $seenData{lc($target)} = "$time!$doing!$nick!$content";
-        SimBot::debug(4, "Seeing $target ($doing $nick!$content)\n");
+        SimBot::debug(4, "seen: Seeing $target ($doing $nick!$content)\n");
     }
 }
 
@@ -97,16 +97,16 @@ sub set_seen {
 # nicknames of people we have seen.
 sub score_word {
     if (defined $seenData{$_[1]}) {
-	&SimBot::debug(3, "$_[1]:+1000(seen) ");
+	&SimBot::debug(4, "$_[1]:+1000(seen) ");
 	return 1000;
     }
-    &SimBot::debug(4, "$_[1]:+0(seen) ");
+    &SimBot::debug(5, "$_[1]:+0(seen) ");
     return 0;
 }
 
 # CLEANUP_SEEN: Cleans up when we're quitting
 sub cleanup_seen {
-    &SimBot::debug(3, "Saving seen data\n");
+    &SimBot::debug(4, "seen: Closing seen database...\n");
     dbmclose(%seenData);
 }
 

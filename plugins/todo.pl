@@ -40,7 +40,7 @@ our @todo = (
 # PRINT_TODO: Prints todo list privately to the user.
 sub print_todo {
     my ($kernel, $nick) = @_;
-    &SimBot::debug(3, "Received todo command from " . $nick . ".\n");
+    &SimBot::debug(3, "todo: Received request from " . $nick . ".\n");
     if (@todo) {
 		&SimBot::send_pieces($nick, undef, join("\n", @todo));
     } else {

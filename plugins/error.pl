@@ -23,6 +23,7 @@ use warnings;
 
 sub random_error {
     my ($kernel, $nick, $channel) = @_;
+    &SimBot::debug(3, "error: Got error request from " . $nick . ".\n");
     open(FILE, "errors.db");
     my @lines = <FILE>;
     close(FILE);
@@ -34,7 +35,7 @@ sub random_error {
 
 sub random_quip {
     my ($nick, $channel) = @_[1,2];
-    &SimBot::debug(3, "Received list command from " . $nick . ".\n");
+    &SimBot::debug(3, "error: Got list request from " . $nick . ".\n");
     my @reply = (
 				 "$nick: HER R TEH FIL3Z!!!! TEH PR1Z3 FOR U! KTHXBYE",
 				 "$nick: U R L33T H4X0R!",
@@ -42,6 +43,7 @@ sub random_quip {
 				 "$nick: Sorry, I have reached my piracy quota for this century.  Please return in " . (100 - ((localtime(time))[5] % 100)) . " years.",
 				 "$nick: The FBI thanks you for your patronage.",
 				 "$nick: h4x0r5 0n teh yu0r pC? oh nos!!! my megahurtz haev been stoeled!!!!!111 safely check yuor megahurtz with me, free!",
+				 "$nick: Ur Leet-Foo is weak!",
 				 );
     &SimBot::send_message($channel, &SimBot::pick(@reply));
 }

@@ -199,8 +199,8 @@ sub latest_headlines {
     my ($item, $title, $link);
     my $rss = new XML::RSS;
 
-    &SimBot::debug(4, "rss: Got request from $nick" .
-				   (defined $feed ? " for $feed...\n" : "...\n"));
+    &SimBot::debug(3, "rss: Got request from $nick" .
+				   (defined $feed ? " for $feed" : "") . "...\n");
 
     if(defined $feed && defined $feeds{$feed}) {
         my $file = "caches/${feed}.xml";

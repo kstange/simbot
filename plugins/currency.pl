@@ -34,7 +34,7 @@ use constant CONVERSION_BY
 # CONV_CURRENCY: exchanges currencies
 sub conv_currency {
     my ($kernel, $nick, $channel, $command, $Amount, $From, $To) = @_;
-    &SimBot::debug(3, "Received currency conversion command from $nick to convert $Amount from $From to $To\n");
+    &SimBot::debug(3, "currency: Got request from $nick to convert $Amount from $From to $To\n");
     my $retval = '';
 
     my $ua = new LWP::UserAgent;

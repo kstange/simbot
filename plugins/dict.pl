@@ -26,6 +26,9 @@ use warnings;
 # Support for the Dict protocol is found here:
 use Net::Dict;
 
+# Server
+use constant DICT_SERVER => "pan.alephnull.com";
+
 # LOOK UP: Prints a defintion to the channel.
 sub look_up {
     my ($kernel, $nick, $channel, $command) = @_;
@@ -35,12 +38,15 @@ sub look_up {
 	my $dictionary = $3;
 	my $destination = (defined $5 ? $5 : "default");
 
-	my $dict = Net::Dict->new("pan.alephnull.com",
+	&SimBot::debug(3, "define: Received request from " . $nick . ".\n");
+
+	my $dict = Net::Dict->new(DICT_SERVER,
 							  Client => SimBot::PROJECT . " " . SimBot::VERSION,
 							  Timeout => 10,
 							  );
 
 	if (!defined $dict) {
+		&SimBot::debug(1, "define: Unable to connect to " . DICT_SERVER . "dictionary server.\n");
 		&SimBot::send_message($channel, "$nick: The dictionary server was unavailable.");
 		return;
 	}
@@ -63,7 +69,6 @@ sub look_up {
 	}
 
 	if(!defined $dictionary || $found) {
-		&SimBot::debug(3, "Received define command from " . $nick . ".\n");
 		my $def;
 
 		if (defined $dictionary) {

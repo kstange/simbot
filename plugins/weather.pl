@@ -66,7 +66,7 @@ use constant CANNOT_ACCESS => 'Sorry; I could not access NOAA.';
 # This method is run when SimBot is exiting. We save the station names
 # cache here.
 sub cleanup_wx {
-    &SimBot::debug(3, "Saving station names\n");
+    &SimBot::debug(4, "weather: Closing station names cache...\n");
     dbmclose(%stationNames);
 }
 
@@ -75,8 +75,8 @@ sub cleanup_wx {
 # cache here. We also start our own POE session so we can wait for NOAA
 # instead of giving up quickly so as to not block simbot
 sub messup_wx {
-    &SimBot::debug(3, "Loading station names...\n");
-    dbmopen (%stationNames, 'metarStationNames', 0664) || &SimBot::debug(2, "Could not open cache.  Names will not be stored for future sessions.\n");
+    &SimBot::debug(3, "weather: Loading station names cache...\n");
+    dbmopen (%stationNames, 'metarStationNames', 0664) || &SimBot::debug(2, "weather: Could not open cache.  Names will not be stored for future sessions.\n");
     
     $session = POE::Session->create(
         inline_states => {
@@ -106,7 +106,7 @@ sub do_wx {
     my  ($kernel, $nick, $station, $metar_only) = 
       @_[KERNEL,  ARG0,  ARG1,     ARG2];
     
-    &SimBot::debug(3, 'Received weather command from ' . $nick
+    &SimBot::debug(3, 'weather: Received request from ' . $nick
         . " for $station\n");
         
     if(length($station) != 4) {
@@ -123,7 +123,7 @@ sub do_wx {
 
     # first off, do we have a station name?
     unless($stationNames{$station}) {
-        &SimBot::debug(3, "Station name not found, looking it up\n");
+        &SimBot::debug(4, "weather: Station name not found, looking it up\n");
         my $url =
             'http://weather.noaa.gov/cgi-bin/nsd_lookup.pl?station='
             . $station;
@@ -161,7 +161,7 @@ sub got_station_name {
                                   . ($state ? "$state, " : "")
                                   . "$country ($station)";
     }
-    &SimBot::debug(3, "Got station name for $station\n");
+    &SimBot::debug(4, "weather: Got station name for $station\n");
     # ok, now we have the station name... let's request the weather
     my $url =
         'http://weather.noaa.gov/pub/data/observations/metar/stations/'
@@ -178,7 +178,7 @@ sub got_wx {
         = (split(/!/, $request_packet->[1], 3));
     my $response = $response_packet->[0];
     
-    &SimBot::debug(3, 'Got weather for ' . $nick
+    &SimBot::debug(4, 'weather: Got weather for ' . $nick
         . " for $station\n");
     
     if ($response->is_error) {
@@ -193,7 +193,7 @@ sub got_wx {
     
     # Geo::METAR has issues not ignoring the remarks section of the
     # METAR report. Let's strip it out.
-    &SimBot::debug(3, "METAR is " . $raw_metar . "\n");
+    &SimBot::debug(4, "weather: METAR is " . $raw_metar . "\n");
     
     if($metar_only) {
         &SimBot::send_message(&SimBot::option('network', 'channel'),
@@ -204,7 +204,7 @@ sub got_wx {
     my $remarks;
     ($raw_metar, undef, $remarks) = $raw_metar =~ m/^(.*?)( RMK (.*))?$/;
     $raw_metar =~ s|/////KT|00000KT|;
-    &SimBot::debug(4, "Reduced METAR is " . $raw_metar . "\n");
+    &SimBot::debug(5, "weather: Reduced METAR is " . $raw_metar . "\n");
 
     my $m = new Geo::METAR;
     $m->metar($raw_metar);
