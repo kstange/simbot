@@ -141,6 +141,7 @@ our %event_server_nick     = (); # (new nickname)
 # Function queries get params:
 #  (kernel, params)
 our %query_word_score      = (); # (text)
+our %query_userhost_mask   = (); # (user@host)
 
 our @list_nicks_ison       = (
 							  option('global', 'nickname'),
@@ -316,17 +317,29 @@ sub hostmask {
 		}
 	}
 
-	if ($user ne "*") {
-		$nick = "*";
-		$user =~ s/^~?/*/;
+	my $changed = 0;
+	foreach my $plugin (keys(%query_userhost_mask)) {
+		my $newmask = &plugin_callback($plugin, $query_userhost_mask{$plugin}, ("$user\@$host"));
+		if (defined $newmask && $newmask =~ /.@./) {
+			debug(4, "hostmask: the $plugin plugin changed the user\@host mask\n");
+			($user, $host) = split(/@/, $newmask);
+			$changed = 1;
+			last;
+		}
 	}
 
-	if ($host =~ /^(\d{1,3}\.){3}\d{1,3}$/) {
-		$host =~ s/(\.\d{1,3}){2}$/\.\*/;
-    } elsif ($host ne "*") {
-		$host =~ /^(.*)(\.\w*?\.[\w\.]{3,6})$/;
-		$host = "*$2";
-    }
+	$nick = "*" unless ($host =~ /\*/ && $user eq "*");
+	$user =~ s/^~?/*/ unless $user eq "*";
+
+	if (!$changed) {
+		if ($host =~ /^(\d{1,3}\.){3}\d{1,3}$/) {
+			$host =~ s/(\.\d{1,3}){2}$/\.\*/;
+		} elsif ($host =~ /(([A-F0-9]{0,4}:){3})[A-F0-9]{0,4}$/i) {
+			$host =~ "$1:*";
+		} elsif ($host =~ /^(.*)(\.\w*?\.[\w\.]{3,6})$/) {
+			$host = "*$2";
+		}
+	}
 
 	debug(4, "hostmask: returning type 3 hostmask: $nick!$user\@$host\n");
     return "$nick!$user\@$host";

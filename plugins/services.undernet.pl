@@ -159,6 +159,17 @@ sub unban_user {
 	&SimBot::send_message("x", "unban $channel " . &SimBot::hostmask($user));
 }
 
+# MASK_USERHOST: Checks to see if a special network-related hostmasking is
+# in place and ensures it is generalized properly.
+sub mask_userhost {
+    my ($user, $host) = split(/@/, $_[1]);
+	if ($host =~ /\.users\.undernet\.org$/) {
+		return "*\@$host";
+	} else {
+		return undef;
+	}
+}
+
 # Register Plugin
 &SimBot::plugin_register(plugin_id   => "services::undernet",
 						 event_server_connect  => \&services_login,
@@ -167,6 +178,8 @@ sub unban_user {
 						 event_channel_nojoin  => \&request_invite,
 						 event_channel_mejoin  => \&process_join,
 						 event_channel_novoice => \&request_voice,
+
+						 query_userhost_mask   => \&mask_userhost,
 
 						 list_nicks_ison       => "X",
 			);

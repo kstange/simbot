@@ -1,3 +1,9 @@
+Version 6.0 alpha: (14 Jul 2004)
+	* simbot.pl:
+	  - query_userhost_mask can now be used by plugins to watch for
+	    important user@host configurations and modify them instead of
+	    normal processing.
+
 Version 6.0 alpha: (13 Jul 2004)
 	* plugins/dict.pl:
 	  - %define_private command is gone, replaced with a parameter to the
