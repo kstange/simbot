@@ -24,10 +24,8 @@ package SimBot::plugin::todo;
 	 "3) create a means for automatic dead words cleanup",
 	 "4) automatically perform regular db backups",
 	 "--- Finish above this line and we'll increment to 6.0 final ---",
-	 "5) maybe: grab contextual hinting",
-	 "6) maybe: do some runaway loop detection",
-	 "7) pray for IRC module to start supporting QUIT properly",
-	 "8) eventually recognize the possibility for joining 2+ channels",
+	 "5) pray for IRC module to start supporting QUIT properly",
+	 "6) eventually recognize the possibility for joining 2+ channels",
 	 );
 
 # PRINT_TODO: Prints todo list privately to the user.

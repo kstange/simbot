@@ -2,7 +2,7 @@
 
 # SimBot
 #
-# Copyright (C) 2002-03, Kevin M Stange <kevin@simguy.net>
+# Copyright (C) 2002-04, Kevin M Stange <kevin@simguy.net>
 #
 # This program is free software; you can redistribute it and/or modify
 # under the terms of the GNU General Public License as published by
@@ -301,12 +301,12 @@ sub timeago {
 #          after the script is updated.
 sub restart {
     &debug(3, "Received restart call...\n");
-    &save;
     foreach(keys(%event_plugin_unload)) {
 	&plugin_callback($_, $event_plugin_unload{$_});
     }
     &debug(3, "Disconnecting from IRC...\n");
     &quit("Restarting, brb...");
+    &save;
     &debug(3, "Restarting script...\n");
     exec "./simbot.pl";
 }
@@ -314,12 +314,12 @@ sub restart {
 # CLEANUP: Terminates the script immediately after saving.
 sub cleanup {
     &debug(3, "Received cleanup call...\n");
-    &save;
     foreach(keys(%event_plugin_unload)) {
 	&plugin_callback($_, $event_plugin_unload{$_});
     }
     &debug(3, "Disconnecting from IRC...\n");
     &quit("Bye everyone!");
+    &save;
     &debug(3, "Terminated.\n");
     exit 0;
 }
@@ -339,14 +339,12 @@ sub load {
     &debug(3, "Loading $rulefile... ");
     $loaded = 0;
     if(open(RULES, $rulefile)) {
-	foreach (keys(%chat_words)) {
-	    delete $chat_words{$_};
-	}
 	foreach(<RULES>) {
 	    chomp;
 	    s/\r//;
 	    my @rule = split (/\t/);
-	    $chat_words{"$rule[0]-\>$rule[1]"} = $rule[2];
+	    $chat_words{$rule[0]}{$rule[1]}[1] = $rule[2];
+	    $chat_words{$rule[1]}{$rule[0]}[0] = $rule[2];
 	}
 	close(RULES);
 	&debug(3, "Rules loaded successfully!\n");
@@ -366,9 +364,12 @@ sub save {
 	if(open(RULES, ">$rulefile")) {
 	    flock(RULES, 2);
 	    foreach(keys(%chat_words)) {
-		my ($a, $b) = split(/-\>/);
-		$c = $chat_words{$_};
-		print RULES "$a\t$b\t$c\n";
+		my $a = $_;
+		foreach(keys(%{$chat_words{$a}})) {
+		    my $b = $_;
+		    my $c = $chat_words{$a}{$b}[1];
+		    print RULES "$a\t$b\t$c\n";
+		}
 	    }
 	    flock(RULES, 8);
 	    close(RULES);
@@ -466,62 +467,54 @@ sub print_list {
 
 # PRINT_STATS: Prints some useless stats about the bot to the channel.
 sub print_stats {
-    my %left;
-    my %right;
-    my @deadwords;
-    my $count=0, $begins=0, $actions=0, $ends=0;
-    my $message="";
-    my @wordpop = ();
+    my @ldeadwords;
+    my @rdeadwords;
+    my $message;
+
     &debug(3, "Received stats command from a user.\n");
-    foreach(keys(%chat_words)) {
-	my ($lhs, $rhs) = split(/->/, $_);
-	if ($chat_words{$_} > $wordpop[1] && $_ !~ /(^__[A-Z]*|__.?[A-Z]*$)/) {
-	    $wordpop[0] = $_;
-	    $wordpop[1] = $chat_words{$_};
+    my $count = keys(%chat_words);
+    my $begins = keys(%{$chat_words{'__BEGIN'}}) + keys(%{$chat_words{'__!BEGIN'}}) + keys(%{$chat_words{'__?BEGIN'}});
+    my $ends = keys(%{$chat_words{'__END'}}) + keys(%{$chat_words{'__!END'}}) + keys(%{$chat_words{'__?END'}});
+    my $actions = keys(%{$chat_words{'__ACTION'}});
+    $kernel->post(bot => privmsg => $channel, "In total, I know $count words.  I've learned $begins words that I can start a sentence with, and $ends words that I can end one with.  I know of $actions ways to start an IRC action (/me).");
+    my $lfound, $lcount = 0;
+    my $rfound, $rcount = 0;
+    my $wordpop;
+    my $wordpopcount = 0;
+
+    foreach $word (keys(%chat_words)) {
+	next if ($word =~ /^__[\!\?]?[A-Z]*$/);
+	$lfound = 0;
+	$rfound = 0;
+	foreach (keys(%{$chat_words{$word}})) {
+	    if (defined $chat_words{$word}{$_}[1]) {
+		$rfound = 1;
+	    }
+	    if (defined $chat_words{$word}{$_}[0]) {
+		$lfound = 1;
+	    }
+	    if ($chat_words{$word}{$_}[1] > $wordpopcount
+		&& $_ !~ /^__[\!\?]?[A-Z]*$/) {
+		$wordpop = "$word $_";
+		$wordpopcount = $chat_words{$word}{$_}[1];
+	    }
 	}
-	$left{$lhs} = 1;
-	$right{$rhs} = 1;
-	$begins++ if ($lhs =~ /^__.?BEGIN$/);
-	$ends++ if ($rhs =~ /^__.?END$/);
-	$actions++ if ($lhs eq "__ACTION");
-    }
-    foreach(keys(%left)) {
-        $count++ unless $_ =~ /^__[A-Z]*/;
-    }
-    foreach(keys(%right)) {
-        if (!$left{$_}) {
-	    $count++ unless $_ =~ /^__[A-Z]*/;
+	if ($lfound == 0) {
+	    $lcount++;
+	    push(@ldeadwords, "'$word'");
 	}
-    }
-    my ($wp_left, $wp_right) = split(/->/, $wordpop[0]);
-    $kernel->post(bot => privmsg => $channel, "In total, I know $count words.  The most popular two word sequence is \"$wp_left $wp_right\" which has been used $wordpop[1] times.");
-    $kernel->post(bot => privmsg => $channel, "I've learned $begins words that I can start a sentence with, and $ends words that I can end one with.  I know of $actions ways to start an IRC action (/me).");
-    $count = 0;
-    foreach(keys(%right)) {
-	if(!$left{$_} && $_ !~ /^__.?END$/) {
-	    $count++;
-	    push(@deadwords, "'$_'");
-	}
-    }
-    if ($count > 0) {
-	$message .= "There are $count words that lead me to unexpected dead ends.";
-	$message .= " They are: @deadwords";
-    }
-    $kernel->post(bot => privmsg => $channel, $message);
-    $count = 0;
-    $message = "";
-    @deadwords = ();
-    foreach(keys(%left)) {
-	if(!$right{$_} && $_ !~ /^__.?BEGIN$/) {
-	    $count++;
-	    push(@deadwords, "'$_'");
+	if ($rfound == 0) {
+	    $rcount++;
+	    push(@rdeadwords, "'$word'");
 	}
     }
-    if ($count > 0) {
-	$message .= "There are $count words that I no longer know how to use.";
-	$message .= " They are: @deadwords";
+    $kernel->post(bot => privmsg => $channel, "The most popular two word sequence is \"$wordpop\" which has been used $wordpopcount times.");
+    if ($rcount > 0) {
+	$kernel->post(bot => privmsg => $channel, "There are $rcount words that lead me to unexpected dead ends. They are: @rdeadwords");
     }
-    $kernel->post(bot => privmsg => $channel, $message);
+    if ($lcount > 0) {
+	$kernel->post(bot => privmsg => $channel, "There are $lcount words that lead me to unexpected dead beginnings.  They are: @ldeadwords");
+    }
 }
 
 # ######### CONVERSATION LOGIC ###########
@@ -576,12 +569,16 @@ sub buildrecords {
 		$y++;
 		$cur_word = $sentence[$i-$y];
 	    }
-	    if ($chat_words{"$cur_word->$sentence[$i+1]"}) {
-		$chat_words{"$cur_word->$sentence[$i+1]"}++;
-		&debug(3, "Updating $cur_word-\>$sentence[$i+1] to " . $chat_words{"$cur_word-\>$sentence[$i+1]"} . "\n");
+	    if ($chat_words{$cur_word}{$sentence[$i+1]}[1]) {
+		$chat_words{$cur_word}{$sentence[$i+1]}[1]++;
+		$chat_words{$sentence[$i+1]}{$cur_word}[0]++;
+		&debug(3, "Updating $cur_word-\>$sentence[$i+1] to " . $chat_words{$cur_word}{$sentence[$i+1]}[1] . "\n");
+		&debug(4, "Updating $sentence[$i+1]-\>$cur_word to " . $chat_words{$sentence[$i+1]}{$cur_word}[0] . " (reverse)\n");
 	    } else {
-		$chat_words{"$cur_word->$sentence[$i+1]"} = 1;
+		$chat_words{$cur_word}{$sentence[$i+1]}[1] = 1;
+		$chat_words{$sentence[$i+1]}{$cur_word}[0] = 1;
 		&debug(3, "Adding $cur_word-\>$sentence[$i+1]\n");
+		&debug(4, "Adding $sentence[$i+1]-\>$cur_word (reverse)\n");
 	    }
 	}
 	$i++;
@@ -596,93 +593,107 @@ sub buildrecords {
 sub buildreply {
     if (%chat_words) {
 	my @sentence = split(/ /, $_[0]);
-#	my $newword = "";
 
 	# find an interesting word to base the sentence off
-    my $newword = &find_interesting_word(@sentence);
+	my $newword = &find_interesting_word(@sentence);
 
-    my $middleword = $newword;
+	my $middleword = $newword;
 	my $return = ($newword ? "$newword " : "");
 	my $punc = "";
 	while ($newword !~ /^__[\!\?]?END$/) {
-	    my %choices = ();
 	    my $chcount = 0;
-	    foreach (keys(%chat_words)) {
-    		if (!$newword && $_ =~ /^(__[\!\?]?BEGIN)-\>.*/) {
-    		    $choices{$1} = 0 if !$choices{$1};
-    		    $choices{$1} += $chat_words{$_};
-    		    $chcount += $chat_words{$_};
-    		} elsif ($newword && $_ =~ /^\Q$newword\E-\>(.*)/) {
-    		    $choices{$1} = $chat_words{$_};
-    		    $chcount += $chat_words{$_};
-    		}
+	    if (!$newword) {
+		my %choices = ("__BEGIN", 0,
+			       "__!BEGIN", 0,
+			       "__?BEGIN", 0,
+			       );
+		foreach $key (keys(%choices)) {
+		    foreach (keys(%{$chat_words{$key}})) {
+			$choices{$key} = 0 if !$choices{$key};
+			$choices{$key} += $chat_words{$key}{$_}[1];
+		    }
+		    $chcount += $choices{$key};
+		}
+		my $try = int(rand()*($chcount))+1;
+		foreach(sort {$a cmp $b} keys(%choices)) {
+		    $try -= $choices{$_};
+		    if ($try <= 0) {
+			$newword = $_;
+			m/^__([\!\?])?BEGIN$/;
+			if ($1) {
+			    $punc = $1;
+			    debug(3, "Using '$1' from __BEGIN\n");
+			}
+		    }
+		}
+	    }
+	    $chcount = 0;
+	    if ($newword) {
+		foreach (keys(%{$chat_words{$newword}})) {
+    		    $chcount += $chat_words{$newword}{$_}[1];
+		}
+		debug(4, "$chcount choices for next to $newword\n");
 	    }
 	    my $try = int(rand()*($chcount))+1;
-	    foreach(sort {$a cmp $b} keys(%choices)) {
-    		$try -= $choices{$_};
+	    foreach(sort {$a cmp $b} keys(%{$chat_words{$newword}})) {
+    		$try -= $chat_words{$newword}{$_}[1];
     		if ($try <= 0) {
+		    debug(4, "Selected $_ to follow $newword\n");
     		    $newword = $_;
-    		    if($newword =~ /^__([\!\?])?BEGIN$/) {
-        			if ($1) {
-        			    $punc = $1;
-        			    debug(3, "Using '$1' from __BEGIN\n");
-        			}
-    		    } elsif($newword =~ /^__([\!\?])?END$/) {
-        			if ($1 && !$punc) {
-        			    $punc = $1;
-        			    debug(3, "Using '$1' from __END\n");
-        			}
+    		    if($newword =~ /^__([\!\?])?END$/) {
+			if ($1 && !$punc) {
+			    $punc = $1;
+			    debug(3, "Using '$1' from __END\n");
+			}
     		    } else {
-        			$return .= $newword . " ";
+			$return .= $newword . " ";
     		    }
     		    last;
     		}
-        }
+	    }
 	    if ($try > 0) {
     		$newword = "__END";
     		&debug(1, "Database problem!  Hit a dead end in \"$return\"...\n");
 	    }
 	} # ENDS while
 
-    if($middleword) {
-        $newword = $middleword;
-        while ($newword !~ /^__[\!\?]?BEGIN$/) {
-    	    my %choices = ();
-    	    my $chcount = 0;
-    	    foreach (keys(%chat_words)) {
-        		if (/^(.*)-\>\Q$newword\E$/) {
-        		    $choices{$1} = $chat_words{$_};
-        		    $chcount += $chat_words{$_};
-        		}
-    	    }
-    	    my $try = int(rand()*($chcount))+1;
-    	    foreach(sort {$a cmp $b} keys(%choices)) {
-        		$try -= $choices{$_};
-        		if ($try <= 0) {
-        		    $newword = $_;
-        		    if($newword =~ /^__([\!\?])?BEGIN$/) {
-            			if ($1) {
-            			    $punc = $1;
-            			    debug(3, "Using '$1' from __BEGIN\n");
-            			}
-        		    } else {
-            			$return = $newword . " " . $return;
-        		    }
-        		    last;
-        		}
-            }
-    	    if ($try > 0) {
-        		$newword = "__BEGIN";
-        		&debug(1, "Database problem!  Hit a dead beginning in \"$return\"...\n");
-    	    }
-    	} # ENDS while
+	if($middleword) {
+	    $newword = $middleword;
+	    while ($newword !~ /^__[\!\?]?BEGIN$/) {
+		my $chcount = 0;
+		foreach (keys(%{$chat_words{$newword}})) {
+		    $chcount += $chat_words{$newword}{$_}[0];
+		    debug(4, "$chcount choices for next to $newword\n");
+		}
+		my $try = int(rand()*($chcount))+1;
+		foreach(sort {$a cmp $b} keys(%{$chat_words{$newword}})) {
+		    $try -= $chat_words{$newword}{$_}[0];
+		    if ($try <= 0) {
+			debug(4, "Selected $_ to follow $newword\n");
+			$newword = $_;
+			if($newword =~ /^__([\!\?])?BEGIN$/) {
+			    if ($1) {
+				$punc = $1;
+				debug(3, "Using '$1' from __BEGIN\n");
+			    }
+			} else {
+			    $return = $newword . " " . $return;
+			}
+			last;
+		    }
+		}
+		if ($try > 0) {
+		    $newword = "__BEGIN";
+		    &debug(1, "Database problem!  Hit a dead beginning in \"$return\"...\n");
+		}
+	    } # ENDS while
 	}
 	$return =~ s/\s+$//;
 	$return = uc(substr($return, 0,1)) . substr($return, 1) . ($punc ne "" ? $punc : ".");
 	$return =~ s/\bi(\b|\')/I$1/g;
 	if ($exsenpct && int(rand()*(100/$exsenpct)) == 0) {
 	    &debug(3, "Adding another sentence...\n");
-	    $return .= "__NEW__" . &buildreply(@sentence);
+	    $return .= "__NEW__" . &buildreply("");
 	}
 	return $return;
     } else {
@@ -691,7 +702,7 @@ sub buildreply {
     }
 }
 
-# find_interesting_word: Finds a word to base a sentence off
+# FIND_INTERESTING_WORD: Finds a word to base a sentence off
 sub find_interesting_word {
     my $curWordScore, $curTableWordA, $curTableWordB, $highestScoreWord,
         $highestScore, $wordFound, $curWord, $curTableKey;
@@ -701,37 +712,20 @@ sub find_interesting_word {
         $curWord = lc($curWord);
         $curWord =~ s/[,\.\?\!\:]*$//;
         if(length($curWord) <= 3
+	   || !defined $chat_words{$curWord}
            || $curWord =~ /^($chosen_nick|$alttag|$nickname)$/i) {
             next;
         }
-        $wordFound = 0;
         $curWordScore = 5000;
-        foreach $curTableKey (keys(%chat_words)) {
-            $curTableKey =~ m/^(.*)-\>(.*)$/;
-            ($curTableWordA, $curTableWordB) = ($1,$2);
-            
-            if($curTableWordA eq $curWord) {
-                $wordFound = 1;
-                if($curTableWordB =~ /__[\.\?\!]?END$/) {
-                    $curWordScore -=
-                        1.8 * $chat_words{"$curTableWordA->$curTableWordB"};
-                } else {
-                    $curWordScore -= $chat_words{"$curTableWordA->$curTableWordB"};
-                }
-            } elsif($curTableWordB eq $curWord) {
-                $wordFound = 1;
-                if($curTableWordA =~ /__[\.\?\!]?BEGIN$/) {
-                    $curWordScore -=
-                        1.8 * $chat_words{"$curTableWordA->$curTableWordB"};
-                } else {
-                    $curWordScore -= $chat_words{"$curTableWordA->$curTableWordB"};
-                }
+	foreach $nextWord (keys(%{$chat_words{$curWord}})) {
+	    if($nextWord =~ /__[\.\?\!]?(END|BEGIN)$/) {
+		$curWordScore -= 1.8 * $chat_words{$curWord}{$nextWord}[1];
+		$curWordScore -= 1.8 * $chat_words{$curWord}{$nextWord}[0];
+	    } else {
+		$curWordScore -= $chat_words{$curWord}{$nextWord}[1];
             }
         }
         $curWordScore += .7 * length($curWord);
-        if(!$wordFound) {
-            $curWordScore = -1;
-        }
         debug(3, "$curWord:$curWordScore ");
         if($curWordScore > $highestScore) {
             $highestScore = $curWordScore;
