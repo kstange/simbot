@@ -471,6 +471,8 @@ sub roll_dice {
     }
     if($numDice == 0) {
         $kernel->post(bot => privmsg => $channel, "$nick: I can't roll zero dice!");
+    } elsif($numDice > 100) {
+        $kernel->post(bot => ctcp => $channel, 'action', "drops $numDice ${numSides}-sided dice on the floor, trying to roll them for ${nick}.");
     } elsif($numSides == 0) {
         $kernel->post(bot => ctcp => $channel, 'action', "rolls $numDice zero-sided " . (($numDice==1) ? 'die' : 'dice') . " for ${nick}: " . (($numDice==1) ? "it doesn't" : "they don't") . ' land, having no sides to land on.');
     } else {
