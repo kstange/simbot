@@ -2,13 +2,18 @@
 #  SimBot Configuration File
 # =============================================================================
 
-# You should edit this file to contain the correct settings for your bot.
-# You may need to edit simbot.pl if the path to perl is not correct for your
-# configuration, but no other options there should need to be changed.
+# The config.default.pl file should be copied to config.pl when you first
+# set up the bot.  You should edit config.pl to contain the desired
+# configuration settings for your bot.  You should not need to edit simbot.pl
+# unless the path to perl is not correct for your system.
 
-# This is the path to the rules database here.  In most cases the default is
-# fine, which is to put a rules.db file in the current directory.
+# This file is called config.default.pl so that you can download and dump a
+# new version with a clean config template into the same directory without
+# overwriting your existing configuration, while still giving you the chance
+# to see if someone stuck anything new and/or useful in here.
 
+# This is the path to the rules database we will use.  In most cases the
+# default, which is to put a rules.db file in the current directory, is fine.
 $rulefile = "./rules.db";
 
 # This is an array of servers you want the bot to try.  It will select a
@@ -66,16 +71,13 @@ $exsenpct = "10";
 # the form of single-word precompiled regular expressions.  You can add
 # whole words in quotes to this list as well.
 @chat_ignore = (
-		qr/fu+ck/,
+		qr/(ph|f)u+ck/,
 		qr/shi+t/,
-		qr/^bullshit/,
-		qr/^motherfuck/,
 		qr/^dick/,
 		qr/^clit/,
 		qr/^cock/,
 		qr/^penis/,
 		qr/^penes/,
-		qr/^alt.binaries/,
 		qr/^tits/,
 		qr/goatse/,
 		qr/tubgirl/,
@@ -89,13 +91,12 @@ $exsenpct = "10";
 		qr/^ftp\/\//,
 		qr/^cum$/,
 		qr/^sodom/,
-		qr/^ass\w+/,
 		qr/^titf/,
 		qr/nigg/,
 		qr/niqq/,
-		qr/fux/,
+		qr/(ph|f)ux/,
 		qr/ghe[iy]/,
-		qr/^fag/,
+		qr/^(ph|f)ag/,
 		qr/^nigs?$/,
 		);
 
