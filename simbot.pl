@@ -39,75 +39,13 @@ use warnings;
 use strict;
 no strict 'refs';
 
-use vars qw( %conf %chat_words $chosen_nick $chosen_server $POE_SESSION
-			 $alarm_sched_60 );
-
-# Load the configuration file into memory.
-open(CONFIG, "./config.ini") || die("Your configuration file (config.ini) is missing.  Make sure you copied and\ncustomized the config.default.ini file.");
-my $section;
-foreach (<CONFIG>) {
-	chomp;
-	if (m/^#|^\s*$/) {
-	} elsif (m/^\[(.*)\]$/) {
-		debug(4, "Begin config section $1.\n");
-		$section = $1;
-	} elsif (m/^(.*?)=(.*)$/) {
-		if ($section eq "filters") {
-			if ($1 eq "match") {
-				push(@{$conf{'filters'}}, qr/$2/i);
-				debug(4, "$section: loaded match filter for $2\n");
-			} elsif ($1 eq "word") {
-				push(@{$conf{'filters'}}, qr/(^|\b)\Q$2\E(\b|$)/i);
-				debug(4, "$section: loaded word filter for $2\n");
-			} else {
-				debug(4, "$section: saw unknown filter type $1\n");
-			}
-		} else {
-			push(@{$conf{$section}{$1}}, "$2");
-			debug(4, "$section: loaded option $1 as $2\n");
-		}
-	}
-	}
-undef $section;
-close(CONFIG);
-
-# Check some config options or bail out!
-die("Your configuration is lacking an IRC server to connect to") unless option_list('network', 'server');
-die("Your configuration is lacking a channel to join") unless option('network', 'channel');
-die("Your configuration is lacking a valid default nickname") unless option('global', 'nickname');
-die("Your configuration has an extra sentence % >= 100%") unless option('chat', 'new_sentence_chance') < 100;
-die("Your configuration has no rulefile to load") unless option('global', 'rules');
-
-# We set sane defaults for some options if necessary.
-if (!option('global', 'command_prefix')) {
-	$conf{'global'}{'command_prefix'}[0] = '%';
-	debug(2, "global/command_prefix missing from config. Using '%'.\n");
-}
-if (!option('chat', 'new_sentence_chance')) {
-	$conf{'chat'}{'new_sentence_chance'}[0] = 0;
-	debug(2, "chat/new_sentence_chance missing from config. Using 0 (off).\n");
-}
-if (!option('chat', 'delete_usage_max')) {
-	$conf{'chat'}{'delete_usage_max'}[0] = -1;
-	debug(2, "chat/delete_usage_max missing from config. Using -1 (off).\n");
-}
-if (!option('network', 'username')) {
-	$conf{'network'}{'username'}[0] = 'nobody';
-	debug(2, "network/username missing from config. Using 'nobody'.\n");
-}
-
-# Once we know the gender, is it his or her (or its)?
-if(option('global', 'gender') eq 'M') {
-    our $hisher = 'his';
-} elsif (option('global', 'gender') eq 'F') {
-    our $hisher = 'her';
-} else {
-    our $hisher = 'its';
-}
-
 # ****************************************
 # *********** Random Variables ***********
 # ****************************************
+
+# Variables we want to use without an explicit package name
+use vars qw( %conf %chat_words $chosen_nick $chosen_server $alarm_sched_60
+			 %plugin_desc );
 
 # Error Descriptions
 use constant ERROR_DESCRIPTIONS
@@ -127,6 +65,18 @@ use constant VERSION => "6.0 alpha";
 # ************ Start of Script ***********
 # ****************************************
 
+&debug(0, "SimBot " . VERSION . "\n\n");
+
+# Load the configuration file.
+&load_config;
+
+# Check some config options or bail out!
+die("Your configuration is lacking an IRC server to connect to") unless option_list('network', 'server');
+die("Your configuration is lacking a channel to join") unless option('network', 'channel');
+die("Your configuration is lacking a valid default nickname") unless option('global', 'nickname');
+die("Your configuration has an extra sentence % >= 100%") unless option('chat', 'new_sentence_chance') < 100;
+die("Your configuration has no rulefile to load") unless option('global', 'rules');
+
 # We want to catch signals to make sure we clean up and save if the
 # system wants to kill us.  We'll use POE to deal with some of these
 # for us.
@@ -134,18 +84,7 @@ $SIG{'USR1'} = 'SimBot::restart';
 $SIG{'USR2'} = 'SimBot::reload';
 
 # These are intializations of the hash tables we'll be using for
-# callbacks and plugin information.  We'll initialize the built-in
-# plugins here, since there's no need to do registration checks.
-
-# This provides the descriptions of plugins.  If a plugin has no
-# defined description, it is "hidden" and will not appear in help.
-our %plugin_desc = (
-					"snooze",  "Specify 'on' to switch to snooze mode which prevents recording and responding to chat. Commands are still processed and plugins may still respond if they are not designed to handle snooze.",
-					"stats",   "Shows useless stats about the database.",
-					"help",    "Shows this message.",
-					);
-
-# These are the events you can currently attach to.
+# callbacks and plugin information.
 
 ### Plugin Events ###
 # Plugin events get params:
@@ -155,21 +94,11 @@ our %event_plugin_reload   = ();
 our %event_plugin_unload   = ();
 # Call event gets params:
 #  (kernel, from, channel, command string)
-our %event_plugin_call     = (
-						  "snooze",  \&set_snooze,
-						  "stats",   \&print_stats,
-						  "help",    \&print_help,
-						  );
+our %event_plugin_call     = ();
 
 # Bot addressing gets params:
 #  (kernel, from, channel, text string)
 our %event_bot_addressed   = ();
-
-# Register the delete plugin only if the option is enabled
-if(option('chat', 'delete_usage_max') != -1) {
-	$event_plugin_call{"delete"} = \&delete_words;
-	$plugin_desc{"delete"} = "Erases a word that has been previously learned.";
-}
 
 ### Channel Events ###
 # Channel events get params:
@@ -240,6 +169,38 @@ our %commands = (
 				 # topic (kernel, channel, new topic)
 				 topic =>   \&irc_ops_topic,
 				 );
+
+# This provides the descriptions of plugins.  If a plugin has no
+# defined description, it is "hidden" and will not appear in help.
+&debug(4, "Registering internal plugins... \n");
+
+&plugin_register(plugin_id   => "snooze",
+				 plugin_desc => "Toggles snooze mode which prevents recording"
+				 . "and responding to chat. Commands are still processed.",
+
+				 event_plugin_call     => \&set_snooze,
+				 );
+
+&plugin_register(plugin_id   => "stats",
+				 plugin_desc => "Shows useless stats about the database.",
+
+				 event_plugin_call     => \&print_stats,
+				 );
+
+&plugin_register(plugin_id   => "help",
+				 plugin_desc => "Shows this information.",
+
+				 event_plugin_call     => \&print_stats,
+				 );
+
+# Register the delete plugin only if the option is enabled
+if(option('chat', 'delete_usage_max') != -1) {
+	&plugin_register(plugin_id   => "delete",
+					 plugin_desc => "Erases a word that has been previously learned.",
+
+					 event_plugin_call     => \&delete_words,
+					 );
+}
 
 # Now that we've initialized the callback tables, let's load
 # all the plugins that we can from the plugins directory.
@@ -613,6 +574,72 @@ sub save {
     $items = 0;
 }
 
+# LOAD_CONFIG: Load the configuration data into %conf.
+sub load_config {
+	debug(3, "Loading configuration file...\n");
+	if (open(CONFIG, "./config.ini")) {
+		my $section;
+		foreach (<CONFIG>) {
+			chomp;
+			if (m/^#|^\s*$/) {
+			} elsif (m/^\[(.*)\]$/) {
+				debug(4, "Begin config section $1.\n");
+				$section = $1;
+			} elsif (m/^(.*?)=(.*)$/) {
+				if ($section eq "filters") {
+					if ($1 eq "match") {
+						push(@{$conf{'filters'}}, qr/$2/i);
+						debug(4, "$section: loaded match filter for $2\n");
+					} elsif ($1 eq "word") {
+						push(@{$conf{'filters'}}, qr/(^|\b)\Q$2\E(\b|$)/i);
+						debug(4, "$section: loaded word filter for $2\n");
+					} else {
+						debug(4, "$section: saw unknown filter type $1\n");
+					}
+				} else {
+					push(@{$conf{$section}{$1}}, "$2");
+					debug(4, "$section: loaded option $1 as $2\n");
+				}
+			}
+		}
+		undef $section;
+		close(CONFIG);
+
+		# Set sane defaults for options that might have been omitted
+		if (!option('global', 'command_prefix')) {
+			$conf{'global'}{'command_prefix'}[0] = '%';
+			debug(2, "global/command_prefix missing from config. Using '%'.\n");
+		}
+		if (!option('chat', 'new_sentence_chance')) {
+			$conf{'chat'}{'new_sentence_chance'}[0] = 0;
+			debug(2, "chat/new_sentence_chance missing from config. Using 0 (off).\n");
+		}
+		if (!option('chat', 'delete_usage_max')) {
+			$conf{'chat'}{'delete_usage_max'}[0] = -1;
+			debug(2, "chat/delete_usage_max missing from config. Using -1 (off).\n");
+		}
+		if (!option('network', 'username')) {
+			$conf{'network'}{'username'}[0] = 'nobody';
+			debug(2, "network/username missing from config. Using 'nobody'.\n");
+		}
+
+		# Once we know the gender, is it his or her (or its)?
+		if(option('global', 'gender') eq 'M') {
+			our $hisher = 'his';
+		} elsif (option('global', 'gender') eq 'F') {
+			our $hisher = 'her';
+		} else {
+			our $hisher = 'its';
+		}
+		debug(3, "Configuration file loaded successfully!\n");
+
+	} else {
+		 die("\nYour configuration file (config.ini) is missing or unreadable."
+			 . "\nMake sure you copied and customized the config.default.ini");
+	 }
+
+}
+
 # ########### PLUGIN OPERATIONS ############
 
 # PLUGIN_REGISTER: Registers a plugin (or doesn't).
@@ -712,12 +739,13 @@ sub print_help {
 
 # PRINT_STATS: Prints some useless stats about the bot to the channel.
 sub print_stats {
+    my $nick = $_[1];
     my $channel = $_[2];
     my (@ldeadwords, @rdeadwords) = ();
     my ($message, $wordpop);
     my ($lfound, $lcount, $rfound, $rcount, $wordpopcount) = (0, 0, 0, 0, 0);
 
-    &debug(3, "Received stats command from a user.\n");
+    &debug(3, "Received stats command from " . $nick . ".\n");
     my $count = keys(%chat_words);
     my $begins = keys(%{$chat_words{'__BEGIN'}}) + keys(%{$chat_words{'__!BEGIN'}}) + keys(%{$chat_words{'__?BEGIN'}});
     my $ends = keys(%{$chat_words{'__END'}}) + keys(%{$chat_words{'__!END'}}) + keys(%{$chat_words{'__?END'}});
@@ -1701,7 +1729,7 @@ sub pick_new_nick {
 }
 
 $kernel->run();
-&debug(3, "Exited event loop!\n");
+&debug(4, "Exited event loop!\n");
 &save;
 if ($terminating == 2) {
     &debug(3, "Restarting script...\n");
