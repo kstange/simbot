@@ -187,7 +187,7 @@ sub got_response {
         close(OUT);
     
         if($announce_feed{$curFeed}) {
-        
+
             $rss->parsefile("caches/${curFeed}.xml");
         
             foreach my $item (@{$rss->{'items'}}) {
@@ -208,7 +208,11 @@ sub got_response {
             $mostRecentPost{$curFeed} = $rss->{'items'}->[0]->{'link'};
         
             if(@newPosts) {
-                &SimBot::send_message(CHANNEL, "$rss->{'channel'}->{'title'} has been updated! Here's what's new:");
+                $title = $rss->{'channel'}->{'title'};
+                if($title =~ m/Slashdot Journals/) {
+                    $title = $rss->{'channel'}->{'description'};
+                }
+                &SimBot::send_message(CHANNEL, "$title has been updated! Here's what's new:");
                 foreach(@newPosts) {
                     &SimBot::send_message(CHANNEL, $_);
                 }
@@ -225,9 +229,14 @@ sub latest_headlines {
     my ($item, $title, $link);
     my $rss = new XML::RSS;
     
-    if($feeds{$feed}) {
+    if(defined $feeds{$feed}) {
         $rss->parsefile("caches/${feed}.xml");
-        &SimBot::send_message($channel, "$nick: Here are the latest $rss->{'channel'}->{'title'} posts.");
+        $title = $rss->{'channel'}->{'title'};
+        if($title =~ m/Slashdot Journals/) {
+            $title = $rss->{'channel'}->{'description'};
+        }
+        &SimBot::send_message($channel,
+                        "$nick: Here are the latest posts to $title:");
 #        foreach my $item (@{$rss->{'items'}}) {
         for(my $i=0;
             $i <= ($#{$rss->{'items'}} < 2 ? $#{$rss->{'items'}} : 2);
@@ -249,7 +258,7 @@ sub latest_headlines {
             . ($feed ? "I have no feed $feed."
                      : "What feed what do you want latest posts from?")
             . ' Try one of:';
-        foreach(keys %feeds) {
+        foreach(sort keys %feeds) {
             $message .= " $_";
         }
         &SimBot::send_message($channel, $message);
