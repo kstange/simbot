@@ -1,5 +1,6 @@
-Version 6.0 alpha: (CVS)
+Version 6.0 alpha: (04 Dec 2003)
 	* added: support for %weather via Geo::METAR (Pete Pearson)
+	* added: google search via %find now turns itself off without LWP
 	* added: you can now add "plugins" inside simbot.pl, a feature which
 	  will be split out later
 	* added: extended number of verbose levels to 4 for crazy output
