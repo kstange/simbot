@@ -37,12 +37,12 @@ sub services_login {
 	my $pass = &SimBot::option('services', 'pass');
 
     if (defined $nick) {
-	&SimBot::debug(3, "Setting masked user mode...\n");
-	$kernel->post(bot => mode => $nick, "+x");
+		&SimBot::debug(3, "Setting masked user mode...\n");
+		$kernel->post(bot => mode => $nick, "+x");
     }
     if ($pass && $user) {
-	&SimBot::debug(3, "Logging into Channel Service as $user...\n");
-	&SimBot::send_message("x\@channels.undernet.org", "login $user $pass");
+		&SimBot::debug(3, "Logging into Channel Service as $user...\n");
+		&SimBot::send_message("x\@channels.undernet.org", "login $user $pass");
     }
 }
 
@@ -51,32 +51,32 @@ sub services_login {
 sub check_response {
     my ($kernel, $nick, undef, $text) = @_;
     if ($nick eq "X") {
-	if ($text =~ /AUTHENTICATION SUCCESSFUL as /) {
-	    &SimBot::debug(3, "Channel Service reports successful login.\n");
-	    $logged_in = 1;
-	    $x_online = 1;
-	    if ($locked_out) {
-		&request_invite($kernel, undef, &SimBot::option('network', 'channel'));
-	    }
-	    if ($shut_up) {
-		&request_voice($kernel, undef, &SimBot::option('network', 'channel'));
-	    }
-	} elsif ($text =~ /AUTHENTICATION FAILED as /) {
-	    &SimBot::debug(2, "Channel Service reports login failure.\n");
-	    $logged_in = 0;
-	    $x_online = 1;
-	} elsif ($text =~ /Sorry, You are already authenticated as /) {
-	    &SimBot::debug(2, "Channel Service reports already logged in.\n");
-	    $logged_in = 1;
-	    $x_online = 1;
-	} elsif ($text =~ /Sorry, You must be logged in to /) {
-	    &SimBot::debug(2, "Channel Service reports not yet logged in.\n");
-	    $logged_in = 0;
-	    $x_online = 1;
-	    &services_login($kernel);
-	} else {
-	    &SimBot::debug(4, "Channel Service message: $text\n");
-	}
+		if ($text =~ /AUTHENTICATION SUCCESSFUL as /) {
+			&SimBot::debug(3, "Channel Service reports successful login.\n");
+			$logged_in = 1;
+			$x_online = 1;
+			if ($locked_out) {
+				&request_invite($kernel, undef, &SimBot::option('network', 'channel'));
+			}
+			if ($shut_up) {
+				&request_voice($kernel, undef, &SimBot::option('network', 'channel'));
+			}
+		} elsif ($text =~ /AUTHENTICATION FAILED as /) {
+			&SimBot::debug(2, "Channel Service reports login failure.\n");
+			$logged_in = 0;
+			$x_online = 1;
+		} elsif ($text =~ /Sorry, You are already authenticated as /) {
+			&SimBot::debug(2, "Channel Service reports already logged in.\n");
+			$logged_in = 1;
+			$x_online = 1;
+		} elsif ($text =~ /Sorry, You must be logged in to /) {
+			&SimBot::debug(2, "Channel Service reports not yet logged in.\n");
+			$logged_in = 0;
+			$x_online = 1;
+			&services_login($kernel);
+		} else {
+			&SimBot::debug(4, "Channel Service message: $text\n");
+		}
     }
 }
 
@@ -85,28 +85,28 @@ sub check_response {
 sub request_invite {
     my ($kernel, undef, $channel) = @_;
     if (&SimBot::option('services', 'pass')) {
-	$locked_out = 1;
-	if($x_online && $logged_in) {
-	    &SimBot::debug(2, "Could not join.  Asking for invitation to $channel...\n");
-	    &SimBot::send_message("x", "invite $channel");
-	} elsif ($x_online) {
-	    &services_login($kernel);
+		$locked_out = 1;
+		if($x_online && $logged_in) {
+			&SimBot::debug(2, "Could not join.  Asking for invitation to $channel...\n");
+			&SimBot::send_message("x", "invite $channel");
+		} elsif ($x_online) {
+			&services_login($kernel);
+		}
 	}
-    }
 }
 
 # REQUEST_VOICE: If the bot was not able to speak, request a voice from X.
 sub request_voice {
     my ($kernel, undef, $channel) = @_;
     if (&SimBot::option('services', 'pass')) {
-	$shut_up = 1;
-	if($x_online && $logged_in) {
-	    &SimBot::debug(2, "Could not speak.  Asking for voice on $channel...\n");
-	    &SimBot::send_message("x", "voice $channel");
-	    $shut_up = 0;
-	} elsif ($x_online) {
-	    &services_login($kernel);
-	}
+		$shut_up = 1;
+		if($x_online && $logged_in) {
+			&SimBot::debug(2, "Could not speak.  Asking for voice on $channel...\n");
+			&SimBot::send_message("x", "voice $channel");
+			$shut_up = 0;
+		} elsif ($x_online) {
+			&services_login($kernel);
+		}
     }
 }
 
@@ -123,14 +123,20 @@ sub process_notify {
     my ($kernel, undef, undef, @nicks) = @_;
     my $found = 0;
     foreach(@nicks) {
-	if($_ eq "X") {
-	    $found = 1;
-	}
+		if($_ eq "X") {
+			$found = 1;
+		}
     }
     if ((!$x_online || $locked_out || $shut_up) && $found) {
-	&services_login($kernel);
+		&services_login($kernel);
     }
     $x_online = $found;
+}
+
+sub kick_user {
+    my (undef, $channel, $user, $message) = @_;
+	&SimBot::debug(3, "Asking Channel Service to kick $user from $channel ($message)...\n");
+	&SimBot::send_message("x", "kick $channel $user $message");
 }
 
 # Register Plugin
@@ -144,3 +150,7 @@ sub process_notify {
 
 						 list_nicks_ison       => "X",
 			);
+
+# Override Default Command Operations
+$SimBot::commands{kick} = \&kick_user;
+

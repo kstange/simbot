@@ -217,6 +217,30 @@ our @list_nicks_ison       = (
 							  option('global', 'nickname'),
 							  );
 
+### Stock IRC Operations ###
+# Your services plugin will probably want to override these, however
+# if you do, it might not be a terrible idea to grab the original
+# reference and call that if you still want to use the standard IRC
+# functionality in your routine.
+our %commands = (
+				 # kick (kernel, channel, user, message)
+				 kick =>    \&irc_ops_kick,
+				 # ban (kernel, channel, user, time (secs), message)
+				 ban =>     \&irc_ops_ban,
+				 # unban (kernel, channel, user)
+				 unban =>   \&irc_ops_unban,
+				 # op (kernel, channel, user)
+				 op =>      \&irc_ops_op,
+				 # deop (kernel, channel, user)
+				 deop =>    \&irc_ops_deop,
+				 # voice (kernel, channel, user)
+				 voice =>   \&irc_ops_voice,
+				 # devoice (kernel, channel, user)
+				 devoice => \&irc_ops_devoice,
+				 # topic (kernel, channel, new topic)
+				 topic =>   \&irc_ops_topic,
+				 );
+
 # Now that we've initialized the callback tables, let's load
 # all the plugins that we can from the plugins directory.
 opendir(DIR, "./plugins");
@@ -321,10 +345,14 @@ sub pick {
 # HOSTMASK: Generates a 'type 3' hostmask from a nick!user@host address
 sub hostmask {
     my ($nick, $user, $host) = split(/[@!]/, $_);
-    if ($host =~ /(\d{1,3}\.){3}\d{1,3}/) {
+	if (!defined $user && !defined $host) {
+		# XXX: we need to try to lookup the user's hostmask here
+		$user = "*";
+		$host = "*";
+	} elsif ($host =~ /(\d{1,3}\.){3}\d{1,3}/) {
 		$host =~ s/(\.\d{1,3}){2}$/\.\*/;
     } else {
-		$host =~ /^(.*)(\.\w*?\.[\w\.]{3,5})$/;
+		$host =~ /^(.*)(\.\w*?\.[\w\.]{3,6})$/;
 		$host = "*$2";
     }
     $user =~ s/^~?/*/;
@@ -434,6 +462,72 @@ sub reload {
     foreach(keys(%event_plugin_reload)) {
 		&plugin_callback($_, $event_plugin_reload{$_});
     }
+}
+
+# ############ IRC OPERATIONS ############
+
+# These are the functions that a plugin should call to run an IRC operation.
+# The kernel does not need to be passed to these functions
+sub send_kick    { &{$commands{kick}}   ($kernel, @_); }
+sub send_ban     { &{$commands{ban}}    ($kernel, @_); }
+sub send_unban   { &{$commands{unban}}  ($kernel, @_); }
+sub send_op      { &{$commands{op}}     ($kernel, @_); }
+sub send_deop    { &{$commands{deop}}   ($kernel, @_); }
+sub send_voice   { &{$commands{voice}}  ($kernel, @_); }
+sub send_devoice { &{$commands{devoice}}($kernel, @_); }
+sub send_topic   { &{$commands{topic}}  ($kernel, @_); }
+
+sub irc_ops_kick {
+	my ($kernel, $channel, $user, $message) = @_;
+	debug(3, "Irc Ops: attempting to kick $user from $channel ($message)\n");
+	$kernel->post(bot => kick => $channel, $user, $message);
+}
+
+sub irc_ops_ban {
+	my ($kernel, $channel, $user, $time, $message) = @_;
+	debug(3, "Irc Ops: attempting to ban $user from $channel ($message)"
+		  . ($time > 0 ? " for $time seconds" : "") . "\n");
+	$kernel->post(bot => mode => $channel, "+b", hostmask($user));
+	send_kick($channel, $user, $message);
+	if ($time > 0) {
+		$kernel->delay('irc_ops_unban', $time, $channel, hostmask($user));
+	}
+}
+
+sub irc_ops_unban {
+	my ($kernel, $channel, $user) = @_;
+	debug(3, "Irc Ops: attempting to unban $user from $channel\n");
+	$kernel->post(bot => mode => $channel, "-b", hostmask($user));
+}
+
+sub irc_ops_op {
+	my ($kernel, $channel, $user) = @_;
+	debug(3, "Irc Ops: attempting to op $user on $channel\n");
+	$kernel->post(bot => mode => $channel, "+o", $user);
+}
+
+sub irc_ops_deop {
+	my ($kernel, $channel, $user) = @_;
+	debug(3, "Irc Ops: attempting to deop $user on $channel\n");
+	$kernel->post(bot => mode => $channel, "-o", $user);
+}
+
+sub irc_ops_voice {
+	my ($kernel, $channel, $user) = @_;
+	debug(3, "Irc Ops: attempting to voice $user on $channel\n");
+	$kernel->post(bot => mode => $channel, "+v", $user);
+}
+
+sub irc_ops_devoice {
+	my ($kernel, $channel, $user) = @_;
+	debug(3, "Irc Ops: attempting to devoice $user on $channel\n");
+	$kernel->post(bot => mode => $channel, "-v", $user);
+}
+
+sub irc_ops_topic {
+	my ($kernel, $channel, $topic) = @_;
+	debug(3, "Irc Ops: attempting to set the topic to $topic on $channel\n");
+	$kernel->post(bot => topic => $channel, $topic);
 }
 
 # ########### FILE OPERATIONS ############
