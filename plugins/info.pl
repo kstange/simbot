@@ -36,6 +36,8 @@
 #        and perhaps other statuses like locked.
 #   * Figure out how the heck we should handle deletions when there are
 #     multiple factoids
+#   * see other factoids, that cause simbot to return the factoid the
+#     factoid points to.
 #
 
 package SimBot::plugin::info;
@@ -44,7 +46,7 @@ use warnings;
 use strict;
 
 # Let's declare our globals.
-use vars qw( %isDB %areDB );
+use vars qw( %info );
 
 # These constants define the phrases simbot will use when responding
 # to queries.
@@ -89,24 +91,33 @@ use constant I_CANNOT => (    # used to respond to requests with bad words
     'I cannot do that, $nick.',
 );
 
+# these flags are used globally. Flags <= 128 are specific to the function
+use constant NO_RECURSE         => 512;
+use constant BEING_ADDRESSED    => 256;
+
 # these flags are used to tell handle_query stuff, also used when storing
 # factoids
-use constant PREFER_URL         => 128;
-use constant PREFER_DESC        => 64;
-use constant BEING_ADDRESSED    => 32;
+use constant PREFER_DESC        => 128;
+use constant PREFER_URL         => 64;
+#                               => 32;
 #                               => 16;
 #                               => 8;
 #                               => 4;
 #                               => 2;
 #                               => 1;
+
+# These flags are for factoids
+use constant FACT_ARE           => 128;
+use constant FACT_SEE_OTHER     => 64;
+use constant FACT_URL           => 32;
+use constant FACT_LOCKED        => 16;
  
 sub messup_info {
-    dbmopen(%isDB, 'is', 0664);
-    dbmopen(%areDB, 'are', 0664);
+    dbmopen(%info, 'info', 0664);
 }
 
 sub cleanup_info {
-    dbmclose(%isDB); dbmclose(%areDB);
+    dbmclose(%info);
 }
 
 ### handle_chat
@@ -149,15 +160,9 @@ sub handle_chat {
         # someone wants us to forget
         
         my($forgotten, $key) = (0, lc($1));
-        if($isDB{$key}) {
-            delete $isDB{$key};
-            $forgotten = 1;
-        }
-        if($areDB{$key}) {
-            delete $areDB{$key};
-            $forgotten = 1;
-        }
-        if($forgotten) {
+        if($info{$key}) {
+            delete $info{$key};
+            
             &SimBot::debug(3, "Forgot $key (req'd by $nick)\n");
             &SimBot::send_message($channel,
                 &parse_message(&SimBot::pick(OK_FORGOTTEN),
@@ -187,14 +192,21 @@ sub handle_chat {
     } elsif($content =~ m{([\'\w\s]+) is[\s\w]* (\w+://\S+)}i) {
         # looks like a URL to me!
         my ($key, $factoid) = (lc($1), $2);
-        $factoid = 'at ' . $factoid;
-        unless($isDB{$key}) {
-            $isDB{$key} = $factoid;
-            &report_learned($channel, $nick, $key, 'is', $factoid,
-                            $being_addressed);
+        
+        my $flags = FACT_URL;
+        if($being_addressed) { $flags |= BEING_ADDRESSED; }
+        
+        unless($info{$key}) {
+            $info{$key} = "$flags|$factoid";
+            &report_learned($channel, $nick, $key, $factoid, $flags);
         }
-    } elsif($content =~ m{([\'\w\s]+?) (is|are) ([\'\w\s]+)}i) {
-        my ($key, $isare, $factoid) = (lc($1), $2, $3);
+    } elsif($content =~ m{([\'\w\s]+?) (is|are) (aka )?([\'\w\s]+)}i) {
+        my ($key, $isare, $factoid) = (lc($1), $2, $4);
+        
+        my $flags=0;
+        if($3)                  { $flags |= FACT_SEE_OTHER;     }
+        if($isare =~ m/are/i)   { $flags |= FACT_ARE;           }
+        if($being_addressed)    { $flags |= BEING_ADDRESSED;    }
 
         foreach(@SimBot::chat_ignore) {
             if($content =~ /$_/) {
@@ -210,28 +222,21 @@ sub handle_chat {
             # Let's not learn it.
             return;
         }
-        if($isare =~ m/is/i) {
-            if($isDB{$key}) {
-                &SimBot::send_message($channel, 
-                    &parse_message(&SimBot::pick(BUT_X_IS_Y), $nick,
-                                   $key, 'is', $isDB{$key}))
-                    if $being_addressed;
-            } else {
-                $isDB{$key} = $factoid;
-                &report_learned($channel, $nick, $key, 'is', $factoid,
-                                $being_addressed);
-            }
+
+        if($info{$key}) {
+            my ($keyFlags, $oldFactoid) = split(/\|/, $info{$key}, 2);
+            
+            my $isare = 'is';
+            if   ($keyFlags & FACT_ARE)         { $isare = 'are';       }
+            elsif($keyFlags & FACT_SEE_OTHER)   { $isare = 'is aka';    }
+            
+            &SimBot::send_message($channel, 
+                &parse_message(&SimBot::pick(BUT_X_IS_Y), $nick,
+                               $key, $isare, $oldFactoid))
+                if $being_addressed;
         } else {
-            if($areDB{$key}) {
-                &SimBot::send_message($channel, 
-                    &parse_message(&SimBot::pick(BUT_X_IS_Y), $nick,
-                                   $key, 'are', $areDB{$key}))
-                    if $being_addressed;
-            } else {
-                $areDB{$key} = $factoid;
-                &report_learned($channel, $nick, $key, 'are', $factoid,
-                                $being_addressed);
-            }
+            $info{$key} = "$flags|$factoid";
+            &report_learned($channel, $nick, $key, $factoid, $flags);
         }
     } elsif($being_addressed && $content =~ m{^([\'\w\s]+)$}) {
         # KEEP THIS ELSIF LAST
@@ -253,8 +258,7 @@ sub handle_chat {
 #   nothing
 sub handle_query {
     my ($query, $nick, $channel, $addressed, $flags) = @_;
-    warn "$nick $query $flags $addressed";
-    
+        
     if($addressed && !($flags & BEING_ADDRESSED)) {
         # Someone's being referenced, and it isn't us.
         # We should keep quiet.
@@ -263,14 +267,24 @@ sub handle_query {
     }
     
     $query = lc($query);
-    if($isDB{$query}) {
+    if($info{$query}) {
+        my($factFlags, $factoid) = split(/\|/, $info{$query}, 2);
+        
+        my $isare = 'is';
+        if($factFlags & FACT_ARE)   { $isare = 'are'; }
+        
+        if($factFlags & FACT_SEE_OTHER
+           && !($factFlags & NO_RECURSE)) {
+            &handle_query($factoid, $nick, $channel, undef,
+                          $flags | NO_RECURSE);
+            return;
+        }
+        
+        if($factFlags & FACT_URL)   { $factoid = "at $factoid"; }
+        
         &SimBot::send_message($channel,
                     &parse_message(&SimBot::pick(QUERY_RESPONSE),
-                                   $nick, $query, 'is', $isDB{$query}));
-    } elsif($areDB{$query}) {
-        &SimBot::send_message($channel,
-                    &parse_message(&SimBot::pick(QUERY_RESPONSE),
-                                   $nick, $query, 'are', $areDB{$query}));
+                                   $nick, $query, $isare, $factoid));
     } elsif($flags & BEING_ADDRESSED) {
         # we're being addressed, but don't have an answer...
         &SimBot::send_message($channel,
@@ -287,18 +301,24 @@ sub handle_query {
 #   $channel:   channel the chat was in
 #   $nick:      nickname of the person speaking
 #   $key:       the key that was learned
-#   $isare:     'is' or 'are'
 #   $factoid:   the factoid that was learned
-#   $addressed: were we addressed with %info?
+#   $flags:     FACT_ARE, FACT_URL, FACT_SEE_OTHER, BEING_ADDRESSED
 # Returns:
 #   nothing
 sub report_learned {
-    my($channel, $nick, $key, $isare, $factoid, $addressed) = @_;
-    &SimBot::debug(3, "Learning from $nick: $key =$isare=> $factoid\n");
+    my($channel, $nick, $key, $factoid, $flags) = @_;
+    my $flagTxt;
+    
+    if   ($flags & FACT_ARE)        { $flagTxt =  '=are=>';         }
+    elsif($flags & FACT_SEE_OTHER)  { $flagTxt =  '=seeother=>';    }
+    else                            { $flagTxt =  '=is=>';          }
+    if   ($flags & FACT_URL)        { $flagTxt .= ' =url=';         }
+    
+    &SimBot::debug(3, "Learning from $nick: $key $flagTxt $factoid\n");
     &SimBot::send_message($channel,
         &parse_message(&SimBot::pick(OK_LEARNED), $nick)
-        . " ($key =$isare=> $factoid)")
-        if $addressed;
+        . " ($key $flagTxt $factoid)")
+        if ($flags & BEING_ADDRESSED);
 }
 
 ### parse_message
