@@ -1,6 +1,7 @@
 Version 6.0 alpha: (05 Dec 2003)
-        * added: seen support! Well, somewhat. %seen SomeLoser (Pete Pearson)
-        * added: dice! (Pete Pearson)
+	* added: seen support! Well, somewhat. %seen SomeLoser (Pete Pearson)
+	* added: dice! (Pete Pearson)
+	* added: debug output for notices from channel service
 
 Version 6.0 alpha: (04 Dec 2003)
 	* added: support for %weather via Geo::METAR (Pete Pearson)
