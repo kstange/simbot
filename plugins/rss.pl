@@ -6,7 +6,6 @@
 #   updates.
 #
 # REQUIRES:
-#   * Perl 5.8 or better (for Encode)
 #   * XML::RSS
 #   * LWP::UserAgent (you should have this already)
 #   * POE::Component::Client::HTTP
@@ -58,7 +57,6 @@ $feeds{'fark'}              = 'http://www.pluck.com/rss/fark.rss';
 $announce_feed{'fark'}      = 0;
 
 use constant CHANNEL => &SimBot::option('network', 'channel');
-use constant ENCODING => 'iso-8859-1';
 
 ### messup_rss
 # This runs when simbot loads. We need to make sure we know the
