@@ -1,3 +1,9 @@
+Version 6.0 alpha: (20 Feb 2004)
+	* plugins/dict.pl:
+	   - New plugin allows users to request definitions using the DICT
+	     protocol from several different databases.  At the moment, we
+	     are defaulting to use Jargon, but this could change.
+
 version 6.0 alpha: (19 Feb 2004)
 	* simbot.pl:
 	   - Introduced send_message, send_action, and send_notice to replace
