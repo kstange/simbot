@@ -484,29 +484,55 @@ sub access_log {
             $response .= " I first saw $statnick on $first_date,"
                 . " and most recently on $last_date.";
             
-            $tmp_query = $dbh->prepare_cached(
-                'SELECT count() FROM chatlog'
-                . ' WHERE channel_id = ?'
-                . ' AND source_nick_id = ?'
-            );
-            $tmp_query->execute($chan_id, $statnick_id);
-            my $line_count = ($tmp_query->fetchrow_array())[0];
-            $tmp_query->finish;
+#            $tmp_query = $dbh->prepare_cached(
+#                'SELECT count() FROM chatlog'
+#                . ' WHERE channel_id = ?'
+#                . ' AND source_nick_id = ?'
+#            );
+#            $tmp_query->execute($chan_id, $statnick_id);
+#            my $line_count = ($tmp_query->fetchrow_array())[0];
+#            $tmp_query->finish;
+#            
+#            push(@reply_has, "spoken $line_count times")
+#                if $line_count > 0;
             
-            push(@reply_has, "spoken $line_count times")
-                if $line_count > 0;
-            
-            $tmp_query = $dbh->prepare_cached(
+            my $target_query = $dbh->prepare_cached(
                 'SELECT count() FROM chatlog'
                 . ' WHERE channel_id = ?'
                 . ' AND target_nick_id = ?'
                 . ' AND event = ?'
             );
-            $tmp_query->execute($chan_id, $statnick_id, 'KICKED');
-            my $kick_count = ($tmp_query->fetchrow_array())[0];
-            $tmp_query->finish;
-            push(@reply_has, "been kicked $kick_count times")
-                if $kick_count > 0;
+            my $source_query = $dbh->prepare_cached(
+                'SELECT count() FROM chatlog'
+                . ' WHERE channel_id = ?'
+                . ' AND source_nick_id = ?'
+                . ' AND event = ?'
+            );
+            my $value;
+            $source_query->execute($chan_id, $statnick_id, 'SAY');
+            $value = ($source_query->fetchrow_array())[0];
+            push(@reply_has, "spoken $value lines")
+                if $value > 0;
+            
+            $source_query->execute($chan_id, $statnick_id, 'ACTION');
+            $value = ($source_query->fetchrow_array())[0];
+            push(@reply_has, "emoted $value times")
+                if $value > 0;
+            
+            $source_query->execute($chan_id, $statnick_id, 'TOPIC');
+            $value = ($source_query->fetchrow_array())[0];
+            push(@reply_has, "set the topic $value times")
+                if $value > 0;
+            
+            $source_query->execute($chan_id, $statnick_id, 'KICKED');
+            $value = ($source_query->fetchrow_array())[0];
+            push(@reply_has, "kicked others $value times")
+                if $value > 0;
+            
+            $target_query->execute($chan_id, $statnick_id, 'KICKED');
+            $value = ($target_query->fetchrow_array())[0];
+            push(@reply_has, "been kicked $value times")
+                if $value > 0;
             
             
             # join count ("I have seen JohnDoe 52 times, first on 
