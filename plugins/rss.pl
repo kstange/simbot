@@ -30,7 +30,7 @@
 #
 # TODO:
 #   * Switch to PoCo::Client::HTTP for the startup RSS fetch
-#   * Move feed option to config.ini file
+#   * Move feed options to config.ini file
 #   * Find a better way to detect new posts in feeds
 #
 
@@ -71,6 +71,9 @@ $feeds{'mironv'}            = 'http://www.mironv.com/blog/MironV_RSS.xml';
 $announce_feed{'mironv'}    = 1;
 
 use constant CHANNEL => &SimBot::option('network', 'channel');
+
+# This sets the style to use for feed titles; use undef for no style
+use constant FEED_TITLE_STYLE => '%green%';
 
 ### messup_rss
 # This runs when simbot loads. We need to make sure we know the
@@ -218,7 +221,9 @@ sub got_response {
                 if($title =~ m/Slashdot Journals/) {
                     $title = $rss->{'channel'}->{'description'};
                 }
-                &SimBot::send_message(CHANNEL, "$title has been updated! Here's what's new:");
+                &SimBot::send_message(CHANNEL,
+                    &SimBot::parse_style(&colorize_feed($title)
+                            . " has been updated! Here's what's new:"));
                 foreach(@newPosts) {
                     &SimBot::send_message(CHANNEL, $_);
                 }
@@ -241,8 +246,9 @@ sub latest_headlines {
         if($title =~ m/Slashdot Journals/) {
             $title = $rss->{'channel'}->{'description'};
         }
-        &SimBot::send_message($channel,
-                        "$nick: Here are the latest posts to $title:");
+        &SimBot::send_message($channel, &SimBot::parse_style(
+                        "$nick: Here are the latest posts to "
+                        . &colorize_feed($title) . ':'));
 #        foreach my $item (@{$rss->{'items'}}) {
         for(my $i=0;
             $i <= ($#{$rss->{'items'}} < 2 ? $#{$rss->{'items'}} : 2);
@@ -267,6 +273,15 @@ sub latest_headlines {
             $message .= " $_";
         }
         &SimBot::send_message($channel, $message);
+    }
+}
+
+sub colorize_feed {
+    my $feed = $_[0];
+    if(defined FEED_TITLE_STYLE) {
+        return FEED_TITLE_STYLE . $feed . '%normal%';
+    } else {
+        return $feed;
     }
 }
 
