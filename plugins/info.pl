@@ -34,6 +34,10 @@
 package SimBot::plugin::info;
 
 use warnings;
+use strict;
+
+# Let's declare our globals.
+use vars qw( %isDB %areDB );
 
 # These constants define the phrases simbot will use when responding
 # to queries.
@@ -91,10 +95,13 @@ sub cleanup_info {
 # appear to be queries or factoids and responds to and/or learns them
 #
 # Arugments:
+#   undef
 #   $nick:      nickname of the person speaking
 #   $channel:   channel the chat was in
+#   undef
 #   $content:   content of the message
-# Returns: nothing
+# Returns:
+#   nothing
 sub handle_chat {
     my(undef, $nick, $channel, undef, $content) = @_;
     my($person_being_referenced, $being_addressed, $is_query); 
@@ -211,7 +218,8 @@ sub handle_chat {
 #                  $channel:  channel the chat was in
 #   $person_being_addressed:  content of the message
 #          $being_addressed:  are we being addressed?
-# Returns: nothing
+# Returns:
+#   nothing
 sub handle_query {
     my ($query, $nick, $channel, $person_being_addressed, $being_addressed)
         = @_;
@@ -250,7 +258,8 @@ sub handle_query {
 #   $isare:     'is' or 'are'
 #   $factoid:   the factoid that was learned
 #   $addressed: were we addressed with %info?
-# Returns: nothing
+# Returns:
+#   nothing
 sub report_learned {
     my($channel, $nick, $key, $isare, $factoid, $addressed) = @_;
     &SimBot::debug(3, "Learning from $nick: $key =$isare=> $factoid\n");
@@ -261,8 +270,8 @@ sub report_learned {
 }
 
 ### parse_message
-# This method parses a string for certain variables, as well as for style
-# Used for all the messages sent to the channel.
+# This function parses a string for certain variables, as well as for
+# style tags. Used for all the messages sent to the channel.
 #
 # Arguments:
 #   $message:   the string we are working on
@@ -270,7 +279,9 @@ sub report_learned {
 #   $key:       the key of the factoid that was learned, or undef
 #   $isare:     'is', 'are', or undef
 #   $factoid:   the factoid that was learned, or undef
-# Returns: the parsed string
+# Returns:
+#   a string containing IRC color codes and completed variables
+#   this string <strong>should not</strong> be output to a console!
 sub parse_message {
     my ($message, $nick, $key, $isare, $factoid) = @_;
     
@@ -284,6 +295,17 @@ sub parse_message {
     return $message;
 }
 
+### munge_pronouns
+# This function looks through a string for pronouns (I, my, you're, your)
+# and expands them to the actual person (if known).
+#
+# Arguments:
+#   $content:   the string we are working on
+#   $nick:      the nickname that is speaking
+#   $person_being_referenced:   the person $nick is speaking to or undef
+#   $thirdperson: is $nick speaking in the third person? (IRC action?)
+# Returns:
+#   a string with expanded pronouns
 sub munge_pronouns {
     my ($content, $nick, $person_being_referenced, $thirdperson) = @_;
     
@@ -297,6 +319,14 @@ sub munge_pronouns {
     return $content;
 }
 
+### normalize_urls
+# This function looks through a string for things that might be URLs and
+# turns them into actual URLs.
+#
+# Arguments:
+#   $_[0]: The string we are working on
+# Returns:
+#   a string with expanded URLs
 sub normalize_urls {
     my @words = split(/\s+/, $_[0]);
     my $curWord;
