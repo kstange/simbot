@@ -128,10 +128,8 @@ use constant VERSION => "6.0 alpha";
 # ****************************************
 
 # We want to catch signals to make sure we clean up and save if the
-# system wants to kill us.
-#$SIG{'TERM'} = 'SimBot::quit';
-#$SIG{'INT'}  = 'SimBot::quit';
-#$SIG{'HUP'}  = 'SimBot::quit';
+# system wants to kill us.  We'll use POE to deal with some of these
+# for us.
 $SIG{'USR1'} = 'SimBot::restart';
 $SIG{'USR2'} = 'SimBot::reload';
 
@@ -289,6 +287,7 @@ POE::Session->new
 	  irc_ctcp_finger  => \&process_finger,
 	  irc_ctcp_ping    => \&process_ping,
 
+	  # These are our own custom events-- signs that we're using POE correctly.
 	  scheduler_60     => \&run_scheduler_60, # run events every 60 seconds
 	  cont_send_pieces => \&cont_send_pieces,
 	  quit_session     => \&quit_session,
@@ -571,7 +570,6 @@ sub print_help {
     &debug(3, "Received help command from " . $nick . ".\n");
     foreach(sort {$a cmp $b} keys(%plugin_desc)) {
         $message .= "${prefix}$_ - $plugin_desc{$_}\n";
-#		&send_message($nick, $prefix . $_ . " - " . $plugin_desc{$_});
     }
     chomp $message;
     &send_pieces($nick, undef, $message);
@@ -662,60 +660,89 @@ sub delete_words {
 sub build_records {
     my $action = ($_[1] ? $_[1] : "");
     my @sentence = split(/\s+/, $_[0]);
-    my ($sec) = localtime(time);
     $items++;
 
     my $tail = -1;
 
+	# Eat anything that looks like it might be a smiley at end of our line.
 	if (defined $sentence[$tail]) {
 		while ($sentence[$tail] =~ /^[:;=].*/) {
 			$tail--;
 		}
+		# Look for punctuation to be recorded.
 		$sentence[$tail] =~ /([\!\?])[^\!\?]*$/;
 	}
+
+	# Define the start and end tags such that we reflect the punctuation
+	# we found.
     my $startblock = "__" . ($1 ? $1 : "") . "BEGIN";
     my $endblock = "__END";
 
-    for(my $x=0; $x <= $#sentence; $x++) {
+	# Go through every word and sanitize the text so that we record as little
+	# junk as possible.
+	for(my $x=0; $x <= $#sentence; $x++) {
+		# Eat smileys. The second line tries to eat smileys with ='s for eyes.
 		$sentence[$x] =~ s/^[;:].*//;
 		$sentence[$x] =~ s/^=[^=]+//;
+
+		# Remove all characters that we don't like.  Right now we accept
+		# letters, numbers, international characters (ASCII), as well as:
+		# ', /, -, ., =, %, $, &, +, @
 		$sentence[$x] =~ s/[^\300-\377\w\'\/\-\.=\%\$&\+\@]*//g;
+		# Don't record dots that aren't inside a word.
 		$sentence[$x] =~ s#(^|\s)\.+|\.+(\s|$)##g;
+		# For the safety of everyone, we record in lowercase.
 		$sentence[$x] = lc($sentence[$x]);
+
+		# After all this, if we're short on letters, we can't record this.
 		if ("@sentence" !~ /[A-Za-z0-9\300-\377]/) {
 			&debug(2, "This line contained no discernable words: @sentence\n");
-			goto skiptosave;
+			goto skiptosave; # Oh my, a goto!
 		}
+
+		# If we match any of the filters defined by the user's config file,
+		# we're not going to record this line.
 		foreach (option_list('filters')) {
 			if ($sentence[$x] =~ /$_/) {
 				&debug(2, "Not recording this line: @sentence\n");
-				goto skiptosave;
+				goto skiptosave; # Oh my, a goto!
 			}
 		}
     }
 
+	# Lines of nothing but whitespace aren't worth trying to record.
     if ("@sentence" =~ /^\s*$/) {
 		&debug(2, "This line contained no discernable words: @sentence\n");
-		goto skiptosave;
+		goto skiptosave; # Oh my, a goto!
     }
+
+	# If this was an IRC action, we want to remember this in the database.
     if ($action eq "ACTION") {
 		@sentence = ("__ACTION", @sentence);
     }
+
+	# Assemble the sentence!
     @sentence = ($startblock, @sentence, $endblock);
+
     my $i = 0;
     while ($i < $#sentence) {
 		if($sentence[$i+1] ne "") {
 			my $cur_word = $sentence[$i];
 			my $y = 0;
+			# Skip over any empty words in the array.
 			while ($cur_word eq "") {
 				$y++;
 				$cur_word = $sentence[$i-$y];
 			}
+			# If we've seen this word pairing before, simply increment the
+			# counter.
 			if ($chat_words{$cur_word}{$sentence[$i+1]}[1]) {
 				$chat_words{$cur_word}{$sentence[$i+1]}[1]++;
 				$chat_words{$sentence[$i+1]}{$cur_word}[0]++;
 				&debug(3, "Updating $cur_word-\>$sentence[$i+1] to " . $chat_words{$cur_word}{$sentence[$i+1]}[1] . "\n");
 				&debug(4, "Updating $sentence[$i+1]-\>$cur_word to " . $chat_words{$sentence[$i+1]}{$cur_word}[0] . " (reverse)\n");
+
+			# Otherwise, add the word pairing as new to the database.
 			} else {
 				$chat_words{$cur_word}{$sentence[$i+1]}[1] = 1;
 				$chat_words{$sentence[$i+1]}{$cur_word}[0] = 1;
@@ -725,14 +752,18 @@ sub build_records {
 		}
 		$i++;
     }
-  skiptosave:
-    if (($sec % 30) == 0 || $items >= 20) {
+
+  skiptosave: # Oh my, a goto label!
+	# Check to see if it's time to save the data.  Right now we do this
+	# every time we record 20 new items to the database.
+    if ($items >= 20) {
 		&save;
     }
 }
 
 # BUILD_REPLY: This creates a random reply from the database.
 sub build_reply {
+	# No reason to waste effort if the database is empty.
     if (%chat_words) {
 		my @sentence = split(/ /, $_[0]);
 
@@ -800,6 +831,9 @@ sub build_reply {
 			}
 		} # ENDS while
 
+		# If we had an interesting "middleword", this segment of code will
+		# generate the first part of the sentence and tack it on before the
+		# end that we've already generated.
 		if($middleword) {
 			$newword = $middleword;
 			while ($newword !~ /^__[\!\?]?BEGIN$/) {
@@ -1035,7 +1069,7 @@ sub cont_send_pieces {
     my @words = split(/ +/, $text);
     my $line = ($prefix ? $prefix . ' ' : '') . shift(@words);
     my ($curWord);
-    
+
     while(@words) {
         $curWord = shift(@words);
         if($curWord =~ m/^(.*)\n(.*)$/s) {
@@ -1160,7 +1194,7 @@ sub process_version {
 				  VERSION . " ($reply)");
 }
 
-# PROCESS_NICK_CHANGE:
+# PROCESS_NICK_CHANGE: Handle nickname changes for users we can see.
 sub server_nick_change {
 	my ($nick) = split(/!/, $_[ARG0]);
 	my $newnick = $_[ ARG1 ];
@@ -1252,7 +1286,7 @@ sub channel_message {
 		if ($event_plugin_call{lc($cmd)}) {
 			&plugin_callback($cmd, $event_plugin_call{lc($cmd)}, ($nick, $channel, @command));
 		} else {
-			if($cmd =~ m/[a-z]/) {
+			if($cmd =~ m/[a-z]/i) {
 				&send_message($channel, "Hmm... @command isn't supported. Try " . $prefix . "help");
 			}
 			# otherwise, command has no letters in it, and therefore was probably a smile %-) (a very odd smile, sure, but whatever)
@@ -1392,7 +1426,7 @@ sub channel_mode {
 sub quit_session {
     my($kernel, $message) = @_[ KERNEL, ARG0 ];
     if($terminating < 1) {
-        
+
     	if ($message eq "TERM") {
     		$message = "Terminated";
     	} elsif ($message eq "HUP") {
@@ -1407,12 +1441,12 @@ sub quit_session {
     		}
     	}
         $terminating = 1 unless $terminating == 2;
-    
+
     	# Everyone out of the pool!
     	foreach(keys(%event_plugin_unload)) {
     		&plugin_callback($_, $event_plugin_unload{$_});
     	}
-    
+
         $kernel->post(bot => quit => PROJECT . " " . VERSION
     				  . (($message ne "") ? ": $message" : ""));
         &debug(3, "Disconnecting from IRC... $message\n");
@@ -1426,7 +1460,6 @@ sub quit_session {
 # QUIT: Quit IRC.
 sub quit {
     if($terminating != 1) {
-        
         my ($message) = @_;
     	if ($message eq "TERM") {
     		$message = "Terminated";
@@ -1442,12 +1475,12 @@ sub quit {
     		}
     	}
         $terminating = 1 unless $terminating == 2;
-    
+
     	# Everyone out of the pool!
     	foreach(keys(%event_plugin_unload)) {
     		&plugin_callback($_, $event_plugin_unload{$_});
     	}
-    
+
         $kernel->post(bot => quit => PROJECT . " " . VERSION
     				  . (($message ne "") ? ": $message" : ""));
         &debug(3, "Disconnecting from IRC... $message\n");
@@ -1489,7 +1522,7 @@ sub make_connection {
     $kernel->sig( INT => 'quit_session' );
     $kernel->sig( HUP => 'quit_session' );
     $kernel->sig( TERM => 'quit_session' );
-    
+
     $kernel->post(bot => register => "all");
     $chosen_nick = option('global', 'nickname');
 
