@@ -25,7 +25,7 @@ Targets for 7.0 Final
 
 General Targets
 ======================
-- use POE better, blocking less and using more events.
+- Use POE better, blocking less and using more events.
 - Eventually recognize the possibility for joining 2+ channels.
 - Allow for media other than IRC (connection plugins) (maybe).
 - Implement authentication for bot administration.
@@ -33,3 +33,4 @@ General Targets
 - Improve data storage format.
 - Implement a logger plugin.
 - RSS plugin desperately needs too handle all links/guids changing
+- Plugin loader needs to be rewritten completely.
