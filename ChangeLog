@@ -1,5 +1,5 @@
 Version 1.0 alpha: (31 Dec 2004)
-	* Happy new years!
+	* Happy New Year!
 	* plugins/sqlite-logger.pl:
 	  - Added a %log last <event> command, which will tell you when
 	    something last happened. Useful for figuring out what the topic
