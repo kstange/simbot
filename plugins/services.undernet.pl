@@ -63,11 +63,13 @@ sub check_response {
 	    &SimBot::debug(2, "Channel Service reports already logged in.\n");
 	    $logged_in = 1;
 	    $x_online = 1;
-	} elsif ($text =~ /Sorry, You must be logged in to use this command/) {
+	} elsif ($text =~ /Sorry, You must be logged in to /) {
 	    &SimBot::debug(2, "Channel Service reports not yet logged in.\n");
 	    $logged_in = 0;
 	    $x_online = 1;
 	    &services_login($kernel);
+	} else {
+	    &SimBot::debug(4, "Channel Service message: $text\n");
 	}
     }
 }
@@ -81,6 +83,8 @@ sub request_invite {
 	if($x_online && $logged_in) {
 	    &SimBot::debug(2, "Could not join.  Asking for invitation to $channel...\n");
 	    $kernel->post(bot => privmsg => "x", "invite $channel");
+	} elsif ($x_online) {
+	    &services_login($kernel);
 	}
     }
 }
@@ -94,6 +98,8 @@ sub request_voice {
 	    &SimBot::debug(2, "Could not speak.  Asking for voice on $channel...\n");
 	    $kernel->post(bot => privmsg => "x", "voice $channel");
 	    $shut_up = 0;
+	} elsif ($x_online) {
+	    &services_login($kernel);
 	}
     }
 }
@@ -106,7 +112,7 @@ sub process_join {
 }
 
 # PROCESS_NOTIFY: Check to see if X is online, and if not previously online,
-# log in.
+# log in.  Also log in if we're waiting for X and detect that X is available.
 sub process_notify {
     my ($kernel, undef, undef, @nicks) = @_;
     my $found = 0;
@@ -115,7 +121,7 @@ sub process_notify {
 	    $found = 1;
 	}
     }
-    if (($x_online == 0 && $found == 1)) {
+    if ((!$x_online || $locked_out || $shut_up) && $found) {
 	&services_login($kernel);
     }
     $x_online = $found;
