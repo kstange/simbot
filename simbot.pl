@@ -74,14 +74,12 @@ $version = "6.0 alpha";
 	   "%help",    "print_help",
 	   "%todo",    "print_todo",
 	   "%list",    "print_list",
-	   "%find",    "google_find",
 	   );
 
 %plugin_desc = (
 		"%stats",   "Shows useless stats about the database",
 		"%help",    "Shows this message",
 		"%todo",    "Where the hell am I going?",
-		"%find",    "Searches Google with \"I'm Feeling Lucky\"",
 		);		
 
 # We'll need this perl module to be able to do anything meaningful.
@@ -89,17 +87,22 @@ $kernel = new POE::Kernel;
 use POE;
 use POE::Component::IRC;
 
-# Google search requires this.
-use LWP::UserAgent;
+# Find needs LWP to be useable.
+if (eval { require LWP::UserAgent; }) {
+    $plugin{"%find"} = "google_find";
+    $plugin_desc{"%find"} = "Searches Google with \"I'm Feeling Lucky\"";
+    debug(3, "LWP::UserAgent loaded: Find plugin will be used\n");
+} else {
+    debug(3, "LWP::UserAgent failed: Find plugin will not be available\n");
+}
 
 # Weather needs Geo::METAR to be useable.
-
-if (eval { require Geo::METAR; }) {
+if (eval { require Geo::METAR; } && eval { require LWP::UserAgent; }) {
     $plugin{"%weather"} = "get_wx";
     $plugin_desc{"%weather"} = "Gets a weather report for the given station";
-    debug(3, "Geo::METAR loaded: Weather plugin will be used\n");
+    debug(3, "Geo::METAR, LWP::UserAgent loaded: Weather plugin will be used\n");
 } else {
-    debug(3, "Geo::METAR failed: Weather plugin will not be available\n");
+    debug(3, "GEO::METAR, LWP::UserAgent failed: Weather plugin will not be available\n");
 }
 
 # We want to catch signals to make sure we clean up and save if the
@@ -663,7 +666,6 @@ sub process_public {
 	$kernel->post(bot => privmsg => $channel, $queue) unless ($queue eq "");
 
     } elsif ($text !~ /^[;=:]/) {
-#    } elsif ($text !~ /^[^\w\'\/-=\$]*$|^[;=:]/) {
 	&debug(3, "Learning from " . $nick . "...\n");
 	&buildrecords($text);
     }
