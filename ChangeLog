@@ -1,8 +1,16 @@
+Version 6.0 alpha: (25 Jul 2004)
+	* plugins/services.dalnet.pl:
+	  - New services plugin designed to function with DALnet's chanserv.
+	    (Vincent Gevers)
+	* plugins/services.chanserv.pl:
+	  - New services plugin designed to work with a more generic
+	    chanserv-based IRC network.  (Vincent Gevers)
+
 Version 6.0 alpha: (21 Jul 2004)
 	* simbot.pl:
 	  - Added numberize function which converts written out numbers like
 	    "two thousand" into digits, like 2000.
-	  - The %help command works again, instead of  calling the %stats
+	  - The %help command works again, instead of calling the %stats
 	    function.
 	* plugins/nlp.pl:
 	  - We now use the new numberize function, so that natural language
