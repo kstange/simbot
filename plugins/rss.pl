@@ -205,16 +205,7 @@ sub got_response {
                 if($item->{'link'} eq $mostRecentPost{$curFeed}) {
                     last;
                 } else {
-                    $title = $item->{'title'};
-                    $link = $item->{'link'};
-					$title = HTML::Entities::decode($title);
-					$title = Encode::decode('utf8', $title);
-                    $title =~ s/\t/  /g;
-                    
-                    if($link =~ s{^http://go\.fark\.com/cgi/fark/go\.pl\?\S*&location=(\S*)$}{$1}) {
-                        $link =~ s{%3f}{?};
-                        $link =~ s{%26}{&}g;
-                    }
+                    ($link, $title) = &get_link_and_title($item);
                     
                     push(@newPosts, "$title <$link>");
                 }
@@ -260,16 +251,7 @@ sub latest_headlines {
             $i++)
           {
             $item = ${$rss->{'items'}}[$i];
-            $link = $item->{'link'};
-            $title = $item->{'title'};
-			$title = HTML::Entities::decode($title);
-			$title = Encode::decode('utf8', $title);
-            $title =~ s/\t/  /g;
-            
-            if($link =~ s{^http://go\.fark\.com/cgi/fark/go\.pl\?\S*&location=(\S*)$}{$1}) {
-                $link =~ s{%3f}{?};
-                $link =~ s{%26}{&}g;
-            }
+            ($link, $title) = &get_link_and_title($item);
             
             &SimBot::send_message($channel, "$title <$link>");
         }
@@ -292,6 +274,26 @@ sub colorize_feed {
     } else {
         return $feed;
     }
+}
+
+sub get_link_and_title {
+    my $item = $_[0];
+    my $link = $item->{'link'};
+    my $title = $item->{'title'};
+
+    # Does the link go through the silly Fark redirect?
+    # If so, let's remove it.
+    if($link =~ s{^http://go\.fark\.com/cgi/fark/go\.pl\?\S*&location=(\S*)$}{$1}) {
+        $link =~ s{%3f}{?};
+        $link =~ s{%26}{&}g;
+    }
+    
+    $title = $item->{'title'};
+	$title = HTML::Entities::decode($title);
+	$title = Encode::decode('utf8', $title);
+    $title =~ s/\t/  /g;
+
+    return ($link, $title);
 }
 
 &SimBot::plugin_register(
