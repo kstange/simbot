@@ -28,6 +28,12 @@
 # TODO:
 #   * locally cache reports, don't rerequest more than once an hour
 #     SQLite maybe?
+#   * Known stations searching. (%weather ny should be able to list stations
+#     in NY. %weather massena, ny should get the weather for KMSS)
+#   * Augment known stations with data from
+#     http://www.nws.noaa.gov/data/current_obs/index.xml
+#   * Find a way to convert zip codes to lat/long, use to find closest
+#     station
 #   * KILL Geo::METAR DAMN IT
 #   * Forecats would be nice. http://www.nws.noaa.gov/forecasts/xml/
 
