@@ -25,7 +25,7 @@ $std_backlog = 10;
 # SEND_RECAP: Sends a backlog of chat to the inquiring user.
 sub send_recap {
     my ($kernel, $nick, $channel, undef, $lines) = @_;
-    SimBot::debug(3, "Received recap command from $nick... backlog is " . ($#backlog+1) . " lines, user wants $lines.\n");
+    SimBot::debug(3, "Received recap command from $nick... backlog is " . ($#backlog+1) . " lines, user wants " . (defined $lines ? $lines : $std_backlog) ." lines.\n");
     if ($#backlog + 1 < 1) {
 	$kernel->post(bot => notice => $nick, "I haven't seen enough chat yet to provide a useful recap.");
     } elsif (defined $lines && ($lines < 1 || $lines > $max_backlog)) {
