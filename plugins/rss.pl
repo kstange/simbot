@@ -173,7 +173,7 @@ sub got_response {
                     $title =~ s/&amp;/&/;
                     $title =~ s/\t/  /;
                     
-                    $link =~ s{^http://go\.fark\.com/cgi/fark/go.pl?\w*&location=(\w*)$}{$1};
+                    $link =~ s{^http://go\.fark\.com/cgi/fark/go\.pl\?\S*&location=(\S*)$}{$1};
                     
                     push(@newPosts, "$title <$link>");
                 }
@@ -195,7 +195,7 @@ sub got_response {
 
 sub latest_headlines {
     my (undef, $nick, $channel, undef, $feed) = @_;
-    my ($item, $title);
+    my ($item, $title, $link);
     my $rss = new XML::RSS;
     
     if($feeds{$feed}) {
@@ -213,7 +213,7 @@ sub latest_headlines {
             $title =~ s/&amp;/&/;
             $title =~ s/\t/  /;
             
-            $link =~ s{^http://go\.fark\.com/cgi/fark/go.pl?\w*&location=(\w*)$}{$1};
+            $link =~ s{^http://go\.fark\.com/cgi/fark/go\.pl\?\S*&location=(\S*)$}{$1};
             
             &SimBot::send_message($channel,
                                   "$title <$link>");
