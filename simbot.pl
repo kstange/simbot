@@ -195,6 +195,7 @@ our %event_private_notice_out  = (); # eventname = NOTICE (text)
 #  (kernel, server, nickname, params)
 our %event_server_connect  = (); # ()
 our %event_server_ison     = (); # (nicks list...)
+our %event_server_nick     = (); # (new nickname)
 
 ### Function Queries ###
 # Function queries get params:
@@ -259,6 +260,7 @@ POE::Session->new
 	  irc_433          => \&pick_new_nick,    # nickname in use
 	  irc_001          => \&server_connect,   # connected
 	  irc_303          => \&server_ison,      # check ison reply
+	  irc_nick         => \&server_nick_change,
 	  irc_msg          => \&private_message,
 	  irc_public       => \&channel_message,
 	  irc_kick         => \&channel_kick,
@@ -279,7 +281,7 @@ POE::Session->new
 	  irc_ctcp_time    => \&process_time,
 	  irc_ctcp_finger  => \&process_finger,
 	  irc_ctcp_ping    => \&process_ping,
-	  
+
 	  scheduler_60     => \&run_scheduler_60, # run events every 60 seconds
 	  cont_send_pieces => \&cont_send_pieces,
 	  quit_session     => \&quit_session,
@@ -1112,6 +1114,15 @@ sub process_version {
     &debug(3, "Received version request from " . $nick . ".\n");
     $kernel->post(bot => ctcpreply => $nick, "VERSION " . PROJECT . " " .
 				  VERSION . " ($reply)");
+}
+
+# PROCESS_NICK_CHANGE:
+sub server_nick_change {
+	my ($nick) = split(/!/, $_[ARG0]);
+	my $newnick = $_[ ARG1 ];
+    foreach(keys(%event_server_nick)) {
+		&plugin_callback($_, $event_server_nick{$_}, ($chosen_server, $nick, $newnick));
+    }
 }
 
 # PROCESS_NOTICE: Handle notices to the bot.

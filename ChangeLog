@@ -1,3 +1,17 @@
+Version 6.0 alpha: (01 Mar 2004)
+	* plugins/recap.pl:
+	   - Added all the remaining events to recap: channel modes, quit,
+	     join, part, and nick changes.
+	* simbot.pl:
+	   - Added an event for nick changes, since we needed it for recap.
+
+Version 6.0 alpha: (28 Feb 2004)
+	* plugins/rss.pl:
+	   - Announce preselected RSS feeds in the IRC channel.  This is
+	     nifty if your channel is slow.  We announce a number of feeds by
+	     default, including slashdot, and developer personal feeds, which
+	     are probably boring.
+
 Version 6.0 alpha: (27 Feb 2004)
 	* *.pl:
 	   - All files now use perl's strict mode, which should mean our code

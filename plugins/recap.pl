@@ -50,6 +50,7 @@ sub send_recap {
 # RECORD_RECAP: Puts stuff in the backlog!
 sub record_recap {
     my($kernel, $nick, $channel, $doing, $content, $target) = @_;
+	my(@args) = @_[ 4 .. $#_ ];
     my ($sec, $min, $hour) = localtime(time);
     my $line = sprintf("[%02d:%02d:%02d] ", $hour, $min, $sec);
     if ($doing eq 'SAY') {
@@ -64,12 +65,27 @@ sub record_recap {
 		} else {
 			$line .= "$nick unset the topic of $channel.";
 		}
-    }
+    } elsif ($doing eq 'MODE') {
+		$line .= "$nick set modes [@args] on $channel";
+	} elsif ($doing eq 'JOINED') {
+		$line .= "$nick has joined $channel";
+	} elsif ($doing eq 'PARTED') {
+		$line .= "$nick has left $channel" . ($content ? " ($content)" : "");
+	} elsif ($doing eq 'QUIT') {
+		$line .= "$nick has quit IRC" . ($content ? " ($content)" : "");
+	} elsif ($doing eq 'NICK') {
+		$line .= "$nick is now known as $target";
+	}
     push(@backlog, $line);
     while ($#backlog > $max_backlog) {
 		shift(@backlog);
     }
     &SimBot::debug(4, "Recorded a line for recap... backlog is " . $#backlog . " lines.\n");
+}
+
+sub nick_change {
+    my($kernel, undef, $nick, $newnick) = @_;
+	record_recap($kernel, $nick, undef, "NICK", undef, $newnick);
 }
 
 # Register Plugin
@@ -82,4 +98,10 @@ sub record_recap {
 						 event_channel_action      => \&record_recap,
 						 event_channel_action_out  => \&record_recap,
 						 event_channel_topic       => \&record_recap,
+						 event_channel_mode        => \&record_recap,
+						 event_channel_quit        => \&record_recap,
+						 event_channel_join        => \&record_recap,
+						 event_channel_mejoin      => \&record_recap,
+						 event_channel_part        => \&record_recap,
+						 event_server_nick         => \&nick_change,
 						 );

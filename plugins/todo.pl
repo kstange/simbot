@@ -22,10 +22,10 @@ use strict;
 use warnings;
 
 our @todo = (
-			 "1) %recap: handle more events including channel modes",
-			 "2) detect and remove orphaned and dead end words",
-			 "3) perform automatic database backups",
-			 "4) dalnet style services plugin",
+			 "1) detect and remove orphaned and dead end words",
+			 "2) perform automatic database backups",
+			 "3) dalnet style services plugin",
+			 "4) ban KewlioMZX from reading the todo list :P",
 			 "--- Increment version to 6.0 beta (then final) here ---",
 			 "5) eventually recognize the possibility for joining 2+ channels",
 			 "6) allow for media other than IRC (connection plugins)",
