@@ -22,9 +22,9 @@ use strict;
 use warnings;
 
 our %vers = (
-	     "6.0 Beta"   =>  1,
-	     "6.0 Final"  =>  1,
-	     "General"    =>  1,
+	     "1.0 Beta"   =>  1,
+	     "1.0 Final"  =>  1,
+	     "Beyond 1.0" =>  1,
 	     );
 
 # PRINT_TODO: Prints todo list privately to the user.

@@ -17,28 +17,21 @@ Targets for 1.0 Final
 - Standardize and clean up the debug output.
 - Crush evil bugs!
 
-Targets for 2.0 Final
+Targets for Beyond 1.0
 ======================
-
+- Use POE better, blocking less and using more events.
+- Reduce memory footprint.
+- Improve data storage format. Look into converting databases to DBD-SQLite.
+- RSS plugin desperately needs to handle all links/guids changing.
+- Currency plugin needs to be thrown out.
+- Weather plugin needs to stop using Geo::METAR.
+- Make sentence generation bonus __BEGIN/__END as sentence gets longer to reduce the chance of (but not obliterate) excessively long sentences.
 - Redefine Plugin API using POE or related Perl 6 functionality.
 - Allow the user to specify a custom data directory.
 
-General
-======================
-- Use POE better, blocking less and using more events.
-- Eventually recognize the possibility for joining 2+ channels.
-- Allow for media other than IRC (connection plugins) (maybe).
-- Implement authentication for bot administration.
-- Reduce memory footprint.
-- Look into converting databases to DBD-SQLite.
-- Improve data storage format.
-- Implement a logger plugin.
-- RSS plugin desperately needs too handle all links/guids changing
-- Currency plugin needs to be thrown out.
-- Weather plugin needs to stop using Geo::METAR.
-- Plugin loader needs to be rewritten completely.
-- Make sentence generation bonus __BEGIN/__END as sentence gets longer to reduce the chance of (but not obliterate) excessively long sentences.
-
 Wish List
 ======================
-- Integrated web server using POE::Component::Server::HTTP
+- Integrated web server using POE::Component::Server::HTTP.
+- Implement authentication for bot administration.
+- Eventually recognize the possibility of joining 2 or more channels.
+- Allow for media other than IRC (connection plugins).
