@@ -30,6 +30,7 @@
 # TODO:
 #   * Switch to PoCo::Client::HTTP for the startup RSS fetch
 #   * Move feed option to config.ini file
+#   * Find a better way to detect new posts in feeds
 #
 
 package SimBot::plugin::rss;
