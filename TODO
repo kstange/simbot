@@ -34,3 +34,4 @@ General Targets
 - Implement a logger plugin.
 - RSS plugin desperately needs too handle all links/guids changing
 - Plugin loader needs to be rewritten completely.
+- Make sentence generation bonus __BEGIN/__END as sentence gets longer to reduce the chance of (but not obliterate) excessively long sentences.
