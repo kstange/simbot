@@ -51,7 +51,7 @@ use vars qw( %conf %chat_words $chosen_nick $chosen_server $alarm_sched_60
 
 # Error Descriptions
 use constant ERROR_DESCRIPTIONS
-        => ('', 'ERROR: ', 'WARNING: ', '', 'SPAM: ');
+        => ('', 'ERROR: ', 'WARNING: ', '', 'DEBUG: ', 'SPAM: ');
 
 # Force debug on with this:
 # 0 is silent, 1 shows errors, 2 shows warnings, 3 shows lots of fun things,
