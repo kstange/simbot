@@ -94,7 +94,7 @@ $SIG{'USR2'} = 'SimBot::reload';
 %plugin_desc = (
 		"stats",   "Shows useless stats about the database.",
 		"help",    "Shows this message.",
-		);		
+		);
 
 # These are the events you can currently attach to.
 
@@ -111,11 +111,24 @@ $SIG{'USR2'} = 'SimBot::reload';
 ### Channel Events ###
 %event_channel_public  = ();
 %event_channel_action  = ();
+%event_channel_notice  = (); # Not Implemented
 %event_channel_kick    = ();
+%event_channel_mode    = (); # Not Implemented
+%event_channel_topic   = (); # Not Implemented
+%event_channel_join    = (); # Not Implemented
+%event_channel_part    = (); # Not Implemented
+%event_channel_quit    = (); # Not Implemented
+%event_channel_mejoin  = (); # Not Implemented
+%event_channel_nojoin  = (); # Not Implemented
+%event_channel_novoice = (); # Not Implemented
 
 ### Private Events ###
 %event_private_notice  = ();
 %event_private_message = ();
+
+### Server Events ###
+%event_server_notice   = (); # Not Implemented
+%event_server_connect  = (); # Not Implemented
 
 # Now that we've initialized the callback tables, let's load
 # all the plugins that we can from the plugins directory.
@@ -231,7 +244,7 @@ sub timeago {
             }
         }
     }
-    
+
     my $reply;
     $reply = "$years year" . (($years == 1) ? ' ' : 's ') if $years;
     $reply .= "$days day" . (($days == 1) ? ' ' : 's ') if $days;
@@ -369,7 +382,7 @@ sub plugin_register {
 	$event_plugin_unload{$data{plugin_id}} = $data{event_plugin_unload};
     }
     foreach (keys(%data)) {
-	if ($_ =~ /^event_channel_.*/) {
+	if ($_ =~ /^event_(channel|private|server)_.*/) {
 	    ${$_}{$data{plugin_id}} = $data{$_};
         }
     }
@@ -385,7 +398,7 @@ sub plugin_callback {
 	return &{$function}($kernel, @params);
     }
 }
-	    
+
 # PRINT_HELP: Prints a list of valid commands privately to the user.
 sub print_help {
     my $nick = $_[1];
@@ -770,7 +783,7 @@ sub check_kick {
 	&debug(2, "Kicked from $channel... Attempting to rejoin!\n");
 	$kernel->post(bot => join => $channel);
     }
-    
+
     foreach(keys(%event_channel_kick)) {
 	&plugin_callback($_, $event_channel_kick{$_}, ($nick, $channel, 'KICKED', $reason, $kicker));
     }
@@ -830,10 +843,10 @@ sub reconnect {
 # MAKE_CONNECTION: Starts up the connection to IRC.
 sub make_connection {
     &debug(3, "Setting up the IRC connection...\n");
-    
+
     $kernel->post(bot => register => "all");
     $chosen_nick = $nickname;
-    
+
     $chosen_server = &pick(@server);
     $kernel->post(bot => 'connect',
 		  {
