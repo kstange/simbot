@@ -1294,7 +1294,7 @@ sub channel_message {
     } elsif ($text =~ /^hi,*\s+$nickmatch[!\.\?]*/i) {
 		&debug(3, "Greeting " . $nick . "...\n");
 		&send_message($channel, option('chat', 'greeting') . " $nick!");
-    } elsif ($text =~ /^$nickmatch([,|:]\s+|[!\?]*\s*([;:=][\Wdpo]*)?$)|,\s+$nickmatch[,!\.\?]+\s+|,\s+$nickmatch[!\.\?]*\s*([;:=][\Wdpo]*)?$/i) {
+    } elsif ($text =~ /(^|.[\.!\?,]+\s+)$nickmatch([\.!\?:,]+|$)/i) {
 		&debug(3, "Generating a reply for " . $nick . "...\n");
 		my @botreply = split(/__NEW__/, &build_reply($text));
 		my $queue = "";
