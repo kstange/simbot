@@ -42,6 +42,8 @@ use strict;
 # Let's declare our globals.
 use vars qw( %info );
 
+
+use constant CMD_PREFIX => SimBot::option('global', 'command_prefix');
 # These constants define the phrases simbot will use when responding
 # to queries.
 use constant I_DONT_KNOW => (
@@ -79,6 +81,12 @@ use constant ALREADY_WAS => (
 
 use constant BUT_X_IS_Y => (
     '$nick: I thought $key $isare $factoid.',
+);
+
+use constant BUT_X_IS_MANY => (
+    '$nick: I already know many things about $key. Try \''
+        . CMD_PREFIX
+        . 'info list $key\' to show them.',
 );
 
 use constant X_IS_X => (
@@ -138,7 +146,7 @@ sub handle_chat {
     my(undef, $nick, $channel, undef, $content) = @_;
     my($person_being_referenced, $being_addressed, $is_query);
     
-	my $prefix = SimBot::option('global', 'command_prefix');
+	my $prefix = CMD_PREFIX;
     if($content =~ s/^${prefix}info +//o) {
         $being_addressed = 1;
     }
@@ -168,7 +176,7 @@ sub handle_chat {
     $content = &munge_pronouns($content, $nick, $person_being_referenced);
     $content = &normalize_urls($content);
     
-    if($being_addressed && $content =~ m{^forget ([\'\-\w\s]+)}i) {
+    if($being_addressed && $content =~ m{^forget ([\'\-\w\s]+)}i) { #'
         # someone wants us to forget
         
         my($forgotten, $key) = (0, lc($1));
@@ -184,8 +192,30 @@ sub handle_chat {
                 &parse_message(&SimBot::pick(CANT_FORGET),
                                $nick, $key));
         }
+    } elsif($being_addressed && $content =~ m{^list ([\'\-\w\s]+)}i) {
+        # someone wants to know all factoids for something '
+        my $key = lc($1);
+        
+        if($info{$key}) {
+            my @factoids = split(/\|\|/, $info{$key});
+            my($factFlags, $factoid, $isare);
+            my $response = "$nick: $key ";
+            foreach (@factoids) {
+                ($factFlags, $factoid) = split(/\|/);
+                $isare = 'is';
+                if($factFlags & FACT_ARE)   { $isare = 'are'; }
+                elsif($factFlags & FACT_SEE_OTHER) { $isare = 'is aka'; }
+                $response .= "$isare $factoid, ";
+            }
+            &SimBot::send_message($channel, $response);
+        } else {
+            &SimBot::send_message($channel,
+            &parse_message(&SimBot::pick(I_DONT_KNOW),
+                           $nick, $key));
+        }
+        
     } elsif($content =~ m{(where|what|who) (is|are) ([\'\-\w\s]+)}i) {
-        # looks like a query
+        # looks like a query '
         # if $1 is where, we should try to respond with a URL
         # otherwise, we should try to respond with a non-URL
         my $key = $3;
@@ -197,7 +227,7 @@ sub handle_chat {
         &handle_query($key, $nick, $channel, $person_being_referenced,
                       $flags);
     } elsif($content =~ m{where can (I|one) find ([\'\w\s]+)}i) {
-        # looks like a query, try to respond with a location
+        # looks like a query, try to respond with a location '
         &handle_query($2, $nick, $channel, $person_being_referenced,
                       ($being_addressed ? BEING_ADDRESSED : 0)
                       | PREFER_LOCATION);
@@ -222,22 +252,29 @@ sub handle_chat {
             # We should whine if we are being addressed, and just ignore
             # it if we aren't.
             if($being_addressed) {
-                my ($keyFlags, $oldFactoid) = split(/\|/, $info{$key}, 2);
-                my ($isare);
+                if($info{$key} =~ m/\|\|/) {
+                    # multiple keys
+                    &SimBot::send_message($channel,
+                        &parse_message(&SimBot::pick(BUT_X_IS_MANY),
+                            $nick, $key));
+                } else {
+                    my ($keyFlags, $oldFactoid) = split(/\|/, $info{$key}, 2);
+                    my ($isare);
+                    
+                    if   ($keyFlags & FACT_ARE)         { $isare = 'are';    }
+                    elsif($keyFlags & FACT_SEE_OTHER)   { $isare = 'is aka'; }
+                    else                                { $isare = 'is';     }
                 
-                if   ($keyFlags & FACT_ARE)         { $isare = 'are';    }
-                elsif($keyFlags & FACT_SEE_OTHER)   { $isare = 'is aka'; }
-                else                                { $isare = 'is';     }
-                
-                &SimBot::send_message($channel,
-                    &parse_message(&SimBot::pick(BUT_X_IS_Y), $nick,
-                                   $key, $isare, $oldFactoid));
+                    &SimBot::send_message($channel,
+                        &parse_message(&SimBot::pick(BUT_X_IS_Y), $nick,
+                                       $key, $isare, $oldFactoid));
+                }
             }
         } else {
             $info{$key} = "$flags|$factoid";
             &report_learned($channel, $nick, $key, $factoid, $flags);
         }
-    } elsif($content =~ m{([\'\w][\'\-\w\s]*?) (is|are) ((aka|also) )?(.*)}i) {
+    } elsif($content =~ m{([\'\w][\'\-\w\s]*?) (is|are) ((aka|also) )?(.*)}i) { #'
 		no warnings;
         my ($key, $isare, $akaalso, $factoid) = (lc($1), $2, $4, $5);
         
@@ -247,7 +284,7 @@ sub handle_chat {
         if   ($being_addressed)     { $flags |= BEING_ADDRESSED;    }
         
         unless($being_addressed) {
-            if($factoid =~ m/([\'\-\w\s]+)/) {
+            if($factoid =~ m/([\'\-\w\s]+)/) { #'
                 $factoid = $1;
             } else {
                 # We aren't being addressed, and the factoid
@@ -289,17 +326,25 @@ sub handle_chat {
             else            { $info{$key} =    "$flags|$factoid"; }
             
             &report_learned($channel, $nick, $key, $factoid, $flags);
-        } elsif($info{$key}) {
-            my ($keyFlags, $oldFactoid) = split(/\|/, $info{$key}, 2);
+        } elsif($info{$key} && $being_addressed) {
+            if($info{$key} =~ m/\|\|/) {
+                # multiple keys
+                &SimBot::send_message($channel,
+                    &parse_message(&SimBot::pick(BUT_X_IS_MANY),
+                        $nick, $key));
+            } else {
+                my ($keyFlags, $oldFactoid) = split(/\|/, $info{$key}, 2);
+                my ($isare);
+                
+                if   ($keyFlags & FACT_ARE)         { $isare = 'are';    }
+                elsif($keyFlags & FACT_SEE_OTHER)   { $isare = 'is aka'; }
+                else                                { $isare = 'is';     }
             
-            my $isare = 'is';
-            if   ($keyFlags & FACT_ARE)         { $isare = 'are';       }
-            elsif($keyFlags & FACT_SEE_OTHER)   { $isare = 'is aka';    }
-            
-            &SimBot::send_message($channel, 
-                &parse_message(&SimBot::pick(BUT_X_IS_Y), $nick,
-                               $key, $isare, $oldFactoid))
-                if $being_addressed;
+                &SimBot::send_message($channel,
+                    &parse_message(&SimBot::pick(BUT_X_IS_Y), $nick,
+                                   $key, $isare, $oldFactoid));
+            }
+
         } else {
             $info{$key} = "$flags|$factoid";
             &report_learned($channel, $nick, $key, $factoid, $flags);
@@ -430,10 +475,10 @@ sub parse_message {
     
     $message = &SimBot::parse_style($message);
     
-    $message =~ s/\$nick/$nick/;
-    $message =~ s/\$key/$key/;
-    $message =~ s/\$isare/$isare/;
-    $message =~ s/\$factoid/$factoid/;
+    $message =~ s/\$nick/$nick/g;
+    $message =~ s/\$key/$key/g;
+    $message =~ s/\$isare/$isare/g;
+    $message =~ s/\$factoid/$factoid/g;
     
     return $message;
 }
