@@ -456,6 +456,9 @@ sub access_log {
                 return;
             }
             
+            my $response = "$nick:";
+            my @reply_has;
+            
             my $tmp_query = $dbh->prepare_cached(
                 'SELECT time FROM chatlog'
                 . ' WHERE channel_id = ?'
@@ -478,6 +481,9 @@ sub access_log {
             my $last_date = localtime(($tmp_query->fetchrow_array())[0]);
             $tmp_query->finish;
             
+            $response .= " I first saw $statnick on $first_date,"
+                . " and most recently on $last_date.";
+            
             $tmp_query = $dbh->prepare_cached(
                 'SELECT count() FROM chatlog'
                 . ' WHERE channel_id = ?'
@@ -486,6 +492,22 @@ sub access_log {
             $tmp_query->execute($chan_id, $statnick_id);
             my $line_count = ($tmp_query->fetchrow_array())[0];
             $tmp_query->finish;
+            
+            push(@reply_has, "spoken $line_count times")
+                if $line_count > 0;
+            
+            $tmp_query = $dbh->prepare_cached(
+                'SELECT count() FROM chatlog'
+                . ' WHERE channel_id = ?'
+                . ' AND target_nick_id = ?'
+                . ' AND event = ?'
+            );
+            $tmp_query->execute($chan_id, $statnick_id, 'KICKED');
+            my $kick_count = ($tmp_query->fetchrow_array())[0];
+            $tmp_query->finish;
+            push(@reply_has, "been kicked $kick_count times")
+                if $kick_count > 0;
+            
             
             # join count ("I have seen JohnDoe 52 times, first on 
             #   Jan 42, 87:43 AM, and most recently on...")
@@ -498,10 +520,10 @@ sub access_log {
             # "1z l4m3" if uses l4m3r sp33k? (probably too hard to
             #    look up.
             
-            my $response =
-                "$nick: I first saw $statnick on $first_date,"
-                . " and most recently on $last_date. $statnick has"
-                . " spoken $line_count times.";
+            if(@reply_has) {
+                $response .= " $statnick has "
+                    . join(', ', @reply_has) . '.';
+            }
             &SimBot::send_message($channel, $response);
         }
     } else {
