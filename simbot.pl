@@ -43,7 +43,7 @@ use vars qw( %conf %chat_words $chosen_nick $chosen_server $POE_SESSION
 			 $alarm_sched_60 );
 
 # Load the configuration file into memory.
-open(CONFIG, "./config.ini") || die("Your configuration file (config.ini) is missing.");
+open(CONFIG, "./config.ini") || die("Your configuration file (config.ini) is missing.  Make sure you copied and\ncustomized the config.default.ini file.");
 my $section;
 foreach (<CONFIG>) {
 	chomp;
@@ -140,6 +140,7 @@ $SIG{'USR2'} = 'SimBot::reload';
 # This provides the descriptions of plugins.  If a plugin has no
 # defined description, it is "hidden" and will not appear in help.
 our %plugin_desc = (
+					"snooze",  "Specify 'on' to switch to snooze mode which prevents recording and responding to chat. Commands are still processed and plugins may still respond if they are not designed to handle snooze.",
 					"stats",   "Shows useless stats about the database.",
 					"help",    "Shows this message.",
 					);
@@ -155,6 +156,7 @@ our %event_plugin_unload   = ();
 # Call event gets params:
 #  (kernel, from, channel, command string)
 our %event_plugin_call     = (
+						  "snooze",  \&set_snooze,
 						  "stats",   \&print_stats,
 						  "help",    \&print_help,
 						  );
@@ -248,6 +250,7 @@ closedir(DIR);
 our $loaded      = 0; # The rules are not loaded yet.
 our $items       = 0; # We haven't seen any lines yet.
 our $terminating = 0; # We are not terminating in the default case.
+our $snooze      = 0; # We are going to always start up with snooze mode off.
 
 # Load the massive table of rules simbot will need.
 &load;
@@ -569,6 +572,35 @@ sub plugin_callback {
     my ($plugin, $function, @params) = @_;
 	debug(4, "Running callback to $function in $plugin.\n");
 	return &$function($kernel, @params);
+}
+
+# SET_SNOOZE: Sets the snooze mode on or off.
+sub set_snooze {
+    my ($nick, $channel, $option) = @_[1,2,4];
+	if (lc($option) eq "off") {
+		if ($snooze) {
+			$snooze = 0;
+			debug(3, "Snooze mode was turned OFF by $nick.\n");
+			&send_action($channel, "streches and yawns.");
+			&send_message($channel, "$nick: Thanks for the wake up call.  Time to get back to work!");
+		} else {
+			debug(3, "Snooze mode was OFF, but $nick wanted to try anyway.\n");
+			&send_message($channel, "$nick: Do I look like I'm sleeping to you?");
+		}
+	} elsif (lc($option) eq "on") {
+		if ($snooze) {
+			debug(3, "Snooze mode was ON, but $nick wanted to try anyway.\n");
+			&send_message($channel, "$nick: You're waking me up to tell me to take a nap?  What kind of monster are you!?");
+		} else {
+			$snooze = 1;
+			debug(3, "Snooze mode was turned ON by $nick.\n");
+			&send_message($channel, "$nick: You know, a nap sounds great right about now.  Wake me if you need anything.");
+			&send_action($channel, "lays down and begins to snore....");
+		}
+	} else {
+		&send_message($channel, "$nick: Snooze mode is " . ($snooze ? "ON" : "OFF") . ".  Specify 'on' to enter snooze mode.  I will stop paying attention to chat, but I'll still look for commands.  Specify 'off' to wake me back up.");
+
+	}
 }
 
 # PRINT_HELP: Prints a list of valid commands privately to the user.
@@ -1310,10 +1342,10 @@ sub channel_message {
 			}
 			# otherwise, command has no letters in it, and therefore was probably a smile %-) (a very odd smile, sure, but whatever)
 		}
-    } elsif ($text =~ /^hi,*\s+$nickmatch[!\.\?]*/i) {
+    } elsif ($text =~ /^hi,*\s+$nickmatch[!\.\?]*/i && !$snooze) {
 		&debug(3, "Greeting " . $nick . "...\n");
 		&send_message($channel, option('chat', 'greeting') . " $nick!");
-    } elsif ($text =~ /(^|.[\.!\?,]+\s+)$nickmatch([\.!\?:,]+|$)/i) {
+    } elsif ($text =~ /(^|.[\.!\?,]+\s+)$nickmatch([\.!\?:,]+|$)/i && !$snooze) {
 		my $continue = 1;
 		foreach(keys(%event_bot_addressed)) {
 			$continue = 0 if(!&plugin_callback($_, $event_bot_addressed{$_}, ($nick, $channel, $text)));
@@ -1335,7 +1367,7 @@ sub channel_message {
 			}
 			&send_message($channel, $queue) unless ($queue eq "");
 		}
-    } elsif ($text !~ /^[;=:]/) {
+    } elsif ($text !~ /^[;=:]/ && !$snooze) {
 		&debug(3, "Learning from " . $nick . "...\n");
 		&build_records($text);
     }
