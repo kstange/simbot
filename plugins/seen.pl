@@ -57,7 +57,7 @@ sub set_seen {
     SimBot::debug(4, "Seeing $nick ($doing $content)\n");
     my $time = time;
     $seenData{lc($nick)} = "$time!$doing!" . ($target ? "$target!" : "") . "$content";
-    
+
     if($doing eq 'KICKED') {
         $doing = 'KICKING';
         $seenData{lc($target)} = "$time!$doing!$nick!$content";
@@ -78,6 +78,6 @@ SimBot::plugin_register(plugin_id   => "seen",
 			event_plugin_load     => "messup_seen",
 			event_plugin_unload   => "cleanup_seen",
 			event_channel_kick    => "set_seen",
-			event_channel_public  => "set_seen",
+			event_channel_message => "set_seen",
 			event_channel_action  => "set_seen",
 			);

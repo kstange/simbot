@@ -22,13 +22,12 @@ package SimBot::plugin::todo;
 	 "1) %delete: allow users to delete words used less than x times",
 	 "2) %recap: allow users to request scrollback of up to x lines",
 	 "3) create a means for automatic dead words cleanup",
-	 "4) add detection for the return of X and log back in",
-	 "5) automatically perform regular db backups",
-	 "6) split undernet channel service login into a plugin",
+	 "4) automatically perform regular db backups",
 	 "--- Finish above this line and we'll increment to 6.0 final ---",
-	 "7) maybe: grab contextual hinting",
-	 "8) maybe: do some runaway loop detection",
-	 "9) pray for IRC module to start supporting QUIT properly",
+	 "5) maybe: grab contextual hinting",
+	 "6) maybe: do some runaway loop detection",
+	 "7) pray for IRC module to start supporting QUIT properly",
+	 "8) eventually recognize the possibility for joining 2+ channels",
 	 );
 
 # PRINT_TODO: Prints todo list privately to the user.

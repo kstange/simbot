@@ -25,14 +25,19 @@ $rulefile = "./rules.db";
 # or you being killed by IRC ops because it's breaking server rules.
 @server = (
 	   "mesa.az.us.undernet.org",
-	   "washington.dc.us.undernet.org",
 	   "princeton.nj.us.undernet.org",
 	   "sanjose.ca.us.undernet.org",
 	   "miami.fl.us.undernet.org",
-	   "panamacity.pa.us.undernet.org",
-	   "Helsinki.FI.EU.Undernet.org",
 	   "Zagreb.Hr.EU.UnderNet.org",
 	   );
+
+# This specifies the type of services this network has. The services
+# type must match the name of a services plugin.  The stock variety
+# is currently only "undernet"  Leave the services type value blank
+# to disable authentication to services.
+$services_type = "undernet";
+$services_user = "mybot";
+$services_pass = "";
 
 # This is the channel that you want the bot to join when it connects to
 # one of the specified servers.
@@ -53,11 +58,8 @@ $gender = 'I';
 $alttag   = "MB";
 
 # The username below will be passed to the IRC network as the bot's
-# IRC name.  If a password is provided, the bot will attempt to
-# log into channel services with the username and password.  Currently
-# only the Undernet Channel Service is supported.
+# IRC name.
 $username = "mybot";
-$password = "";
 
 # This is the percent change of the bot appending an extra sentence to
 # the end of its reply.  10% tends to work decently.  Going too close to

@@ -29,6 +29,7 @@ package SimBot;
 # is missing them.
 @greeting = ();
 @chat_ignore = ();
+$services_type = "";
 
 # Load the configuration file in.  We're not going to try to deal with what
 # happens if this fails.  If you have no configuration, you should get one
@@ -64,12 +65,6 @@ $project = "SimBot";
 # Software Version
 $version = "6.0 alpha";
 
-# Channel information will be written to these files.
-# These actually don't do anything at all.
-#$topicfile  = "../Web Site Stuff/Web Server/Files/$project-topic";
-#$usersfile  = "../Web Site Stuff/Web Server/Files/$project-users";
-#$ucountfile = "../Web Site Stuff/Web Server/Files/$project-ucount";
-
 # ****************************************
 # ************ Start of Script ***********
 # ****************************************
@@ -104,9 +99,13 @@ $SIG{'USR2'} = 'SimBot::reload';
 # These are the events you can currently attach to.
 
 ### Plugin Events ###
+# Plugin events get params:
+#  (kernel)
 %event_plugin_load     = ();
 %event_plugin_reload   = ();
 %event_plugin_unload   = ();
+# Call event gets params:
+#  (kernel, from, channel, command string)
 %event_plugin_call     = (
 			  "stats",   "print_stats",
 			  "help",    "print_help",
@@ -114,33 +113,59 @@ $SIG{'USR2'} = 'SimBot::reload';
 			  );
 
 ### Channel Events ###
-%event_channel_public  = ();
-%event_channel_action  = ();
-%event_channel_notice  = (); # Not Implemented
-%event_channel_kick    = ();
-%event_channel_mode    = (); # Not Implemented
-%event_channel_topic   = (); # Not Implemented
-%event_channel_join    = (); # Not Implemented
-%event_channel_part    = (); # Not Implemented
-%event_channel_quit    = (); # Not Implemented
-%event_channel_mejoin  = (); # Not Implemented
-%event_channel_nojoin  = (); # Not Implemented
-%event_channel_novoice = (); # Not Implemented
+# Channel events get params:
+#  (kernel, from, channel, eventname, params)
+%event_channel_message = (); # eventname = SAY (text)
+%event_channel_action  = (); # eventname = ACTION (text)
+%event_channel_notice  = (); # eventname = NOTICE (text)
+%event_channel_kick    = (); # eventname = KICKED (text, kicker)
+%event_channel_mode    = (); # eventname = MODE (modes, arguments...)
+%event_channel_topic   = (); # eventname = TOPIC (text)
+%event_channel_join    = (); # eventname = JOINED ()
+%event_channel_part    = (); # eventname = PARTED (message)
+%event_channel_quit    = (); # eventname = QUIT (message)
+%event_channel_mejoin  = (); # eventname = JOINED ()
+%event_channel_nojoin  = (); # eventname = NOTJOINED ()
+%event_channel_novoice = (); # eventname = CANTSAY ()
+%event_channel_invite  = (); # eventname = INVITED ()
 
 ### Private Events ###
-%event_private_notice  = ();
-%event_private_message = ();
+# Private events get params:
+#  (kernel, from, eventname, text)
+%event_private_message = (); # eventname = PRIVMSG (text)
+%event_private_action  = (); # eventname = ACTION (text)
+%event_private_notice  = (); # eventname = NOTICE (text)
 
 ### Server Events ###
-%event_server_notice   = (); # Not Implemented
-%event_server_connect  = (); # Not Implemented
+# Server events get params:
+#  (kernel, server, nickname, params)
+%event_server_connect  = (); # ()
+%event_server_ping     = (); # ()
+%event_server_ison     = (); # (nicks list...)
+
+@list_nicks_ison       = (
+			  $nickname,
+			  );
 
 # Now that we've initialized the callback tables, let's load
 # all the plugins that we can from the plugins directory.
 opendir(DIR, "./plugins");
 foreach(readdir(DIR)) {
     if($_ =~ /.*\.pl$/) {
-	if(eval { require "./plugins/$_"; }) {
+	if($_ =~ /^services\.(.+)\.pl$/) {
+	    debug(4, "$1 services plugin found.\n");
+	    if ($services_type eq $1) {
+		debug(4, "$1 services plugin was selected. Attempting to load...\n");
+		if (eval { require "./plugins/$_"; }) {
+		    debug(3, "$1 services plugin loaded successfully.\n");
+		} else {
+		    debug(1, "$@");
+		    debug(2, "$1 service plugin did not load due to errors.\n");
+		}
+	    } else {
+		debug(4, "$1 services plugin was not selected.\n");
+	    }
+	} elsif(eval { require "./plugins/$_"; }) {
 	    debug(3, "$_ plugin loaded successfully.\n");
 	} else {
 	    debug(1, "$@");
@@ -171,26 +196,32 @@ POE::Component::IRC->new('bot');
 # Add the handlers for different IRC events we want to know about.
 POE::Session->new
   ( _start           => \&make_connection,
-    irc_001          => \&init_bot,         # connected
-    irc_public       => \&process_public,
-    irc_msg          => \&process_priv,
+    irc_disconnected => \&reconnect,
+    irc_socketerr    => \&reconnect,
+    irc_433          => \&pick_new_nick,    # nickname in use
+    irc_001          => \&server_connect,   # connected
+    irc_ping         => \&server_ping,      # we can use this as a timer
+    irc_303          => \&server_ison,      # check ison reply
+    irc_msg          => \&private_message,
+    irc_public       => \&channel_message,
+    irc_kick         => \&channel_kick,
+    irc_join         => \&channel_join,
+    irc_part         => \&channel_part,
+    irc_quit         => \&channel_quit,
+    irc_404          => \&channel_novoice,  # we can't speak for some reason
+    irc_471          => \&channel_nojoin,   # channel is at limit
+    irc_473          => \&channel_nojoin,   # channel invite only
+    irc_474          => \&channel_nojoin,   # banned from channel
+    irc_475          => \&channel_nojoin,   # bad channel key
+    irc_invite       => \&channel_invite,
+    irc_topic        => \&channel_topic,
+    irc_mode         => \&channel_mode,
     irc_notice       => \&process_notice,
     irc_ctcp_action  => \&process_action,
     irc_ctcp_version => \&process_version,
     irc_ctcp_time    => \&process_time,
     irc_ctcp_finger  => \&process_finger,
     irc_ctcp_ping    => \&process_ping,
-    irc_disconnected => \&reconnect,
-    irc_socketerr    => \&reconnect,
-    irc_433          => \&pick_new_nick,    # nickname in use
-    irc_kick         => \&check_kick,
-    irc_invite       => \&check_invite,
-    irc_471          => \&request_invite,   # channel is at limit
-    irc_473          => \&request_invite,   # channel invite only
-    irc_474          => \&request_invite,   # banned from channel
-    irc_475          => \&request_invite,   # bad channel key
-    irc_ping         => \&ping_event,       # do some things on a regular basis
-    irc_303          => \&check_nickname,   # check ison reply
   );
 
 # ****************************************
@@ -213,12 +244,12 @@ sub debug {
 }
 
 # PICK: Pick a random item from an array.
-sub pick() {
+sub pick {
     return @_[int(rand()*@_)];
 }
 
 # HOSTMASK: Generates a 'type 3' hostmask from a nick!user@host address
-sub hostmask() {
+sub hostmask {
     my ($nick, $user, $host) = split(/[@!]/, $_);
     if ($host =~ /(\d{1,3}\.){3}\d{1,3}/) {
 	$host =~ s/(\.\d{1,3}){2}$/\.\*/;
@@ -390,6 +421,9 @@ sub plugin_register {
     foreach (keys(%data)) {
 	if ($_ =~ /^event_(channel|private|server)_.*/) {
 	    ${$_}{$data{plugin_id}} = $data{$_};
+        } elsif ($_ =~ /^list_.*/) {
+	    my @list = split(/,\s*/, $data{$_});
+	    push(@{$_}, @list);
         }
     }
     return 1;
@@ -639,31 +673,54 @@ sub send_pieces {
 
 # ######### IRC FUNCTION CALLS ###########
 
-# INIT_BOT: After connecting to IRC, this will join the channel and
-#           log the bot into channel services.
-sub init_bot {
-    &debug(3, "Setting invisible, masked user modes...\n");
-    $kernel->call(bot => mode => $nickname, "+ix");
-    if ($password) {
-	&debug(3, "Logging into Channel Service as $username...\n");
-	$kernel->call(bot => privmsg => "x\@channels.undernet.org", "login $username $password");
+# SERVER_CONNECT: After connecting to IRC, this will join the channel and
+# log the bot into channel services.
+sub server_connect {
+    &debug(3, "Setting invisible user mode...\n");
+    $kernel->call(bot => mode => $chosen_nick, "+i");
+    foreach(keys(%event_server_connect)) {
+	&plugin_callback($_, $event_server_connect{$_}, ($chosen_server, $chosen_nick));
     }
     &debug(3, "Joining $channel...\n");
     $kernel->post(bot => join => $channel);
 }
+# SERVER_PING: Allow for certain processes to be run on a regular IRC event,
+# the ping event.
+sub server_ping {
+    foreach(keys(%event_server_ping)) {
+	&plugin_callback($_, $event_server_ping{$_}, ($chosen_server, $chosen_nick));
+    }
+    $kernel->post(bot => ison => @list_nicks_ison);
+}
 
-# PICK_NEW_NICK: If IRC reports the desired nickname as in use, this
-#                will rotate the letters in the nickname to get a new one.
-sub pick_new_nick {
-    &debug(2, "Nickname " . $chosen_nick . " is unavailable!  Trying another...\n");
-    $chosen_nick = substr($chosen_nick, -1) . substr($chosen_nick, 0, -1);
-    $kernel->post(bot => nick => $chosen_nick);
+# SERVER_ISON: Process the ISON reply from the server.  We'll use this to
+# recover the bot's desired nickname if it becomes available.  Plugins can
+# also add nicknames to this list and see whether or not they are online
+# periodically.
+sub server_ison {
+    my @nicks = split(/ /, $_[ ARG1 ]);
+    my $avail = 1;
+    &debug(4, "Nicknames online: @nicks\n");
+
+    foreach (@nicks) {
+	if ($_ eq $nickname) {
+	    $avail = 0;
+	}
+    }
+    if ($avail == 1) {
+	$kernel->post(bot => nick => $nickname);
+	&debug(3, "Nickname " . $nickname . " is available!  Attempting to recover it...\n");
+	$chosen_nick = $nickname;
+    }
+    foreach(keys(%event_server_ison)) {
+	&plugin_callback($_, $event_server_ison{$_}, ($chosen_server, $chosen_nick, @nicks));
+    }
 }
 
 # PROCESS_PING: Handle ping requests to the bot.
 sub process_ping {
-    my ($usermask, undef, $text) = @_[ ARG0, ARG1, ARG2 ];
-    my ($nick) = split(/!/, $usermask);
+    my ($nick) = split(/!/, $_[ARG0]);
+    my $text = $_[ ARG2 ];
     &debug(3, "Received ping request from " . $nick . ".\n");
     $kernel->post(bot => ctcpreply => $nick, 'PING ' . $text);
 }
@@ -693,11 +750,66 @@ sub process_version {
     $kernel->post(bot => ctcpreply => $nick, "VERSION $project $version ($reply)");
 }
 
-# PROCESS_PUBLIC: Handle messages sent to the channel.
-sub process_public {
+# PROCESS_NOTICE: Handle notices to the bot.
+sub process_notice {
+    my ($nick) = split(/!/, $_[ ARG0 ]);
+    my ($target, $text) = @_[ ARG1, ARG2 ];
+    my $public = 0;
+    foreach(@{$target}) {
+	if($_ =~ /[\#\&].+/) {
+	    $public = 1;
+	}
+    }
+    if($public) {
+	&debug(4, "Received public notice from $nick.\n");
+	foreach(keys(%event_channel_notice)) {
+	    &plugin_callback($_, $event_channel_notice{$_}, ($nick, $channel, 'NOTICE', $text));
+	}
+    } else {
+	&debug(4, "Received private notice from $nick.\n");
+	foreach(keys(%event_private_notice)) {
+	    &plugin_callback($_, $event_private_notice{$_}, ($nick, 'NOTICE', $text));
+	}
+    }
+}
 
-    my ($usermask, $channel, $text) = @_[ ARG0, ARG1, ARG2 ];
-    my ($nick) = split(/!/, $usermask);
+# PROCESS_ACTION: Handle actions sent to the channel.
+sub process_action {
+    my ($nick) = split(/!/, $_[ ARG0 ]);
+    my ($target, $text) = @_[ ARG1, ARG2 ];
+    my $public = 0;
+    foreach(@{$target}) {
+	if($_ =~ /[\#\&].+/) {
+	    $public = 1;
+	}
+    }
+    if($public) {
+	&debug(3, "Learning from " . $nick . "'s action...\n");
+	&buildrecords($text,"ACTION");
+	foreach(keys(%event_channel_action)) {
+	    &plugin_callback($_, $event_channel_action{$_}, ($nick, $channel, 'ACTION', "$nick $text"));
+	}
+    } else {
+	debug(4, "Received private action from $nick.\n");
+	foreach(keys(%event_private_action)) {
+	    &plugin_callback($_, $event_private_action{$_}, ($nick, 'ACTION', "$nick $text"));
+	}
+    }
+}
+
+# PRIVATE_MESSAGE: Handle private messages to the bot.
+sub private_message {
+    my ($nick) = split(/!/, $_[ ARG0 ]);
+    my $text = $_[ ARG2 ];
+    foreach(keys(%event_private_message)) {
+	&plugin_callback($_, $event_private_message{$_}, ($nick, 'PRIVMSG', $text));
+    }
+}
+
+# CHANNEL_MESSAGE: Handle messages sent to the channel.
+sub channel_message {
+    my ($nick) = split(/!/, $_[ ARG0 ]);
+    my ($channel, $text) = @_[ ARG1, ARG2 ];
     $text =~ s/\003\d{0,2},?\d{0,2}//g;
     $text =~ s/[\002\017\026\037]//g;
     if ($text =~ /^[!\@].+/) {
@@ -735,103 +847,112 @@ sub process_public {
 	&debug(3, "Learning from " . $nick . "...\n");
 	&buildrecords($text);
     }
-    foreach(keys(%event_channel_public)) {
-	&plugin_callback($_, $event_channel_public{$_}, ($nick, $channel, 'SAY', $text));
+    foreach(keys(%event_channel_message)) {
+	&plugin_callback($_, $event_channel_message{$_}, ($nick, $channel, 'SAY', $text));
     }
 }
 
-# PROCESS_ACTION: Handle actions sent to the channel.
-sub process_action {
-    my ($usermask, undef, $text) = @_[ ARG0, ARG1, ARG2 ];
-    my ($nick) = split(/!/, $usermask);
-    &debug(3, "Learning from " . $nick . "'s action...\n");
-    &buildrecords($text,"ACTION");
-    foreach(keys(%event_channel_action)) {
-	&plugin_callback($_, $event_channel_action{$_}, ($nick, $channel, 'ACTION', "$nick $text"));
-    }
-}
-
-# PROCESS_PRIV: Handle private messages to the bot.
-sub process_priv {
-    my ($usermask, undef, $text) = @_[ ARG0, ARG1, ARG2 ];
-    my ($nick) = split(/!/, $usermask);
-
-    $kernel->post(bot => notice => $nick, "Please don't send me private messsages.");
-    foreach(keys(%event_private_message)) {
-	&plugin_callback($_, $event_private_message{$_}, ($nick, 'PRIVMSG', $text));
-    }
-}
-
-# PROCESS_NOTICE: Handle notices to the bot.
-sub process_notice {
-    my ($usermask, undef, $text) = @_[ ARG0, ARG1, ARG2 ];
-    my ($nick) = split(/!/, $usermask);
-
-    if ($nick eq "X" && $password) {
-	&debug(3, "Channel Service message: $text\n");
-    }
-    foreach(keys(%event_private_notice)) {
-	&plugin_callback($_, $event_private_notice{$_}, ($nick, 'NOTICE', $text));
-    }
-}
-
-# PING_EVENT: Check a few things on ping event.
-sub ping_event {
-    if ($nickname ne $chosen_nick) {
-	$kernel->post(bot => ison => $nickname);
-    }
-}
-
-# CHECK_NICKNAME: Check to see if nickname is free.
-sub check_nickname {
-    my @nicks = split(/ /, $_[ ARG1 ]);
-    my $avail = 1;
-    foreach (@nicks) {
-	if ($_ eq $nickname) {
-	    $avail = 0;
-	}
-    }
-    if ($avail == 1) {
-	$kernel->post(bot => nick => $nickname);
-	&debug(3, "Nickname " . $nickname . " is available!  Attempting to recover it...\n");
-	$chosen_nick = $nickname;
-    }
-}
-
-# CHECK_KICK: If the bot is kicked, rejoin the channel.  Also let
-# inquiring plugins know about kicks events.
-sub check_kick {
-    my ($nick) = $_[ ARG2 ];
-    my $kicker = $_[ ARG0 ];
-    my $reason = $_[ ARG3 ];
-    ($kicker, undef) = split(/!/, $kicker, 2);
-    if ($nick eq $chosen_nick) {
+# CHANNEL_KICK: If the bot is kicked, rejoin the channel.  Also let
+# inquiring plugins know about kick events.
+sub channel_kick {
+    my ($kicker) = split(/!/, $_[ ARG0 ]);
+    my ($chan, $nick, $reason) = @_[ ARG1, ARG2, ARG3 ];
+    if ($nick eq $chosen_nick && $chan eq $channel) {
 	&debug(2, "Kicked from $channel... Attempting to rejoin!\n");
-	$kernel->post(bot => join => $channel);
+	$kernel->post(bot => join => $chan);
     }
 
     foreach(keys(%event_channel_kick)) {
-	&plugin_callback($_, $event_channel_kick{$_}, ($nick, $channel, 'KICKED', $reason, $kicker));
+	&plugin_callback($_, $event_channel_kick{$_}, ($nick, $chan, 'KICKED', $reason, $kicker));
     }
 }
 
-# REQUEST_INVITE: Ask channel service for an invitation
-sub request_invite {
-    if ($password) {
-	&debug(2, "Could not rejoin.  Asking channel service...\n");
-	$kernel->post(bot => privmsg => "x", "invite $channel");
+# CHANNEL_INVITE: Process a channel invitation from a user.
+sub channel_invite {
+    my ($nick) = split(/!/, $_[ ARG0 ]);
+    my $chan = $_[ ARG1 ];
+    foreach(keys(%event_channel_invite)) {
+	&plugin_callback($_, $event_channel_invite{$_}, ($nick, $chan, 'INVITED'));
     }
-}
-
-# CHECK_INVITE: Check to see if an invite should be accepted
-sub check_invite {
-    my ($chan) = $_[ ARG1 ];
     if ($chan eq $channel) {
 	$kernel->post(bot => join => $channel);
     }
 }
 
+# CHANNEL_NOJOIN: Allow plugins to take actions on failed join attempt.
+sub channel_nojoin {
+    foreach(keys(%event_channel_nojoin)) {
+	&plugin_callback($_, $event_channel_nojoin{$_}, ($chosen_nick, $channel, 'NOTJOINED'));
+    }
+}
 
+# CHANNEL_JOIN: Allow plugins to take actions on successful join attempt.
+sub channel_join {
+    my ($nick) = split(/!/, $_[ ARG0 ]);
+    my $chan = $_[ ARG1 ];
+    if ($nick eq $chosen_nick) {
+	&debug(3, "Successfully joined $chan.\n");
+	foreach(keys(%event_channel_mejoin)) {
+	    &plugin_callback($_, $event_channel_mejoin{$_}, ($nick, $chan, 'JOINED'));
+	}
+    } else {
+	&debug(4, "$nick has joined $chan.\n");
+	foreach(keys(%event_channel_join)) {
+	    &plugin_callback($_, $event_channel_join{$_}, ($nick, $chan, 'JOINED'));
+	}
+    }
+}
+
+# CHANNEL_PART: Allow plugins to take actions when a user parts the channel.
+sub channel_part {
+    my ($nick) = split(/!/, $_[ ARG0 ]);
+    my ($chan, $message) = split(/ :/, $_[ ARG1 ], 2);
+    &debug(4, "$nick has parted $chan. ($message)\n");
+    foreach(keys(%event_channel_part)) {
+	&plugin_callback($_, $event_channel_part{$_}, ($nick, $chan, 'PARTED', $message));
+    }
+}
+
+# CHANNEL_QUIT: Allow plugins to take actions when a user parts the channel.
+sub channel_quit {
+    my $message = $_[ ARG1 ];
+    my ($nick) = split(/!/, $_[ ARG0 ]);
+    &debug(4, "$nick has quit IRC. ($message)\n");
+    foreach(keys(%event_channel_quit)) {
+	&plugin_callback($_, $event_channel_quit{$_}, ($nick, undef, 'QUIT', $message));
+    }
+}
+
+# CHANNEL_NOVOICE: Allow plugins to take actions when the bot cannot speak.
+sub channel_novoice {
+    my ($chan) = split(/ :/, $_[ ARG1 ]);
+    &debug(2, "Last message could not be sent to $chan.\n");
+    foreach(keys(%event_channel_novoice)) {
+	&plugin_callback($_, $event_channel_novoice{$_}, ($chosen_nick, $chan, 'CANTSAY'));
+    }
+}
+
+# CHANNEL_TOPIC: Allow plugins to take actions when the topic is changed.
+sub channel_topic {
+    my ($nick) = split(/!/, $_[ ARG0 ]);
+    my ($chan, $text) = @_[ ARG1, ARG2 ];
+    &debug(4, "Topic in $chan was changed to '$text' by $nick.\n");
+    foreach(keys(%event_channel_topic)) {
+	&plugin_callback($_, $event_channel_topic{$_}, ($nick, $chan, 'TOPIC', $text));
+    }
+}
+
+# CHANNEL_MODE: Allow plugins to take actions when the channel modes change.
+sub channel_mode {
+    my ($nick) = split(/!/, $_[ ARG0 ]);
+    my ($chan, $modes, @args) = @_[ ARG1, ARG2, ARG3 .. $#_ ];
+    if ($nick ne $chan) {
+	&debug(4, "$nick set mode $modes @args in $chan.\n");
+	foreach(keys(%event_channel_mode)) {
+	    &plugin_callback($_, $event_channel_mode{$_}, ($nick, $chan, 'MODE', $modes, @args));
+	}
+    }
+}
 
 # ######### CONNECTION SUBROUTINES ###########
 
@@ -884,6 +1005,14 @@ sub make_connection {
 		  }
 		  );
     &debug(3, "Connecting to IRC server " . $chosen_server . "...\n");
+}
+
+# PICK_NEW_NICK: If IRC reports the desired nickname as in use, this
+#                will rotate the letters in the nickname to get a new one.
+sub pick_new_nick {
+    &debug(2, "Nickname " . $chosen_nick . " is unavailable!  Trying another...\n");
+    $chosen_nick = substr($chosen_nick, -1) . substr($chosen_nick, 0, -1);
+    $kernel->post(bot => nick => $chosen_nick);
 }
 
 while ($terminating != 1) {

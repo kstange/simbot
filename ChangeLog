@@ -1,3 +1,37 @@
+Version 6.0 alpha: (22 Dec 2003)
+
+	* simbot.pl:
+	   - A lot of code has been cleaned up and many core functions were
+	     renamed for consistency.  A lot more debug information has been
+	     added to verbosity level 4.
+	   - Added: all planned events are now implemented and comments
+	     document the parameters they should each deliver to callbacks.
+	   - Added: a model now exists for services plugins.  Undernet is
+	     the default and only plugin currently.  Only one services
+	     plugin may load and its package name will be:
+	       SimBot::plugin::services::pluginid
+	     The plugin to load will be specified in the config.pl file.
+	     If none is specified, the bot will not use any services features.
+	     Anyone that wishes to implement a services plugin for ChanServ
+	     would be welcome to do so.
+	   - Added: plugins may now add items to lists, with a new case that
+	     allows them to push nicknames onto an "ISON" list to poll for
+	     whether a nickname is currently on IRC.
+	* config.default.pl:
+	   - Added: new configuration options for logging into services.
+	     None of these values are required, and plugins can choose to
+	     look for different ones.  ChanServ, for example, would not
+	     tend to look for a user because it's going to work with
+	     NickServ.  The previous username setting is now used only
+	     for the user portion of the bot's hostmask and the password
+	     setting is gone.
+	* plugins/services.undernet.pl:
+	   - Added: new plugin splits out services login for undernet into
+	     a plugin.
+	   - Added: detection for X being offline and returning so that the
+	     bot can automatically log in, recover voice and request an
+	     invitation.
+
 Version 6.0 alpha: (21 Dec 2003)
 
 	* plugins/weather.pl:
