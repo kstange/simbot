@@ -17,6 +17,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 package SimBot::plugin::seen;
+use warnings;
 
 # MESSUP_SEEN: Opens the seen database for use
 sub messup_seen {
@@ -28,26 +29,32 @@ sub messup_seen {
 sub get_seen {
     my ($kernel, $nick, $channel, undef, $person) = @_;
     if(!$person) {
-        $kernel->post(bot => privmsg => $channel, "$nick: There are many things I have seen. Perhaps you should ask for someone in particular?");
+        $kernel->post(bot => privmsg => $channel,
+            "$nick: There are many things I have seen. Perhaps you should ask for someone in particular?");
     } elsif(lc($person) eq lc($SimBot::chosen_nick)) {
-        $kernel->post(bot => ctcp => $channel, 'ACTION', "waves $SimBot::hisher hand in front of $SimBot::hisher face. \"Yup, I can see myself!\"");
+        $kernel->post(bot => ctcp => $channel,
+                'ACTION',
+                qq(waves $SimBot::hisher hand in front of $SimBot::hisher face. "Yup, I can see myself!"));
+                
     } elsif($seenData{lc($person)}) {
         my ($when, $doing, $seenData) = split(/!/, $seenData{lc($person)}, 3);
-        $doing = "saying \"$seenData\"" if($doing eq 'SAY');
-        $doing = qq(saying "$seenData" in a notice) if($doing eq 'NOTICE');
-        $doing = 'in a private message' if($doing eq 'PRIVMSG');
-        $doing = "($seenData)" if ($doing eq 'ACTION');
-        $doing = qq(changing the topic to "$seenData")
-            if ($doing eq 'TOPIC');
+        
+        if   ($doing eq 'SAY')      { $doing = qq(saying "$seenData");              }
+        elsif($doing eq 'NOTICE')   { $doing = qq(saying "$seenData" in a notice);  }
+        elsif($doing eq 'PRIVMSG')  { $doing = 'in a private message';              }
+        elsif($doing eq 'ACTION')   { $doing = "($seenData)";                       }
+        elsif($doing eq 'TOPIC')
+            { $doing = qq(changing the topic to "$seenData"); }
 
-        if($doing eq 'KICKED') {
+        elsif($doing eq 'KICKED') {
             my ($kicker,$reason) = split(/!/, $seenData, 2);
             $doing = "getting kicked by $kicker ($reason)";
         }
-        if($doing eq 'KICKING') {
+        elsif($doing eq 'KICKING') {
             my ($kicked,$reason) = split(/!/, $seenData, 2);
             $doing = "kicking $kicked ($reason)";
         }
+        
         my $response = "I last saw $person " . SimBot::timeago($when) . " ${doing}.";
         $kernel->post(bot => privmsg => $channel, "$nick: $response");
     } else {
@@ -60,7 +67,8 @@ sub set_seen {
     my($kernel, $nick, $channel, $doing, $content, $target) = @_;
     SimBot::debug(4, "Seeing $nick ($doing $content)\n");
     my $time = time;
-    $seenData{lc($nick)} = "$time!$doing!" . ($target ? "$target!" : "") . "$content";
+    $seenData{lc($nick)} = "$time!$doing!" . ($target ? "$target!" : "")
+                            . "$content";
 
     if($doing eq 'KICKED') {
         $doing = 'KICKING';
