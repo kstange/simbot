@@ -277,6 +277,10 @@ sub got_response {
 			&SimBot::debug(1, "rss:  Parse error in $key: $@");
 			return;
         }
+        $feed_name = $rss->{'channel'}->{'title'};
+        if($feed_name =~ m/Slashdot Journals/) {
+            $feed_name = $rss->{'channel'}->{'description'};
+        }
         foreach my $item (@{$rss->{'items'}}) {
             no warnings qw( uninitialized );
             
@@ -309,14 +313,11 @@ sub got_response {
             }
         }
     }
-    $feed_name = $rss->{'channel'}->{'title'};
-    if($feed_name =~ m/Slashdot Journals/) {
-        $feed_name = $rss->{'channel'}->{'description'};
-    }
-        
+    
     $update_feed_title_query->execute($feed_name, $last_update, $id);
     
     $dbh->commit;
+    
     if(defined $nick) {
         # either we are responding to someone's initial request
         # or $nick is '-' and this is the initial cache update
