@@ -454,7 +454,7 @@ sub cleanup_seen {
 $plugin{'%roll'} = "roll_dice";
 $plugin_desc{'%roll'} = 'Rolls dice. You can specify how many dice, and how many sides, in the format 3D6.';
 $plugin{'%flip'} = "flip_coin";
-$plugin_desc{'%roll'} = 'Flips a coin.';
+$plugin_desc{'%flip'} = 'Flips a coin.';
 
 sub roll_dice {
     my $numDice = 2;
