@@ -595,53 +595,92 @@ sub buildrecords {
 # BUILDREPLY: This creates a random reply from the database.
 sub buildreply {
     if (%chat_words) {
-	my @sentence = split(/ /, @_);
-	my $newword = "";
-	my $return = "";
+	my @sentence = split(/ /, $_[0]);
+#	my $newword = "";
+
+	# find an interesting word to base the sentence off
+    my $newword = &find_interesting_word(@sentence);
+
+    my $middleword = $newword;
+	my $return = ($newword ? "$newword " : "");
 	my $punc = "";
 	while ($newword !~ /^__[\!\?]?END$/) {
 	    my %choices = ();
 	    my $chcount = 0;
 	    foreach (keys(%chat_words)) {
-		if (!$newword && $_ =~ /^(__[\!\?]?BEGIN)-\>.*/) {
-		    $choices{$1} = 0 if !$choices{$1};
-		    $choices{$1} += $chat_words{$_};
-		    $chcount += $chat_words{$_};
-		} elsif ($newword && $_ =~ /^\Q$newword\E-\>(.*)/) {
-		    $choices{$1} = $chat_words{$_};
-		    $chcount += $chat_words{$_};
-		}
+    		if (!$newword && $_ =~ /^(__[\!\?]?BEGIN)-\>.*/) {
+    		    $choices{$1} = 0 if !$choices{$1};
+    		    $choices{$1} += $chat_words{$_};
+    		    $chcount += $chat_words{$_};
+    		} elsif ($newword && $_ =~ /^\Q$newword\E-\>(.*)/) {
+    		    $choices{$1} = $chat_words{$_};
+    		    $chcount += $chat_words{$_};
+    		}
 	    }
 	    my $try = int(rand()*($chcount))+1;
 	    foreach(sort {$a cmp $b} keys(%choices)) {
-		$try -= $choices{$_};
-		if ($try <= 0) {
-		    $newword = $_;
-		    if($newword =~ /^__([\!\?])?BEGIN$/) {
-			if ($1) {
-			    $punc = $1;
-			    debug(3, "Using '$1' from __BEGIN\n");
-			}
-		    } elsif($newword =~ /^__([\!\?])?END$/) {
-			if ($1 && !$punc) {
-			    $punc = $1;
-			    debug(3, "Using '$1' from __END\n");
-			}
-		    } else {
-			$return .= $newword . " ";
-		    }
-		    last;
-		}
-	    }
+    		$try -= $choices{$_};
+    		if ($try <= 0) {
+    		    $newword = $_;
+    		    if($newword =~ /^__([\!\?])?BEGIN$/) {
+        			if ($1) {
+        			    $punc = $1;
+        			    debug(3, "Using '$1' from __BEGIN\n");
+        			}
+    		    } elsif($newword =~ /^__([\!\?])?END$/) {
+        			if ($1 && !$punc) {
+        			    $punc = $1;
+        			    debug(3, "Using '$1' from __END\n");
+        			}
+    		    } else {
+        			$return .= $newword . " ";
+    		    }
+    		    last;
+    		}
+        }
 	    if ($try > 0) {
-		$newword = "__END";
-		&debug(1, "Database problem!  Hit a dead end in \"$return\"...\n");
+    		$newword = "__END";
+    		&debug(1, "Database problem!  Hit a dead end in \"$return\"...\n");
 	    }
+	} # ENDS while
+
+    if($middleword) {
+        $newword = $middleword;
+        while ($newword !~ /^__[\!\?]?BEGIN$/) {
+    	    my %choices = ();
+    	    my $chcount = 0;
+    	    foreach (keys(%chat_words)) {
+        		if (/^(.*)-\>\Q$newword\E$/) {
+        		    $choices{$1} = $chat_words{$_};
+        		    $chcount += $chat_words{$_};
+        		}
+    	    }
+    	    my $try = int(rand()*($chcount))+1;
+    	    foreach(sort {$a cmp $b} keys(%choices)) {
+        		$try -= $choices{$_};
+        		if ($try <= 0) {
+        		    $newword = $_;
+        		    if($newword =~ /^__([\!\?])?BEGIN$/) {
+            			if ($1) {
+            			    $punc = $1;
+            			    debug(3, "Using '$1' from __BEGIN\n");
+            			}
+        		    } else {
+            			$return = $newword . " " . $return;
+        		    }
+        		    last;
+        		}
+            }
+    	    if ($try > 0) {
+        		$newword = "__BEGIN";
+        		&debug(1, "Database problem!  Hit a dead beginning in \"$return\"...\n");
+    	    }
+    	} # ENDS while
 	}
 	$return =~ s/\s+$//;
 	$return = uc(substr($return, 0,1)) . substr($return, 1) . ($punc ne "" ? $punc : ".");
 	$return =~ s/\bi(\b|\')/I$1/g;
-	if (int(rand()*(100/$exsenpct)) == 0) {
+	if ($exsenpct && int(rand()*(100/$exsenpct)) == 0) {
 	    &debug(3, "Adding another sentence...\n");
 	    $return .= "__NEW__" . &buildreply(@sentence);
 	}
@@ -650,6 +689,57 @@ sub buildreply {
 	&debug(1, "Could not form a reply.\n");
 	return "I'm speechless.";
     }
+}
+
+# find_interesting_word: Finds a word to base a sentence off
+sub find_interesting_word {
+    my $curWordScore, $curTableWordA, $curTableWordB, $highestScoreWord,
+        $highestScore, $wordFound, $curWord, $curTableKey;
+    debug(3, "Word scores: ");
+    $highestScoreWord = ""; $highestScore=0;
+    foreach $curWord (@_) {
+        $curWord = lc($curWord);
+        $curWord =~ s/[,\.\?\!\:]*$//;
+        if(length($curWord) <= 3
+           || $curWord =~ /^($chosen_nick|$alttag|$nickname)$/i) {
+            next;
+        }
+        $wordFound = 0;
+        $curWordScore = 5000;
+        foreach $curTableKey (keys(%chat_words)) {
+            $curTableKey =~ m/^(.*)-\>(.*)$/;
+            ($curTableWordA, $curTableWordB) = ($1,$2);
+            
+            if($curTableWordA eq $curWord) {
+                $wordFound = 1;
+                if($curTableWordB =~ /__[\.\?\!]?END$/) {
+                    $curWordScore -=
+                        1.8 * $chat_words{"$curTableWordA->$curTableWordB"};
+                } else {
+                    $curWordScore -= $chat_words{"$curTableWordA->$curTableWordB"};
+                }
+            } elsif($curTableWordB eq $curWord) {
+                $wordFound = 1;
+                if($curTableWordA =~ /__[\.\?\!]?BEGIN$/) {
+                    $curWordScore -=
+                        1.8 * $chat_words{"$curTableWordA->$curTableWordB"};
+                } else {
+                    $curWordScore -= $chat_words{"$curTableWordA->$curTableWordB"};
+                }
+            }
+        }
+        $curWordScore += .7 * length($curWord);
+        if(!$wordFound) {
+            $curWordScore = -1;
+        }
+        debug(3, "$curWord:$curWordScore ");
+        if($curWordScore > $highestScore) {
+            $highestScore = $curWordScore;
+            $highestScoreWord = $curWord;
+        }
+    }
+    debug(3, "\nUsing $highestScoreWord\n");
+    return $highestScoreWord;
 }
 
 # SEND_PIECES: This will break the message up into blocks of no more
