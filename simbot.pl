@@ -408,11 +408,13 @@ sub print_stats {
 dbmopen (%seenData, 'seen', 0664) || die("Can't open dbm\n");
 
 $plugin{'%seen'} = "get_seen";
-$plugin_desc{'%seen'} = 'FIXME: Documentation blows!';
+$plugin_desc{'%seen'} = 'Tells you the last time I saw someone.';
 # GET_SEEN: Checks to see if a person has done anything lately...
 sub get_seen {
     my ($nick, undef, $person) = @_;
-    if($person eq $chosen_nick) {
+    if(!$person) {
+        $kernel->post(bot => privmsg => $channel, "$nick: There are many things I have seen. Perhaps you should ask for someone in particular?");
+    } elsif(lc($person) eq lc($chosen_nick)) {
         $kernel->post(bot => ctcp => $channel, 'action', "waves $hisher hand in front of $hisher face. \"Yup,  I can see myself!\"");
     } elsif($seenData{$person}) {
         my ($when, $doing, $seenData) = split(/!/, $seenData{$person}, 3);
