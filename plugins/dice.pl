@@ -66,23 +66,21 @@ sub roll_dice {
 sub flip_coin {
     my ($kernel, $nick, $channel, undef, $number) = @_;
 	my $text;
-	if (defined $number) {
-		if ($number > 20) {
-			&SimBot::send_message($channel, "$nick: It's dangerous to throw that many coins in the air at once.");
-			return;
-		}
+	$number = 1 if !defined $number;
+	if ($number > 20) {
+		&SimBot::send_message($channel, "$nick: It's dangerous to throw that many coins in the air at once.");
+	} elsif ($number <= 0) {
+		&SimBot::send_action($channel, "tries to flip $number coins for $nick, but the universe appears firmly opposed to the idea.");
+	} else {
 		$text = "";
-		for (my $i=0; $i < $number; $i++) {
+		for (my $i=1; $i < $number; $i++) {
 			$text .= ((int rand(2)==0) ? 'heads, ' : 'tails, ');
 		}
-		$text =~ s/, $//;
-	} else {
-		$text = ((int rand(2)==0) ? 'heads' : 'tails');
+		$text .= ((int rand(2)==0) ? 'heads.' : 'tails.');
+		&SimBot::send_action($channel, "flips " .
+							 ($number > 1 ? "$number coins" : "a coin") .
+							 " for $nick: " . $text);
 	}
-	&SimBot::send_action($channel, "flips " .
-						 (defined $number ? "$number " .
-						  ($number > 1 ? "coins" : "coin") : "a coin") .
-						 " for $nick: " . $text);
 }
 
 # Register Plugins
