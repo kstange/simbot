@@ -50,29 +50,29 @@ use Encode;
 
 # Configure feeds here. Key should be local cache name; value should be
 # url to the RSS feed
-$feeds{'fourohfour'}        = 'http://fourohfour.info/rss.xml';
-$announce_feed{'fourohfour'} = 1;
-
-$feeds{'simguy'}            = 'http://simguy.net/rss';
-$announce_feed{'simguy'}    = 1;
-
-$feeds{'slashdot'}          = 'http://slashdot.org/index.rss';
-$announce_feed{'slashdot'}  = 1;
-
-$feeds{'fark'}              = 'http://www.pluck.com/rss/fark.rss';
-$announce_feed{'fark'}      = 0;
-
-$feeds{'lpetr'}             = 'http://slashdot.org/journal.pl?op=display&uid=557952&content_type=rss';
-$announce_feed{'lpetr'}     = 1;
-
-$feeds{'ala'}               = 'http://www.alistapart.com/rss.xml';
-$announce_feed{'ala'}       = 1;
-
-$feeds{'mironv'}            = 'http://www.mironv.com/blog/MironV_RSS.xml';
-$announce_feed{'mironv'}    = 1;
-
-$feeds{'gleffler'}          = 'http://gleffler.livejournal.com/data/rss';
-$announce_feed{'gleffler'}  = 1;
+#$feeds{'fourohfour'}        = 'http://fourohfour.info/rss.xml';
+#$announce_feed{'fourohfour'} = 1;
+#
+#$feeds{'simguy'}            = 'http://simguy.net/rss';
+#$announce_feed{'simguy'}    = 1;
+#
+#$feeds{'slashdot'}          = 'http://slashdot.org/index.rss';
+#$announce_feed{'slashdot'}  = 1;
+#
+#$feeds{'fark'}              = 'http://www.pluck.com/rss/fark.rss';
+#$announce_feed{'fark'}      = 0;
+#
+#$feeds{'lpetr'}             = 'http://slashdot.org/journal.pl?op=display&uid=557952&content_type=rss';
+#$announce_feed{'lpetr'}     = 1;
+#
+#$feeds{'ala'}               = 'http://www.alistapart.com/rss.xml';
+#$announce_feed{'ala'}       = 1;
+#
+#$feeds{'mironv'}            = 'http://www.mironv.com/blog/MironV_RSS.xml';
+#$announce_feed{'mironv'}    = 1;
+#
+#$feeds{'gleffler'}          = 'http://gleffler.livejournal.com/data/rss';
+#$announce_feed{'gleffler'}  = 1;
 
 use constant CHANNEL => &SimBot::option('network', 'channel');
 
@@ -83,7 +83,17 @@ use constant FEED_TITLE_STYLE => '%green%';
 # This runs when simbot loads. We need to make sure we know the
 # most recent post on each feed at this time so when we update in an hour
 # we can announce only new stuff.
-sub messup_rss {    
+sub messup_rss {
+    foreach my $cur_feed 
+            (&SimBot::options_in_section('plugin.rss.feeds')) {
+        $feeds{$cur_feed}=&SimBot::option('plugin.rss.feeds', $cur_feed);
+        $announce_feed{$cur_feed} = 0;
+    }
+    foreach my $cur_feed
+            (split(/,/, &SimBot::option('plugin.rss', 'announce'))) {
+        $announce_feed{$cur_feed} = 1;
+    }
+
     $session = POE::Session->create(
         inline_states => {
             _start          => \&bootstrap,
