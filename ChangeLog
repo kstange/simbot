@@ -1,3 +1,8 @@
+Version 6.0 alpha: (12 Feb 2004)
+	* simbot.pl
+	   - We now exit the POE event loop in a way that lets us quit IRC
+	     without doing the famous "EOF from client."
+
 Version 6.0 alpha: (11 Feb 2004)
 
 	* simbot.pl:
@@ -9,6 +14,8 @@ Version 6.0 alpha: (11 Feb 2004)
 	     needed to eliminate very slow scoring of interesting words).
 	     This new method also speeds up sentence generation a great
 	     deal, though it will use a bit more memory.
+	* plugins/seen.pl:
+	   - We now see topic changes and channel notices.
 
 Version 6.0 alpha: (22 Dec 2003)
 
