@@ -36,13 +36,9 @@ die("Your config.pl has no rulefile to load!") unless $rulefile;
 # ****************************************
 
 # Force debug on with this:
-# 0 is silent, 1 shows errors, 2 shows warnings, 3 shows lots of fun things
+# 0 is silent, 1 shows errors, 2 shows warnings, 3 shows lots of fun things,
+# 4 shows everything you never wanted to see.
 $verbose = 3;
-
-@changes = (
-	    "added: support for %weather KXXX via Geo::METAR (Pete Pearson)",
-	    "added: you can now add \"plugins\" inside simbot.pl, a feature which will be split out later",
-	    );
 
 @todo = (
 	 "1) %delete: allow users to delete words used less than x times",
@@ -76,7 +72,6 @@ $version = "6.0 alpha";
 %plugin = (
 	   "%stats",   "print_stats",
 	   "%help",    "print_help",
-	   "%version", "print_version",
 	   "%todo",    "print_todo",
 	   "%list",    "print_list",
 	   "%find",    "google_find",
@@ -85,7 +80,6 @@ $version = "6.0 alpha";
 %plugin_desc = (
 		"%stats",   "Shows useless stats about the database",
 		"%help",    "Shows this message",
-		"%version", "Shows version number and recent changes",
 		"%todo",    "Where the hell am I going?",
 		"%find",    "Searches Google with \"I'm Feeling Lucky\"",
 		);		
@@ -116,13 +110,14 @@ $SIG{'HUP'}  = 'cleanup';
 $SIG{'USR1'} = 'restart';
 
 # Load the massive table of rules simbot will need.
-&debug(3, "Loading $rulefile... ");
 &load;
-&debug(3, "Loaded and running\n");
 
 # Set line counter to zero.  We'll save when this hits a threshold,
 # or if the time is right.
 $items = 0;
+
+# We are not terminating in the default case.  Duh.
+$terminating = 0;
 
 # Create a new IRC connection.
 POE::Component::IRC->new('bot');
@@ -162,6 +157,7 @@ sub debug {
     my @errors = ("",
 		  "ERROR: ",
 		  "WARNING: ",
+		  "",
 		  "",
 		  );
     if ($_[0] <= $verbose) {
@@ -212,39 +208,50 @@ sub cleanup {
 
 # LOAD: This will load our rules.
 sub load {
+    &debug(3, "Loading $rulefile... ");
     $loaded = 0;
-    open(RULES, $rulefile) || &debug(1, "Could not open file $rulefile!\n");
-    foreach (keys(%chat_words)) {
-	delete $chat_words{$_};
+    if(open(RULES, $rulefile)) {
+	foreach (keys(%chat_words)) {
+	    delete $chat_words{$_};
+	}
+	foreach(<RULES>) {
+	    chomp;
+	    s///;
+	    my @rule = split (/\t/);
+	    $chat_words{"$rule[0]-\>$rule[1]"} = $rule[2];
+	}
+	close(RULES);
+	&debug(3, "Rules loaded successfully!\n");
+	$loaded = 1;
+    } elsif (!-e $rulefile) {
+	&debug(2, "File does not exist and will be created on save.\n");
+	$loaded = 1;
+    } else {
+	&debug(1, "Cannot read from the rules file! This session will not be saved!\n");
     }
-    foreach(<RULES>) {
-	chomp;
-	s///;
-	my @rule = split (/\t/);
-	$chat_words{"$rule[0]-\>$rule[1]"} = $rule[2];
-    }
-    close(RULES);
-    $loaded = 1;
 }
 
 # SAVE: This will save our rules.
 sub save {
-    &debug(3, "Saving $rulefile now...\n");
+    &debug(3, "Saving $rulefile... ");
     if ($loaded == 1) {
-	open(RULES, ">$rulefile") || &debug(1, "Could not open file $rulefile!");
-	flock(RULES, 2);
-	foreach(keys(%chat_words)) {
-	    my ($a, $b) = split(/-\>/);
-	    $c = $chat_words{$_};
-	    print RULES "$a\t$b\t$c\n";
+	if(open(RULES, ">$rulefile")) {
+	    flock(RULES, 2);
+	    foreach(keys(%chat_words)) {
+		my ($a, $b) = split(/-\>/);
+		$c = $chat_words{$_};
+		print RULES "$a\t$b\t$c\n";
+	    }
+	    flock(RULES, 8);
+	    close(RULES);
+	    &debug(3, "Rules saved successfully!\n");
+	} else {
+	    &debug(1, "Cannot write to the rules file! This session will be lost!\n");
 	}
-	flock(RULES, 8);
-	close(RULES);
-	$items = 0;
-	&debug(3, "$rulefile saved successfully!\n");
     } else {
-	&debug(2, "Opting not to save state.  Rules are not loaded.\n");
+	&debug(2, "Opting not to save.  Rules are not loaded.\n");
     }
+    $items = 0;
 }
 
 # GOOGLE_FIND: Prints a URL returned by google's I'm Feeling Lucky.
@@ -311,17 +318,6 @@ sub print_list {
     $kernel->post(bot => privmsg => $channel, &pick(@reply));
 }
 
-# PRINT_VERSION: Prints version and changelog privately to the user.
-sub print_version {
-    my $nick = $_[0];
-    my $reply = `uname -s -r -m`;
-    chomp($reply);
-    &debug(3, "Received version command from " . $nick . ".\n");
-    $kernel->post(bot => privmsg => $nick, "VERSION $project $version ($reply)");
-    foreach(@changes) {
-	$kernel->post(bot => privmsg => $nick, $_);
-    }
-}
 # PRINT_TODO: Prints todo list privately to the user.
 sub print_todo {
     my $nick = $_[0];
@@ -450,26 +446,27 @@ sub get_wx {
 
 # BUILDRECORDS: This creates new rules and adds them to the database.
 sub buildrecords {
-    my $action = $_[1];
+    my $action = ($_[1] ? $_[1] : "");
     my @sentence = split(/\s+/, $_[0]);
     my ($sec) = localtime(time);
     $items++;
 
     my $tail = -1;
-    while ($sentence[$tail] =~ /^[:;].*/) {
+    while ($sentence[$tail] =~ /^[:;=].*/) {
         $tail--;
     }
     $sentence[$tail] =~ /([\!\?])[^\!\?]*$/;
-    my $startblock = "__" . $1 . "BEGIN";
+    my $startblock = "__" . ($1 ? $1 : "") . "BEGIN";
     my $endblock = "__END";
 
     for(my $x=0; $x <= $#sentence; $x++) {
 	$sentence[$x] =~ s/^[;:].*//;
+	$sentence[$x] =~ s/^=[^=]+//;
 	$sentence[$x] =~ s/[^\300-\377\w\'\/\-\.=\%\$&\+\@]*//g;
 	$sentence[$x] =~ s/(^|\s)\.+|\.+(\s|$)//g;
 	$sentence[$x] = lc($sentence[$x]);
 	if ("@sentence" !~ /[A-Za-z0-9\300-\377]/) {
-	    &debug(2, "Not recording this line because it doesn't seem to have words in it: @sentence\n");
+	    &debug(2, "This line contained no discernable words: @sentence\n");
 	    goto skiptosave;
 	}
 	foreach (@chat_ignore) {
@@ -481,7 +478,7 @@ sub buildrecords {
     }
 
     if ("@sentence" =~ /^\s*$/) {
-	&debug(2, "This line contained no discernable words.\n");
+	&debug(2, "This line contained no discernable words: @sentence\n");
 	goto skiptosave;
     }
     if ($action eq "ACTION") {
@@ -521,13 +518,11 @@ sub buildreply {
 	my $return = "";
 	my $punc = "";
 	while ($newword !~ /^__[\!\?]?END$/) {
-#	    my @choices = ();
-# new method
 	    my %choices = ();
 	    my $chcount = 0;
 	    foreach (keys(%chat_words)) {
 		if (!$newword && $_ =~ /^(__[\!\?]?BEGIN)-\>.*/) {
-		    $choice{$1} = 0 if !$choices{$1};
+		    $choices{$1} = 0 if !$choices{$1};
 		    $choices{$1} += $chat_words{$_};
 		    $chcount += $chat_words{$_};
 		} elsif ($newword && $_ =~ /^\Q$newword\E-\>(.*)/) {
@@ -560,15 +555,6 @@ sub buildreply {
 		$newword = "__END";
 		&debug(1, "Database problem!  Hit a dead end in \"$return\"...\n");
 	    }
-# end new method
-#		if ($_ =~ /^$newword-\>(.*)/i) {
-#		    for($i=$chat_words{"$newword-\>$1"}; $i > 0; $i--) {
-#			push (@choices, $1);
-#		    }
-#		}
-#	    }
-#	    $try = int(rand()*($#choices+1))-1;
-#	    $newword = $choices[$try];
 	}
 	$return =~ s/\s+$//;
 	$return = uc(substr($return, 0,1)) . substr($return, 1) . ($punc ne "" ? $punc : ".");
@@ -594,11 +580,9 @@ sub init_bot {
     if ($password) {
 	&debug(3, "Logging into Channel Service as $username...\n");
 	$kernel->call(bot => privmsg => "x\@channels.undernet.org", "login $username $password");
-	sleep 5;
     }
     &debug(3, "Joining $channel...\n");
     $kernel->post(bot => join => $channel);
-    sleep 2;
 }
 
 # PICK_NEW_NICK: If IRC reports the desired nickname as in use, this
@@ -654,8 +638,8 @@ sub process_public {
 	$kernel->post(bot => notice => $nick, "Commands must be prefixed with %.");
     } elsif ($text =~ /^\%/) {
 	my @command = split(/\s/, $text);
-	if ($plugin{@command[0]}) {
-	    &{$plugin{@command[0]}}($nick, @command);
+	if ($plugin{$command[0]}) {
+	    &{$plugin{$command[0]}}($nick, @command);
 	} else {
 	    $kernel->post(bot => privmsg => $channel, "Hmm... @command isn't supported. Try \%help");
 	}
@@ -678,7 +662,8 @@ sub process_public {
 	}
 	$kernel->post(bot => privmsg => $channel, $queue) unless ($queue eq "");
 
-    } elsif ($text !~ /^[^\w\'\/-=\$]*$|^[;=:]/) {
+    } elsif ($text !~ /^[;=:]/) {
+#    } elsif ($text !~ /^[^\w\'\/-=\$]*$|^[;=:]/) {
 	&debug(3, "Learning from " . $nick . "...\n");
 	&buildrecords($text);
     }
@@ -725,7 +710,7 @@ sub ping_event {
 
 # CHECK_NICKNAME: Check to see if nickname is free.
 sub check_nickname {
-    my @nicks = split(/ /, @_[ ARG1 ]);
+    my @nicks = split(/ /, $_[ ARG1 ]);
     my $avail = 1;
     foreach (@nicks) {
 	if ($_ eq $nickname) {
@@ -772,10 +757,9 @@ sub check_invite {
 sub quit {
     my $message = "@_";
     $terminating = 1;
-    $kernel->post(bot => quit => "$project $version: $message");
+    $kernel->call(bot => quit => "$project $version: $message");
     $kernel->post(bot => unregister => "all");
     &debug(2, "Quitting IRC... $message\n");
-    sleep 3;
 }
 
 # RECONNECT: Reconnect to IRC when disconnected.
