@@ -110,8 +110,7 @@ sub do_rss {
 		if($announce_feed{$curFeed}) {
 			my $mtime = 0;
             $file = "caches/${curFeed}.xml";
-            $request = HTTP::Request->new(GET => $feeds{$curFeed});
-            if(-e $file) {
+             if(-e $file) {
                 $mtime = (stat($file))[9];
                 $request->if_modified_since($mtime);
             }
@@ -120,14 +119,18 @@ sub do_rss {
 			#  - The file we have is expired.
 			#  - We have no cached version of this file.
 			if (defined $mostRecentPost{$curFeed} ||
-				$mtime == 0 || $mtime + EXPIRE < time) {
+				!-e $file || $mtime + EXPIRE <= time) {
+				$request = HTTP::Request->new(GET => $feeds{$curFeed});
 				$kernel->post( 'ua' => 'request', 'got_response',
 							   $request, $curFeed);
-			}
-			# If the file we have is not expired, we still need to determine
-			# the most recent post so we have a reference point for later
-			# updates.  This should only run on the first fetch.
-			if (!defined $mostRecentPost{$curFeed} && -e $file) {
+
+			# If the file we have is not expired, we still need to find	the
+			# most recent post so we have a reference point for later updates.
+			# This should only run if all of these conditions are met:
+			#  - We have a cached version of this file.
+			#  - The file we have is not expired.
+			#  - We have not yet found the most recent post (initial fetch).
+			} else {
 				&SimBot::debug(4, "rss:   loading up to date cache of $curFeed\n");
 				$rss->parsefile($file);
 				if(defined $rss->{'items'}->[0]->{'guid'}) {
