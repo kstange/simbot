@@ -672,6 +672,7 @@ sub build_records {
     $items++;
 
     my $tail = -1;
+	my $punc = "";
 
 	# Eat anything that looks like it might be a smiley at end of our line.
 	if (defined $sentence[$tail]) {
@@ -680,11 +681,12 @@ sub build_records {
 		}
 		# Look for punctuation to be recorded.
 		$sentence[$tail] =~ /([\!\?])[^\!\?]*$/;
+		$punc = $1 if(defined $1);
 	}
 
 	# Define the start and end tags such that we reflect the punctuation
 	# we found.
-    my $startblock = "__" . ($1 ? $1 : "") . "BEGIN";
+    my $startblock = "__" . $punc . "BEGIN";
     my $endblock = "__END";
 
 	# Go through every word and sanitize the text so that we record as little
