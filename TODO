@@ -8,6 +8,7 @@ Targets for 1.0 Beta
 - Implement automatic database backups.
 - Implement learning ignore by hostmask/nickname.
 - Implement autokick plugin.
+- Make interesting word calculation adaptive by db size, because over time, 5000 is not enough, and lots of words become uninteresting.
 
 Targets for 1.0 Final
 ======================
