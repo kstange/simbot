@@ -48,32 +48,6 @@ use HTTP::Status;
 use vars qw( %mostRecentPost %feeds %announce_feed $session );
 use Encode;
 
-# Configure feeds here. Key should be local cache name; value should be
-# url to the RSS feed
-#$feeds{'fourohfour'}        = 'http://fourohfour.info/rss.xml';
-#$announce_feed{'fourohfour'} = 1;
-#
-#$feeds{'simguy'}            = 'http://simguy.net/rss';
-#$announce_feed{'simguy'}    = 1;
-#
-#$feeds{'slashdot'}          = 'http://slashdot.org/index.rss';
-#$announce_feed{'slashdot'}  = 1;
-#
-#$feeds{'fark'}              = 'http://www.pluck.com/rss/fark.rss';
-#$announce_feed{'fark'}      = 0;
-#
-#$feeds{'lpetr'}             = 'http://slashdot.org/journal.pl?op=display&uid=557952&content_type=rss';
-#$announce_feed{'lpetr'}     = 1;
-#
-#$feeds{'ala'}               = 'http://www.alistapart.com/rss.xml';
-#$announce_feed{'ala'}       = 1;
-#
-#$feeds{'mironv'}            = 'http://www.mironv.com/blog/MironV_RSS.xml';
-#$announce_feed{'mironv'}    = 1;
-#
-#$feeds{'gleffler'}          = 'http://gleffler.livejournal.com/data/rss';
-#$announce_feed{'gleffler'}  = 1;
-
 use constant CHANNEL => &SimBot::option('network', 'channel');
 
 # This sets the style to use for feed titles; use undef for no style
