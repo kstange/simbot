@@ -1,20 +1,42 @@
-# SimBot Weather Plugin
-#
-# Copyright (C) 2003-04, Pete Pearson
-#
-# This program is free software; you can redistribute it and/or modify
-# under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+=head1 NAME
+
+SimBot Weather Plugin
+
+=head1 SYNOPSIS
+
+Provides the ability to get the current conditions for one's locale to
+SimBot. Responds to I<%weather xxxx> with the current conditions for the
+location I<xxxx>, where I<xxxx> is a station providing X<METAR>METAR reports. The four character station IDs can be looked up online at
+L<http://www.nws.noaa.gov/tg/siteloc.shtml>.
+
+=head1 COPYRIGHT
+
+Copyright (C) 2003-04, Pete Pearson
+
+This program is free software; you can redistribute it and/or modify
+under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+=head1 TODO
+
+=over
+
+=item Either fix the issues in C<Geo::METAR> or stop using it.
+
+=back
+
+=cut
 
 package SimBot::plugin::weather;
 use warnings;
