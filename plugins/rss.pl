@@ -209,7 +209,9 @@ sub got_response {
 					$title = HTML::Entities::decode($title);
                     $title =~ s/\t/  /g;
                     
-                    $link =~ s{^http://go\.fark\.com/cgi/fark/go\.pl\?\S*&location=(\S*)$}{$1};
+                    if($link =~ s{^http://go\.fark\.com/cgi/fark/go\.pl\?\S*&location=(\S*)$}{$1}) {
+                        $link =~ s{%3f}{?};
+                    }
                     
                     push(@newPosts, "$title <$link>");
                 }
