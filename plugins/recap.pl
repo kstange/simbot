@@ -31,7 +31,11 @@ sub send_recap {
     &SimBot::debug(3, "Received recap command from $nick... backlog is " . $#backlog . " lines, user wants " . (defined $lines ? $lines : $std_backlog) ." lines.\n");
     if ($#backlog + 1 < 1) {
 		&SimBot::send_notice($nick, "I haven't seen enough chat yet to provide a useful recap.");
-	} elsif (defined $lines && ($lines < 1 || $lines > $max_backlog)) {
+	} elsif (defined $lines && $lines < 0) {
+		&SimBot::send_message($channel, "$nick: Sorry, I haven't figured out how to precap yet.");
+	} elsif (defined $lines && $lines == 0) {
+		&SimBot::send_message($channel, "$nick: Nothing has happened since the last time something happened.");
+	} elsif (defined $lines && ($lines > $max_backlog)) {
 		&SimBot::send_notice($nick, "I can only display between 1 and $max_backlog lines of recap.");
 	} else {
 		if (!defined $lines) {
