@@ -4,5 +4,6 @@ seen
 metarStationNames
 *.pag
 *.dir
+*.db
 simbot.sh
-
+.DS_Store
