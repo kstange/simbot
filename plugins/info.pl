@@ -1,45 +1,35 @@
-
-=head1 NAME
-
-SimBot Info Plugin
-
-=head1 SYNOPSIS
-
-The Info plugin is designed to bring Infobot style features
-to SimBot. It'll learn things X<factoid>(factoids) from the channel,
-usually in the form of "I<x> is I<y>". Later, when someone asks for it
-using I<%info x>, SimBot will respond with what it knows about I<x>.
-It will even respond to "What is I<x>?" type questions if it believes
-the question wasn't asked of anyone in particular.
-
-=head1 COPYRIGHT
-
-Copyright (C) 2004, Pete Pearson
-
-This program is free software; you can redistribute it and/or modify
-under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-
-=head1 TODO
-
-=over
-
-=item We need a far more intelligent way to figure out where exactly the
-factoid ends or the key begins.
-
-=back
-
-=cut
+###
+#  SimBot Info Plugin
+#
+# DESCRIPTION:
+#   The Info plugin is designed to bring Infobot style features to
+#   SimBot. It'll learn things (factoids) from the channel, usually in
+#   the form of "x is y". Later, when someone asks for it using
+#   '%info x', SimBot will respond with what it knows about x. It will
+#   even respond to "What is x?" type questions if it believes the
+#   question wasn't asked of anyone in particular.
+#
+# COPYRIGHT:
+#   Copyright (C) 2004, Pete Pearson
+#
+#   This program is free software; you can redistribute it and/or modify
+#   under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 2 of the License, or
+#   (at your option) any later version.
+#   
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#   
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+# TODO:
+#   * We need a far more intelligent way to figure out where exactly the
+#     factoid ends or the key begins.
+#
 
 package SimBot::plugin::info;
 
@@ -96,8 +86,17 @@ sub cleanup_info {
     dbmclose(%isDB); dbmclose(%areDB);
 }
 
+### handle_chat
+# This method parses all messages said in the channel for things that
+# appear to be queries or factoids and responds to and/or learns them
+#
+# Arugments:
+#   $nick:      nickname of the person speaking
+#   $channel:   channel the chat was in
+#   $content:   content of the message
+# Returns: nothing
 sub handle_chat {
-    my($kernel, $nick, $channel, $doing, $content) = @_;
+    my(undef, $nick, $channel, undef, $content) = @_;
     my($person_being_referenced, $being_addressed, $is_query); 
     
     if($content =~ s/^.info ?//) {
@@ -204,6 +203,15 @@ sub handle_chat {
     }
 }
 
+### handle_query
+# This method takes a query and sends back to the channel the response
+#
+# Arguments:
+#                    $query:  the key we are looking up
+#                  $channel:  channel the chat was in
+#   $person_being_addressed:  content of the message
+#          $being_addressed:  are we being addressed?
+# Returns: nothing
 sub handle_query {
     my ($query, $nick, $channel, $person_being_addressed, $being_addressed)
         = @_;
@@ -231,6 +239,18 @@ sub handle_query {
     }
 }
 
+### report_learned
+# This method simply logs and reports to the channel that some fact
+# has been learned.
+#
+# Arguments:
+#   $channel:   channel the chat was in
+#   $nick:      nickname of the person speaking
+#   $key:       the key that was learned
+#   $isare:     'is' or 'are'
+#   $factoid:   the factoid that was learned
+#   $addressed: were we addressed with %info?
+# Returns: nothing
 sub report_learned {
     my($channel, $nick, $key, $isare, $factoid, $addressed) = @_;
     &SimBot::debug(3, "Learning from $nick: $key =$isare=> $factoid\n");
@@ -240,6 +260,17 @@ sub report_learned {
         if $addressed;
 }
 
+### parse_message
+# This method parses a string for certain variables, as well as for style
+# Used for all the messages sent to the channel.
+#
+# Arguments:
+#   $message:   the string we are working on
+#   $nick:      the nickname we are speaking to
+#   $key:       the key of the factoid that was learned, or undef
+#   $isare:     'is', 'are', or undef
+#   $factoid:   the factoid that was learned, or undef
+# Returns: the parsed string
 sub parse_message {
     my ($message, $nick, $key, $isare, $factoid) = @_;
     
@@ -284,7 +315,7 @@ sub normalize_urls {
             my ($host, $path) = split(m{/}, $curWord, 2);
             
             # does the first segment have a TLD?
-            if($host =~ m{\.(com|org|net|biz|info|aero|museum|\w\w)$}) {
+            if($host =~ m{\.(com|org|net|int|mil|gov|edu|biz|pro|info|aero|coop|name|museum|\w\w)$}g) {
                 # Yup. Let's assume it's a web site...
                 $host = 'http://' . $host;
             }
