@@ -49,7 +49,8 @@ use constant I_DONT_KNOW => (
 );
 
 use constant OK_LEARNED => (
-    '$nick: I will remember that.', 'OK, $nick.',
+    '$nick: I will remember that.',
+    'OK, $nick.',
     'I\'ll keep that in mind, $nick.',
 );
 
@@ -81,6 +82,16 @@ use constant I_CANNOT => (    # used to respond to requests with bad words
     'I cannot do that, $nick.',
 );
 
+# these flags are used to tell handle_query stuff
+use constant PREFER_URL         => 128;
+use constant PREFER_DESC        => 64;
+use constant BEING_ADDRESSED    => 32;
+#                               => 16;
+#                               => 8;
+#                               => 4;
+#                               => 2;
+#                               => 1;
+ 
 sub messup_info {
     dbmopen(%isDB, 'is', 0664);
     dbmopen(%areDB, 'are', 0664);
@@ -150,8 +161,21 @@ sub handle_chat {
         }
     } elsif($content =~ m{(where|what|who) is ([\'\w\s]+)}i) {
         # looks like a query
+        # if $1 is where, we should try to respond with a URL
+        # otherwise, we should try to respond with a non-URL
+        my $key = $2;
+        my $flags;
+        if($1 =~ m/where/i) { $flags =  PREFER_URL;         }
+        else                { $flags =  PREFER_DESC;        }
+        if($being_addressed){ $flags |= BEING_ADDRESSED;    }
+        
+        &handle_query($key, $nick, $channel, $person_being_referenced,
+                      $flags);
+    } elsif($content =~ m{where can (I|one) find ([\'\w\s]+)}i) {
+        # looks like a query, try to respond with a URL
         &handle_query($2, $nick, $channel, $person_being_referenced,
-                      $being_addressed);
+                      ($being_addressed ? BEING_ADDRESSED : 0)
+                      | PREFER_URL);
     } elsif($content =~ m{([\'\w\s]+) is[\s\w]* (\w+://\S+)}i) {
         # looks like a URL to me!
         my ($key, $factoid) = (lc($1), $2);
@@ -205,8 +229,7 @@ sub handle_chat {
         # KEEP THIS ELSIF LAST
         # Single phrase, doesn't match anything else and we are being
         # addressed. Let's do a query.
-        &handle_query($1, $nick, $channel, $person_being_referenced,
-                      $being_addressed);
+        &handle_query($1, $nick, $channel, undef, BEING_ADDRESSED);
     }
 }
 
@@ -214,19 +237,20 @@ sub handle_chat {
 # This method takes a query and sends back to the channel the response
 #
 # Arguments:
-#                    $query:  the key we are looking up
-#                  $channel:  channel the chat was in
-#   $person_being_addressed:  content of the message
-#          $being_addressed:  are we being addressed?
+#   $query:     the key we are looking up
+#   $channel:   channel the chat was in
+#   $addressed: content of the message
+#   $flags:     bit flags PREFER_URL, PREFER_DESC, and BEING_ADDRESSED
 # Returns:
 #   nothing
 sub handle_query {
-    my ($query, $nick, $channel, $person_being_addressed, $being_addressed)
-        = @_;
+    my ($query, $nick, $channel, $addressed, $flags) = @_;
+    warn "$nick $query $flags $addressed";
     
-    if($person_being_addressed && !$being_addressed) {
+    if($addressed && !($flags & BEING_ADDRESSED)) {
         # Someone's being referenced, and it isn't us.
         # We should keep quiet.
+        # FIXME: This really should be elsewhere...
         return;
     }
     
@@ -239,7 +263,7 @@ sub handle_query {
         &SimBot::send_message($channel,
                     &parse_message(&SimBot::pick(QUERY_RESPONSE),
                                    $nick, $query, 'are', $isDB{$query}));
-    } elsif($being_addressed) {
+    } elsif($flags & BEING_ADDRESSED) {
         # we're being addressed, but don't have an answer...
         &SimBot::send_message($channel,
             &parse_message(&SimBot::pick(I_DONT_KNOW),
