@@ -71,6 +71,9 @@ $announce_feed{'ala'}       = 1;
 $feeds{'mironv'}            = 'http://www.mironv.com/blog/MironV_RSS.xml';
 $announce_feed{'mironv'}    = 1;
 
+$feeds{'gleffler'}          = 'http://gleffler.livejournal.com/data/rss';
+$announce_feed{'gleffler'}  = 1;
+
 use constant CHANNEL => &SimBot::option('network', 'channel');
 
 # This sets the style to use for feed titles; use undef for no style
