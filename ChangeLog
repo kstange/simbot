@@ -1,3 +1,10 @@
+Version 6.0 alpha: (20 Oct 2004)
+	* simbot.pl:
+	  - Added the ability to connect on non-standard ports.
+	* plugins/rss.pl:
+	  - Added complaining and bailing if the RSS feed cannot be written
+	    to disk.
+
 Version 6.0 alpha: (05 Sep 2004)
 	* simbot.pl:
 	  - Added command line options --debug and --config to override the
