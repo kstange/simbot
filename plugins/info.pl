@@ -166,7 +166,7 @@ sub handle_chat {
                 &parse_message(&SimBot::pick(CANT_FORGET),
                                $nick, $key));
         }
-    } elsif($content =~ m{(where|what|who) is ([\'\-\w\s]+)}i) {
+    } elsif($content =~ m{(where|what|who) (is|are) ([\'\-\w\s]+)}i) {
         # looks like a query
         # if $1 is where, we should try to respond with a URL
         # otherwise, we should try to respond with a non-URL
@@ -183,7 +183,7 @@ sub handle_chat {
         &handle_query($2, $nick, $channel, $person_being_referenced,
                       ($being_addressed ? BEING_ADDRESSED : 0)
                       | PREFER_LOCATION);
-    } elsif($content =~ m{([\'\-\w\s]+) is[\s\w]* (also )(\w+://\S+)}i) {
+    } elsif($content =~ m{([\'\-\w\s]+) is[\s\w]* (also )?(\w+://\S+)}i) {
         # looks like a URL to me!
         my ($key, $also, $factoid) = (lc($1), $2, $3);
         
