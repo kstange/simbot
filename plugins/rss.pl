@@ -46,6 +46,7 @@ use POE::Component::Client::HTTP;
 use HTTP::Request::Common qw(GET POST);
 use HTTP::Status;
 use vars qw( %mostRecentPost %feeds %announce_feed $session );
+use Encode;
 
 # Configure feeds here. Key should be local cache name; value should be
 # url to the RSS feed
@@ -207,10 +208,12 @@ sub got_response {
                     $title = $item->{'title'};
                     $link = $item->{'link'};
 					$title = HTML::Entities::decode($title);
+					$title = Encode::decode('utf8', $title);
                     $title =~ s/\t/  /g;
                     
                     if($link =~ s{^http://go\.fark\.com/cgi/fark/go\.pl\?\S*&location=(\S*)$}{$1}) {
                         $link =~ s{%3f}{?};
+                        $link =~ s{%26}{&}g;
                     }
                     
                     push(@newPosts, "$title <$link>");
@@ -260,9 +263,13 @@ sub latest_headlines {
             $link = $item->{'link'};
             $title = $item->{'title'};
 			$title = HTML::Entities::decode($title);
-            $title =~ s/\t/  /;
+			$title = Encode::decode('utf8', $title);
+            $title =~ s/\t/  /g;
             
-            $link =~ s{^http://go\.fark\.com/cgi/fark/go\.pl\?\S*&location=(\S*)$}{$1};
+            if($link =~ s{^http://go\.fark\.com/cgi/fark/go\.pl\?\S*&location=(\S*)$}{$1}) {
+                $link =~ s{%3f}{?};
+                $link =~ s{%26}{&}g;
+            }
             
             &SimBot::send_message($channel, "$title <$link>");
         }
