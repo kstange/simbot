@@ -35,3 +35,7 @@ General Targets
 - RSS plugin desperately needs too handle all links/guids changing
 - Plugin loader needs to be rewritten completely.
 - Make sentence generation bonus __BEGIN/__END as sentence gets longer to reduce the chance of (but not obliterate) excessively long sentences.
+
+Wish List
+======================
+- MySQL logger plugin. Could retrieve logs between certain times on demand. Allow for seen to filter out certain events on demand. Statistics.
