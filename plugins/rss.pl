@@ -48,17 +48,20 @@ use vars qw( %mostRecentPost %feeds %announce_feed $session );
 $feeds{'fourohfour'}        = 'http://fourohfour.info/rss.xml';
 $announce_feed{'fourohfour'} = 1;
 
-#$feeds{'simguy'}            = 'http://simguy.net/rss';
-#$announce_feed{'simguy'}    = 1;
+$feeds{'simguy'}            = 'http://simguy.net/rss';
+$announce_feed{'simguy'}    = 1;
 
-#$feeds{'slashdot'}          = 'http://slashdot.org/index.rss';
-#$announce_feed{'slashdot'}  = 1;
+$feeds{'slashdot'}          = 'http://slashdot.org/index.rss';
+$announce_feed{'slashdot'}  = 1;
 
-#$feeds{'fark'}              = 'http://www.pluck.com/rss/fark.rss';
-#$announce_feed{'fark'}      = 0;
+$feeds{'fark'}              = 'http://www.pluck.com/rss/fark.rss';
+$announce_feed{'fark'}      = 0;
 
-#$feeds{'lpetr'}             = 'http://slashdot.org/journal.pl?op=display&uid=557952&content_type=rss';
-#$announce_feed{'lpetr'}     = 1;
+$feeds{'lpetr'}             = 'http://slashdot.org/journal.pl?op=display&uid=557952&content_type=rss';
+$announce_feed{'lpetr'}     = 1;
+
+$feeds{'ala'}               = 'http://www.alistapart.com/rss.xml';
+$announce_feed{'ala'}       = 1;
 
 use constant CHANNEL => &SimBot::option('network', 'channel');
 
