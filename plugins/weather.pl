@@ -72,6 +72,7 @@ use constant FIND_STATION_AT => 'You can look up station IDs at http://www.nws.n
 
 use constant CANNOT_ACCESS => 'Sorry; I could not access NOAA.';
 
+
 ### cleanup_wx
 # This method is run when SimBot is exiting. We save the station names
 # cache here.
@@ -519,10 +520,29 @@ sub got_xml {
     if(defined $location)   { $msg .= 'at ' . $location; }
     else                    { $msg .= 'at ' . $station; }
 
-    $msg .= ' it is ';
-
-    if(defined $weather && $weather !~ m/(Not Applicable|na)/i)
-        { $msg .= lc($weather) . ' and '; }
+    if(defined $weather) {
+        $weather = lc($weather);
+        $weather =~ s/^\s*//;   # sometimes they have a space in front
+        
+        $weather =~ s/haze/hazy/;
+        $weather =~ s/^(rain|snow)$/$1ing/;
+        
+        if   ($weather =~ m/not applicable|na/)
+                { $msg .= ' it is '; }
+        elsif($weather =~ m/ing$/)
+                { $msg .= " it is $weather and "; }
+        elsif($weather =~ m/^(a|patches of) /
+              || $weather =~ m/showers/)
+                { $msg .= " there are $weather and "; }
+        elsif($weather =~ m/fog|smoke|rain|dust|sand/)
+                { $msg .= " there is $weather and "; }
+        
+        else
+                { $msg .= " it is $weather and "; }
+    } else {
+        $msg .= ' it is ';
+    }
+    
     if(defined $temp)       { $msg .= $temp; }
 
     $msg .= ', with';
