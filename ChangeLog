@@ -1,3 +1,9 @@
+Version 6.0 alpha: (21 Dec 2003)
+
+	* plugins/weather.pl:
+	   - Added: metar command allows user request a raw METAR report
+	     if they are so inclined.
+
 Version 6.0 alpha: (17 Dec 2003)
 
 	* simbot.pl:

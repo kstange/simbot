@@ -20,7 +20,7 @@ package SimBot::plugin::weather;
 
 # GET_WX: Fetches a METAR report and gives a few weather conditions
 sub get_wx {
-    my ($kernel, $nick, $channel, undef, $station) = @_;
+    my ($kernel, $nick, $channel, $command, $station) = @_;
     if(length($station) != 4) {
 	# Whine and bail
 	$kernel->post(bot => privmsg => $channel,
@@ -39,15 +39,6 @@ sub get_wx {
     my $response = $useragent->request($request);
     if (!$response->is_error) {
 	my (undef, $raw_metar) = split(/\n/, $response->content);
-	my $m = new Geo::METAR;
-
-        # Geo::METAR has issues not ignoring the remarks section of the
-        # METAR report. Let's strip it out.
-        SimBot::debug(3, "METAR is " . $raw_metar . "\n");
-        $raw_metar =~ s/^(.*?) RMK .*$/$1/;
-        $raw_metar =~ s|/////KT|00000KT|;
-        SimBot::debug(3, "Reduced METAR is " . $raw_metar . "\n");
-	$m->metar($raw_metar);
 
 	# We can translate ID to Name! :)
 	my $url = 'http://weather.noaa.gov/cgi-bin/nsd_lookup.pl?station='
@@ -57,7 +48,6 @@ sub get_wx {
 	$useragent->timeout(5);
 	my $request = HTTP::Request->new(GET => $url);
 	my $response = $useragent->request($request);
-
 	my $station_name = $station;
 	if (!$response->is_error) {
 	    $response->content =~ m|Station Name:.*?<B>(.*?)\s*</B>|s;
@@ -69,6 +59,22 @@ sub get_wx {
 	    $station_name = "$name, " . ($state ? "$state, " : "")
 		. "$country ($station_name)";
 	}
+
+	# If the user asked for a metar, we'll give it to them now!
+	if ($command =~ /^.metar$/) {
+	    $kernel->post(bot => privmsg => $channel, "$nick: METAR report for $station_name is $raw_metar.");
+	    return;
+	}
+
+        # Geo::METAR has issues not ignoring the remarks section of the
+        # METAR report. Let's strip it out.
+        SimBot::debug(3, "METAR is " . $raw_metar . "\n");
+        $raw_metar =~ s/^(.*?) RMK .*$/$1/;
+        $raw_metar =~ s|/////KT|00000KT|;
+        SimBot::debug(3, "Reduced METAR is " . $raw_metar . "\n");
+
+	my $m = new Geo::METAR;
+	$m->metar($raw_metar);
 
 	# Let's form a response!
         $m->{date_time} =~ m/\d\d(\d\d)(\d\d)Z/;
@@ -152,10 +158,24 @@ sub get_wx {
     }
 }
 
-# Register Plugin
+package SimBot::plugin::metar;
+
+# GET_METAR: Asks the weather plugin to return the raw METAR report
+sub get_metar {
+    SimBot::plugin::weather::get_wx(@_);
+}
+
+# Register Plugins
 SimBot::plugin_register(plugin_id   => "weather",
 			plugin_desc => "Gets a weather report for the given station.",
 			modules     => "Geo::METAR,LWP::UserAgent",
 
 			event_plugin_call => "get_wx",
+			);
+
+SimBot::plugin_register(plugin_id   => "metar",
+			plugin_desc => "Gives a raw METAR report for the given station.",
+			modules     => "LWP::UserAgent",
+
+			event_plugin_call => "get_metar",
 			);
