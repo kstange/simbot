@@ -109,8 +109,9 @@ sub do_rss {
     foreach my $curFeed (keys %feeds) {
 		if($announce_feed{$curFeed}) {
 			my $mtime = 0;
+			$request = HTTP::Request->new(GET => $feeds{$curFeed});
             $file = "caches/${curFeed}.xml";
-             if(-e $file) {
+			if(-e $file) {
                 $mtime = (stat($file))[9];
                 $request->if_modified_since($mtime);
             }
@@ -120,7 +121,6 @@ sub do_rss {
 			#  - We have no cached version of this file.
 			if (defined $mostRecentPost{$curFeed} ||
 				!-e $file || $mtime + EXPIRE <= time) {
-				$request = HTTP::Request->new(GET => $feeds{$curFeed});
 				$kernel->post( 'ua' => 'request', 'got_response',
 							   $request, $curFeed);
 
