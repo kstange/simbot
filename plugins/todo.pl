@@ -23,11 +23,13 @@ use warnings;
 
 our @todo = (
 			 "1) implement automatic database backups",
+			 "2) implement learning ignore by hostmask/nickname",
+			 "3) implement autokick plugin",
 			 "--- Increment version to 6.0 beta here ---",
-			 "2) test dalnet and chanserv style services plugins",
-			 "3) Polish the documentation (what documentation?)",
-			 "4) Standardize and clean up the debug output",
-			 "5) Crush evil bugs!",
+			 "4) test dalnet and chanserv style services plugins",
+			 "5) Polish the documentation (what documentation?)",
+			 "6) Standardize and clean up the debug output",
+			 "7) Crush evil bugs!",
 			 "--- Increment version to 6.0 final here ---",
 			 "- use POE better, blocking less and using more events",
 			 "- eventually recognize the possibility for joining 2+ channels",
