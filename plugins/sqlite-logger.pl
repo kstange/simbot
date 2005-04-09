@@ -115,8 +115,10 @@ sub get_nickchan_id {
     
     $get_nickchan_id_query->execute($name) or die;
     if(($id) = $get_nickchan_id_query->fetchrow_array()) {
+    	# The nickname is known.
         $get_nickchan_id_query->finish;
     } else {
+    	# The nickname isn't known. We might need to add it.
         $get_nickchan_id_query->finish;
         if($add_unknown) {
             $add_nickchan_id_query->execute($name);
@@ -168,11 +170,9 @@ sub set_seen {
     no warnings qw( uninitialized );
     
     my($kernel, $nick, $channel, $doing, $content, $target) = @_;
-#    SimBot::debug(4, "sqlite-logger: Logging $nick ($doing $content)\n");
     my $time = time;
 
     # First, we need to identify things
-#    my $channel_id = &get_nickchan_id('channels', $channel);
     my $channel_id = &get_nickchan_id(
         &SimBot::option('network', 'channel'),
         1
@@ -539,7 +539,10 @@ sub access_log {
             # "is verbose" if most lines are long?
             # "1z l4m3" if uses l4m3r sp33k? (probably too hard to
             #    look up.
-            
+
+	    # most of those seem to be hard to look up... the counts are easy
+	    # nightowl etc might not be too hard, it's just comparing counts
+
             if(@reply_has) {
                 $response .= " $statnick has "
                     . join(', ', @reply_has) . '.';
