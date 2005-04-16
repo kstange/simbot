@@ -708,15 +708,20 @@ sub got_xml {
     }
 
     if(defined $wmph) {
-        my $mmsg;
+        my $mmsg = '';
         if($wmph <= 0) {
             $mmsg = 'calm winds';
             if(defined $wgust && $wgust > 0)
                 { $mmsg .= " gusting to $wgust MPH from the $wdir"; }
         } else {
-            $mmsg = "$wmph MPH winds from the $wdir";
+            if($wdir =~ m/Variable/i)
+                { $mmsg = 'variable ' };
+            $mmsg .= "$wmph MPH winds";
+            if($wdir !~ m/Variable/i)
+                { $mmsg .= " from the $wdir"; }
             if(defined $wgust && $wgust > 0)
                 { $mmsg .= " gusting to $wgust MPH"; }
+        }
         push(@reply_with, $mmsg);
     }
 
