@@ -674,15 +674,16 @@ sub got_xml {
         
         $weather =~ s/haze/hazy/;
         $weather =~ s/^(rain|snow)$/$1ing/;
+	$weather =~ s/^thunderstorm$/a thunderstorm/;
         
         if   ($weather =~ m/not applicable|na/)
                 { $msg .= ' it is '; }
         elsif($weather =~ m/ing$/)
                 { $msg .= " it is $weather and "; }
-        elsif($weather =~ m/^(a|patches of) /
+        elsif($weather =~ m/^(patches of) / # was (a|patches of)
               || $weather =~ m/showers/)
                 { $msg .= " there are $weather and "; }
-        elsif($weather =~ m/fog|smoke|rain|dust|sand/)
+        elsif($weather =~ m/fog|smoke|rain|dust|sand|thunderstorm/)
                 { $msg .= " there is $weather and "; }
         
         else
