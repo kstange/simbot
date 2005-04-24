@@ -404,9 +404,14 @@ sub latest_headlines {
                      : "What feed do you want latest posts from?")
             . ' Try one of:';
         $get_all_feeds_info_query->execute;
-        while(my $key = ($get_all_feeds_info_query->fetchrow_array)[2])
-        {
+        if(my $key = ($get_all_feeds_info_query->fetchrow_array)[2]) {
             $message .= " $key";
+            while(my $key = ($get_all_feeds_info_query->fetchrow_array)[2])
+            {
+                $message .= " $key";
+            }
+        } else {
+            $message = "$nick: Hmm... I seem to have no feeds configured!";
         }
         &SimBot::send_message($channel, $message);
     }
