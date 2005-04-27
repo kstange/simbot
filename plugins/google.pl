@@ -72,6 +72,10 @@ sub google_find {
 			&SimBot::send_pieces($channel, "$nick: ", "\"$term\" is $result");
 		} elsif ($response->content =~ m|No definitions were found for|) {
 			&SimBot::send_message($channel, "$nick: Making up words again?");
+        } elsif ($response->content =~ m|/images/package\.gif|) {
+            # Let's track a package!
+            my ($result) = $response->content =~ m|<td valign=top><a href="(\S+)">Track|;
+            &SimBot::send_message($channel, "$nick: $result");
 		} else {
 			&SimBot::send_message($channel, "$nick: Nothing was found.");
 		}
