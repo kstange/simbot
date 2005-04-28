@@ -471,13 +471,6 @@ sub get_link_and_title {
     my $link = $item->{'link'};
     my $title = $item->{'title'};
 
-    # Does the link go through the silly Fark redirect?
-    # If so, let's remove it.
-    if($link =~ s{^http://go\.fark\.com/cgi/fark/go\.pl\?\S*&location=(\S*)$}{$1}) {
-        $link =~ s{%3f}{?};
-        $link =~ s{%26}{&}g;
-    }
-
     $title = ($item->{'title'} ? $item->{'title'} : "");
     $title = HTML::Entities::decode($title);
     $title =~ s/\t/  /g;
