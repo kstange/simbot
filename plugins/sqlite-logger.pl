@@ -438,7 +438,7 @@ sub access_log {
             &SimBot::send_message($channel, "$nick: $responses[0]");
         } else {
             # many responses
-            &SimBot::send_message($channel, "$nick: OK, messaging you " . $#responses + 1 . 'results.');
+            &SimBot::send_message($channel, "$nick: OK, messaging you " . ($#responses + 1) . ' results.');
             &SimBot::send_pieces_with_notice($nick, undef, join("\n", @responses));
         }
     } elsif($query =~ m/^stats/) {
