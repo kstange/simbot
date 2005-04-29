@@ -387,11 +387,28 @@ sub access_log {
             join(',', @events));
     } elsif($query =~ m/^last/) {
         # let's find the last time a certain event happened...
-        if(!defined $args[0]) {
+        if(!defined $args[0] || ($args[0] =~ m/^\d+$/ && !defined $args[1])) {
             &SimBot::send_message($channel, "$nick: You need to specify an event, such as join, part, quit, kick, join, topic");
             return;
         }
-        my $event = uc($args[0]);
+        my $count = 1;
+        my $event;
+        if($args[0] =~ m/^\d+$/) {
+            $count = $args[0];
+            if($count <= 0) {
+                &SimBot::send_message($channel, "$nick: OK, messaging you nothing like you asked.");
+                return;
+            } elsif($count >= 10) {
+                &SimBot::send_message($channel, "$nick: You probably didn't really want me to message you that many...");
+                # TODO: Let the user add -YES, if present, allow up to
+                # something else, maybe 15 or so.
+                return;
+            }
+            $event = uc($args[1]);
+        } else {
+            $event = uc($args[0]);
+        }
+        warn $count;
         my $last_query = $dbh->prepare(
             'SELECT id, time, source_nick_id, event, target_nick_id,'
             . ' content'
@@ -399,19 +416,25 @@ sub access_log {
             . ' WHERE event = ?'
             . ' AND channel_id = ?'
             . ' ORDER BY time DESC'
-            . ' LIMIT 1'
+            . ' LIMIT ' . $count
         );
         $last_query->execute($event, &get_nickchan_id(&SimBot::option('network', 'channel')));
         my $row;
-        if($row = $last_query->fetchrow_hashref) {
-            $last_query->finish;
-            &SimBot::send_message($channel,
-                "$nick: " . &row_hashref_to_text($row));
-        } else {
-            $last_query->finish;
+        my @responses;
+        while($row = $last_query->fetchrow_hashref) {
+            unshift(@responses, &row_hashref_to_text($row));
+        }
+        $last_query->finish;
+        if(!@responses) {
+            # no responses
             &SimBot::send_message($channel,
                 "$nick: Nothing matched your query.");
-            return;
+        } elsif($#responses == 0) {
+            # only one response, give it in the channel.
+            &SimBot::send_message($channel, "$nick: $responses[0]");
+        } else {
+            # many responses
+            &SimBot::send_pieces_with_notice($nick, undef, join("\n", @responses));
         }
     } elsif($query =~ m/^stats/) {
         my $statnick = $args[0];
@@ -593,7 +616,7 @@ sub row_hashref_to_text {
         $msg .= '* ' . &get_nickchan_name($row->{'source_nick_id'})
             . ' quit (' . $row->{'content'} . ')';
     } elsif($row->{'event'} eq 'TOPIC') {
-        if($row->{'content'} {
+        if($row->{'content'}) {
             $msg .= '* ' . &get_nickchan_name($row->{'source_nick_id'})
                 . ' changed the topic to: ' . $row->{'content'};
         } else {
