@@ -408,6 +408,11 @@ sub access_log {
         } else {
             $event = uc($args[0]);
         }
+        
+        if($event =~ /^(join|part|kick)$/i) 
+            { $event .= 'ed'; }
+        $event =~ s/s$//i;
+        
         my $last_query = $dbh->prepare(
             'SELECT id, time, source_nick_id, event, target_nick_id,'
             . ' content'
@@ -433,6 +438,7 @@ sub access_log {
             &SimBot::send_message($channel, "$nick: $responses[0]");
         } else {
             # many responses
+            &SimBot::send_message($channel, "$nick: OK, messaging you " . $#responses + 1 . 'results.');
             &SimBot::send_pieces_with_notice($nick, undef, join("\n", @responses));
         }
     } elsif($query =~ m/^stats/) {
