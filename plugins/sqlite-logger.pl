@@ -408,7 +408,6 @@ sub access_log {
         } else {
             $event = uc($args[0]);
         }
-        warn $count;
         my $last_query = $dbh->prepare(
             'SELECT id, time, source_nick_id, event, target_nick_id,'
             . ' content'
