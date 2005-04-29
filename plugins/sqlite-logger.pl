@@ -593,8 +593,13 @@ sub row_hashref_to_text {
         $msg .= '* ' . &get_nickchan_name($row->{'source_nick_id'})
             . ' quit (' . $row->{'content'} . ')';
     } elsif($row->{'event'} eq 'TOPIC') {
-        $msg .= '* ' . &get_nickchan_name($row->{'source_nick_id'})
-            . ' changed the topic to: ' . $row->{'content'};
+        if($row->{'content'} {
+            $msg .= '* ' . &get_nickchan_name($row->{'source_nick_id'})
+                . ' changed the topic to: ' . $row->{'content'};
+        } else {
+            $msg .= '* ' . &get_nickchan_name($row->{'source_nick_id'})
+                . ' cleared the topic.';
+        }
     } elsif($row->{'event'} eq 'MODE') {
         $msg .= '* ' . &get_nickchan_name($row->{'source_nick_id'})
             . ' set ' . $row->{'content'};
