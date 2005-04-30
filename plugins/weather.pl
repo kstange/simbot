@@ -193,7 +193,8 @@ sub do_wx {
     $query->execute($station);
     my ($station_name, $url);
     if((($station_name, $url) = $query->fetchrow_array)
-        && !$flags & RAW_METAR
+        && !($flags & RAW_METAR)
+        && !($flags & FORCE_METAR)
         && (defined $url)) {
         my $request = HTTP::Request->new(GET=>$url);
         $kernel->post('wxua' => 'request', 'got_xml',
@@ -777,9 +778,16 @@ sub nlp_match {
 }
 
 sub new_get_wx {
-    my ($kernel, $nick, $channel, $command, $station) = @_;
-    $kernel->post($session => 'do_wx', $nick, $station,
-                            ($command =~ /^.metar$/ ? RAW_METAR : 0));
+    my ($kernel, $nick, $channel, $command, $station, @args) = @_;
+    my $flags = 0;
+    
+    if($command =~ /^.metar$/)      { $flags |= RAW_METAR; }
+    foreach(@args) {
+        if(m/^metar$/)              { $flags |= FORCE_METAR; }
+#        if(m/^metric$/)             { $flags |= USE_METRIC; }
+        if(m/^raw$/)                { $flags |= RAW_METAR; }
+    }
+    $kernel->post($session => 'do_wx', $nick, $station, $flags);
 }
 
 # Register Plugins
