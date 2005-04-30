@@ -76,6 +76,29 @@ sub google_find {
             # Let's track a package!
             my ($result) = $response->content =~ m|<td valign=top><a href="(\S+)">Track|;
             &SimBot::send_message($channel, "$nick: $result");
+        } elsif ($response->content =~ m|<a href="/reviews\?|) { #"
+            # Movies!
+            
+            # Let's count the stars...
+            my @star_list = $response->content =~ m{<nobr><img src="/images/showtimes-star-(on|off)\.gif" border=0><img src="/images/showtimes-star-(on|off)\.gif" border=0><img src="/images/showtimes-star-(on|off)\.gif" border=0><img src="/images/showtimes-star-(on|off)\.gif" border=0><img src="/images/showtimes-star-(on|off)\.gif" border=0></nobr>};
+            my $stars;
+            if   ($star_list[4] eq 'on')    { $stars = 5; }
+            elsif($star_list[3] eq 'on')    { $stars = 4; }
+            elsif($star_list[2] eq 'on')    { $stars = 3; }
+            elsif($star_list[1] eq 'on')    { $stars = 2; }
+            elsif($star_list[0] eq 'on')    { $stars = 1; }
+            else                            { $stars = 0; }
+            
+            my ($url, $title) = $response->content =~ m|<td valign=top><a href="(/reviews?\S+)">(.*?)</a>|;
+            $url = 'http://www.google.com' . $url;
+            
+            $title =~ s|</?b>||ig;
+            $title = HTML::Entities::decode($title);
+            
+            &SimBot::send_message($channel, "$nick: $title, "
+                . ($stars == 1 ? 'one star' : "$stars stars")
+                . ', ' . $url);
+            
 		} else {
 			&SimBot::send_message($channel, "$nick: Nothing was found.");
 		}
