@@ -75,6 +75,16 @@ use constant FIND_STATION_AT => 'You can look up station IDs at http://www.nws.n
 use constant CANNOT_ACCESS => 'Sorry; I could not access NOAA.';
 
 
+# Flags
+use constant RAW_METAR          => 128;
+use constant FORCE_METAR        => 64;
+#use constant USE_METRIC         => 32;  # future use
+#use constant USE_IMPERIAL       => 16;  # future use
+#                               => 8;
+#                               => 4;
+#                               => 2;
+#                               => 1;
+
 ### cleanup_wx
 # This method is run when SimBot is exiting. We save the station names
 # cache here.
@@ -153,7 +163,7 @@ sub bootstrap {
 ### do_wx
 # this is called when POE tells us someone wants weather
 sub do_wx {
-    my  ($kernel, $nick, $station, $metar_only) =
+    my  ($kernel, $nick, $station, $flags) =
       @_[KERNEL,  ARG0,  ARG1,     ARG2];
 
     &SimBot::debug(3, 'weather: Received request from ' . $nick
@@ -183,7 +193,7 @@ sub do_wx {
     $query->execute($station);
     my ($station_name, $url);
     if((($station_name, $url) = $query->fetchrow_array)
-        && !$metar_only
+        && !$flags & RAW_METAR
         && (defined $url)) {
         my $request = HTTP::Request->new(GET=>$url);
         $kernel->post('wxua' => 'request', 'got_xml',
@@ -203,7 +213,7 @@ sub do_wx {
             . $station;
         my $request = HTTP::Request->new(GET => $url);
         $kernel->post('wxua' => 'request', 'got_station_name',
-                      $request, "$nick!$station!$metar_only");
+                      $request, "$nick!$station!$flags");
         # We're done here - got_station_name will handle requesting
         # the weather
         return;
@@ -215,7 +225,7 @@ sub do_wx {
         . $station . '.TXT';
     my $request = HTTP::Request->new(GET=>$url);
     $kernel->post('wxua' => 'request', 'got_wx',
-                            $request, "$nick!$station!$metar_only");
+                            $request, "$nick!$station!$flags");
 }
 
 sub got_station_list {
@@ -280,7 +290,7 @@ sub got_station_list {
 sub got_station_name {
     my ($kernel, $request_packet, $response_packet)
         = @_[KERNEL, ARG0, ARG1];
-    my ($nick, $station, $metar_only)
+    my ($nick, $station, $flags)
         = (split(/!/, $request_packet->[1], 3));
     my $response = $response_packet->[0];
 
@@ -317,7 +327,7 @@ sub got_station_name {
         . $station . '.TXT';
     my $request = HTTP::Request->new(GET=>$url);
     $kernel->post('wxua' => 'request', 'got_wx',
-                  $request, "$nick!$station!$metar_only");
+                  $request, "$nick!$station!$flags");
 }
 
 sub got_wx {
@@ -328,7 +338,7 @@ sub got_wx {
     
     my ($kernel, $request_packet, $response_packet)
         = @_[KERNEL, ARG0, ARG1];
-    my ($nick, $station, $metar_only)
+    my ($nick, $station, $flags)
         = (split(/!/, $request_packet->[1], 3));
     my $response = $response_packet->[0];
 
@@ -368,7 +378,7 @@ sub got_wx {
         $station_name = $station;
     }
     
-    if($metar_only) {
+    if($flags & RAW_METAR) {
         &SimBot::send_message(&SimBot::option('network', 'channel'),
             "$nick: METAR report for $station_name is $raw_metar.");
         return;
@@ -769,7 +779,7 @@ sub nlp_match {
 sub new_get_wx {
     my ($kernel, $nick, $channel, $command, $station) = @_;
     $kernel->post($session => 'do_wx', $nick, $station,
-                            ($command =~ /^.metar$/ ? 1 : 0));
+                            ($command =~ /^.metar$/ ? RAW_METAR : 0));
 }
 
 # Register Plugins
