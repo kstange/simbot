@@ -334,9 +334,12 @@ sub got_response {
             }
         }
     }
-    
-    $update_feed_title_query->execute($feed_name, $last_update, $id);
-    
+
+	{
+		no warnings qw( uninitialized );
+		$update_feed_title_query->execute($feed_name, $last_update, $id);
+	}
+
     $dbh->commit;
     
     if(defined $nick) {
