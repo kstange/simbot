@@ -42,6 +42,9 @@ features in SimBot:
 
 	Text::Aspell:
 		For aspell.pl
+		
+	SOAP::Lite:
+		For currency.pl
 
 This all, of course, requires that you have Perl installed.
 
