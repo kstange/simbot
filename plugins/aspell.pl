@@ -40,23 +40,50 @@ use strict;
 
 use Text::Aspell;
 
-use vars qw( $SPELLER );
+use vars qw( $SPELLER %DICTS );
 
 # MESSUP_ASPELL: Creates the speller. If this fails, we don't load.
 sub messup_aspell {
     $SPELLER = Text::Aspell->new or die "Could not create speller";
     $SPELLER->set_option('sug-mode', SUGGESTION_MODE);
+    $SPELLER->set_option('lang', (&SimBot::option('plugin.aspell', 'lang')
+                                    ? &SimBot::option('plugin.aspell', 'lang')
+                                    : 'en'));
+    
+    my $cur;
+    
+    foreach $cur ($SPELLER->list_dictionaries) {
+        my ($cur_dict) = split(/:/, $cur, 2);
+        $DICTS{$cur_dict} = 1;
+    }
+    1;
 }
 
 # GET_SPELLING: checks people's spelling
 sub get_spelling {
     my ($kernel, $nick, $channel, $self, $word, $lang) = @_;
+    my $cur_speller;
+    if($lang) {
+        if(defined $DICTS{$lang}) {
+            # Let's create a speller for the user's langauge...
+            $cur_speller = Text::Aspell->new;
+            $cur_speller->set_option('lang', $lang);
+            $cur_speller->set_option('sug-mode', SUGGESTION_MODE);
+        } else {
+            &SimBot::send_message($channel, "$nick: I don't have a dictionary ${lang}, try one of: " . join(' ', keys %DICTS));
+            return;
+        }
+    } else {
+        # use the global speller
+        $cur_speller = $SPELLER;
+    }
+    
     if(!$word) {
         &SimBot::send_message($channel, "$nick: I can spell! Sometimes. I think. Try giving me a word to spell, we can find out...");
-    } elsif($SPELLER->check($word)) {
+    } elsif($cur_speller->check($word)) {
         &SimBot::send_message($channel, "$nick: $word is spelled correctly.");
     } else {
-        my @suggestions = $SPELLER->suggest($word);
+        my @suggestions = $cur_speller->suggest($word);
         if(@suggestions) {
             if($#suggestions > 10) { $#suggestions = 10; }
             &SimBot::send_message($channel, "$nick: Suggestions for '$word': "
