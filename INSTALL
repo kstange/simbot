@@ -40,6 +40,9 @@ features in SimBot:
 	Net::Dict:
 		For dict.pl
 
+	Text::Aspell:
+		For aspell.pl
+
 This all, of course, requires that you have Perl installed.
 
 All of these modules are available in the CPAN repository, so you can

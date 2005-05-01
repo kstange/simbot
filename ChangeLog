@@ -1,3 +1,8 @@
+Version 1.0 alpha: (30 Apr 2005)
+	* plugins/aspell.pl:
+	  - New plugin! Checks and offers suggestions for the user's spelling.
+	    Requires Text::Aspell.
+
 Version 1.0 alpha: (31 Dec 2004)
 	* Happy New Year!
 	* plugins/sqlite-logger.pl:
