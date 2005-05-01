@@ -27,7 +27,10 @@
 
 package SimBot::plugin::aspell;
 
-
+# What suggestion mode to use? May be one of:
+#   ultra, fast, normal, slow, bad-spellers
+# fast is recommended. See http://aspell.sourceforge.net/man-html/Notes-on-the-Different-Suggestion-Modes.html
+# for more information on the different modes.
 use constant SUGGESTION_MODE    => 'fast';
 
 use constant CORRECT_SPELLING_BONUS => 50;
