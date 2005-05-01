@@ -22,11 +22,12 @@
 #   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 # TODO:
-#   *
+#   * Set a default language, and allow the user to query other dictionaries
+#     instead of the default.
 
 package SimBot::plugin::aspell;
 
-use constant DEFAULT_LANGUAGE   => 'en_US';
+
 use constant SUGGESTION_MODE    => 'fast';
 
 use constant CORRECT_SPELLING_BONUS => 50;
@@ -41,6 +42,7 @@ use vars qw( $SPELLER );
 # MESSUP_ASPELL: Creates the speller. If this fails, we don't load.
 sub messup_aspell {
     $SPELLER = Text::Aspell->new or die "Could not create speller";
+    $SPELLER->set_option('sug-mode', SUGGESTION_MODE);
 }
 
 # GET_SPELLING: checks people's spelling
@@ -52,19 +54,26 @@ sub get_spelling {
         &SimBot::send_message($channel, "$nick: $word is spelled correctly.");
     } else {
         my @suggestions = $SPELLER->suggest($word);
-        if($#suggestions > 10) { $#suggestions = 10; }
-        &SimBot::send_message($channel, "$nick: Suggestions for '$word': "
-            . join(', ', @suggestions));
+        if(@suggestions) {
+            if($#suggestions > 10) { $#suggestions = 10; }
+            &SimBot::send_message($channel, "$nick: Suggestions for '$word': "
+                . join(', ', @suggestions));
+        } else {
+            &SimBot::send_message($channel, "$nick: No suggestions for '$word'.");
+        }
     }
 }
 
 # SCORE_WORD: gives a score modifier to a word
 sub score_word {
-    my $word = $_[1];
-    if($SPELLER->check($word)) {
-        &SimBot::debug(4, "$word:+" . CORRECT_SPELLING_BONUS . '(aspell) ');
-        return CORRECT_SPELLING_BONUS;
+    if(CORRECT_SPELLING_BONUS) {
+        my $word = $_[1];
+        if($SPELLER->check($word)) {
+            &SimBot::debug(4, "$word:+" . CORRECT_SPELLING_BONUS . '(aspell) ');
+            return CORRECT_SPELLING_BONUS;
+        }
     }
+    return 0;
 }
 
 &SimBot::plugin_register(plugin_id      => 'spell',
