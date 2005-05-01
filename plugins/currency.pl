@@ -38,22 +38,30 @@ use constant WSDL_FILE_LOCATION
     
     
 use SOAP::Lite;
+use vars qw( $SOAP );
+
+sub messup_currency {
+    $SOAP = new SOAP::Lite
+        -> service(WSDL_FILE_LOCATION)
+    or die "Could not set up SOAP::Lite";
+}
 
 sub get_currency {
     my ($kernel, $nick, $channel, $self, $orig_amount, $from_currency, $to_currency) = @_;
     
     # first, let's get the exchange rate
-    my $rate 
-    if($rate = SOAP::Lite->service(WSDL_FILE_LOCATION)->getRate($from_currency, $to_currency)) {
+    my $rate;
+    if($rate = $SOAP->getRate($from_currency, $to_currency)) {
         &SimBot::send_message($channel, "$nick: $orig_amount $from_currency is "
             . $orig_amount * $rate . " $to_currency");
     } else {
         &SimBot::send_message($channel, "$nick: Sorry, something went wrong. Try using a country name instead of a currency name.");
+    }
 }
 
 &SimBot::plugin_register(plugin_id      => 'currency',
                          plugin_desc    => 'Converts currency',
                          event_plugin_call  => \&get_currency,
-#                         event_plugin_load  => \&messup_aspell,
+                         event_plugin_load  => \&messup_currency,
                          
                          );
