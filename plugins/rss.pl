@@ -182,6 +182,7 @@ EOT
 		( Alias => 'ua',
 		  Timeout => 120,
 		  Agent => SimBot::PROJECT . "/" . SimBot::VERSION,
+		  FollowRedirects => 2,
        );
 
     $session = POE::Session->create(
