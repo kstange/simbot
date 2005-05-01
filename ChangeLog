@@ -1,3 +1,8 @@
+Version 1.0 alpha: (01 May 2005)
+	* plugins/currency.pl:
+	  - Rewritten! Now uses SOAP::Lite to fetch exchange information instead
+	    of stealing it from xe.com.
+
 Version 1.0 alpha: (30 Apr 2005)
 	* plugins/aspell.pl:
 	  - New plugin! Checks and offers suggestions for the user's spelling.
