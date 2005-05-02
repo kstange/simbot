@@ -328,6 +328,7 @@ POE::Session->new
 	  irc_303          => \&server_ison,      # check ison reply
 	  irc_352          => \&server_who,       # check who reply
 	  irc_nick         => \&server_nick_change,
+	  irc_401          => \&server_no_such_nick, # No such nick/chan error
 	  irc_msg          => \&private_message,
 	  irc_public       => \&channel_message,
 	  irc_kick         => \&channel_kick,
@@ -1517,6 +1518,15 @@ sub server_who {
 	my (undef, $user, $host, $server, $nick) = split(/ /, $_[ ARG1 ]);
 	&set_hostmask($nick, "$nick!$user\@$host");
 	&debug(5, "Caching hostmask for $nick (" . &get_hostmask($nick) . ")\n");
+}
+
+# SERVER_NO_SUCH_NICK: The server is telling us the nick or channel we just
+# acted on, usually messaging or noticing a nick, does not exist.
+# We use this to discard any remaining output to that nick.
+sub server_no_such_nick {
+    my ($nick) = split(/ /,$_[ARG1],2);
+    # FIXME: I have *no* idea how to check all delayed functions and clear the
+    # appropiate one.
 }
 
 # PROCESS_PING: Handle ping requests to the bot.
