@@ -40,8 +40,7 @@ use DBI;
 use constant MONTHS => ('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug',
     'Sep','Oct','Nov','Dec');
     
-use constant WEB_IRCLOG_PL => 'http://128.153.223.58/cgi-bin/irclog.pl';
-use constant USE_WEB_IRCLOG_PL => 0;
+use constant MAX_RECAP => 20;
 
 sub messup_sqlite_logger {
     $dbh = DBI->connect(
@@ -280,21 +279,16 @@ sub access_log {
             return;
         }
         
-        if(USE_WEB_IRCLOG_PL) {
-            $log_query->finish;
-            &SimBot::send_message($channel,
-                "$nick: Your recap: "
-                . WEB_IRCLOG_PL
-                . "?recap=${nick_id}&chanid=${channel_id}"
-            );
-            return;
-        }
         my @msg;
         my $row;
         while($row = $log_query->fetchrow_hashref) {
             push(@msg, &row_hashref_to_text($row));
         }
         $log_query->finish;
+        if($#msg > MAX_RECAP) {
+            $msg[-(MAX_RECAP)] = "[ Recap too long, giving you the last 20 lines ]";
+            @msg = @msg[-(MAX_RECAP)..-1];
+        }
         &SimBot::send_pieces_with_notice($nick, undef,
             join("\n", @msg));
     } elsif($query =~ m/seen/) {
