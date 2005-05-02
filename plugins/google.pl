@@ -65,11 +65,14 @@ sub google_find {
 			&SimBot::send_message($channel, "$nick: $result");
 		} elsif ($response->content =~ m|Definitions of <b>(.*?)</b> on the Web:|) {
 			my $term = $1;
-			$response->content =~ m|<blockquote><p> (.*?)<br>|;
-			my $result = $1;
-			$result =~ s|[\n\r]||g;
-			$result = HTML::Entities::decode($result);
-			&SimBot::send_pieces($channel, "$nick: ", "\"$term\" is $result");
+			if ($response->content =~ m|<li>(.*?)<br>|) {
+				my $result = $1;
+				$result =~ s|[\n\r]||g;
+				$result = HTML::Entities::decode($result);
+				&SimBot::send_pieces($channel, "$nick: ", "\"$term\" is $result");
+			} else {
+				&SimBot::send_pieces($channel, "$nick: Sorry.  I had trouble understanding the results.  You can try if you want: $url");
+			}
 		} elsif ($response->content =~ m|No definitions were found for|) {
 			&SimBot::send_message($channel, "$nick: Making up words again?");
         } elsif ($response->content =~ m|/images/package\.gif|) {
