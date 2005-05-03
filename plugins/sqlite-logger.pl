@@ -403,9 +403,10 @@ sub access_log {
             $event = uc($args[0]);
         }
         
-        if($event =~ /^(join|part|kick)$/i) 
-            { $event .= 'ed'; }
+        
         $event =~ s/s$//i;
+        if($event =~ /^(JOIN|PART|KICK)$/i) 
+            { $event .= 'ED'; }
         
         my $last_query = $dbh->prepare(
             'SELECT id, time, source_nick_id, event, target_nick_id,'
