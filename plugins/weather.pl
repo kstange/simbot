@@ -692,7 +692,7 @@ sub got_xml {
         elsif($weather =~ m/ing$/)
                 { $msg .= " it is $weather and "; }
         elsif($weather =~ m/^(patches of) / # was (a|patches of)
-              || $weather =~ m/showers/)
+              || $weather =~ m/showers|clouds/)
                 { $msg .= " there are $weather and "; }
         elsif($weather =~ m/fog|smoke|rain|dust|sand|thunderstorm/)
                 { $msg .= " there is $weather and "; }
