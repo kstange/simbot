@@ -126,7 +126,7 @@ sub look_up {
 
 # Register Plugin
 &SimBot::plugin_register(plugin_id   => "define",
-						 plugin_params => "[dictionaries with \"<term>\"|\"<term>\"] [in <dictionary>] [publicly|privately]",
+						 plugin_params => "[dictionaries with \"<term>\"|\"<term>\" [in <dictionary>]] [publicly|privately]",
 						 plugin_help =>
 qq~Defines the requested term. Quotation marks are optional unless the query has more than one word:
 %bold%dictionaries with%bold%: Lists the dictionaries with the given term.

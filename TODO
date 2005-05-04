@@ -9,6 +9,8 @@ Targets for 1.0 Beta
 - Implement learning ignore by hostmask/nickname.
 - Implement autokick plugin.
 - Make interesting word calculation adaptive by db size, because over time, 5000 is not enough, and lots of words become uninteresting.
+- Improve data storage format by converting to DBD-SQLite.
+- Convert all private messaging to private notices, to comply better with RFC 2812 section 3.3.2.
 
 Targets for 1.0 Final
 ======================
@@ -21,8 +23,6 @@ Targets for 1.0 Final
 Targets for Beyond 1.0
 ======================
 - Use POE better, blocking less and using more events.
-- Reduce memory footprint.
-- Improve data storage format. Look into converting databases to DBD-SQLite.
 - RSS plugin desperately needs to handle all links/guids changing.
 - Weather plugin needs to stop using Geo::METAR.
 - Make sentence generation bonus __BEGIN/__END as sentence gets longer to reduce the chance of (but not obliterate) excessively long sentences.
