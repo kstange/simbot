@@ -107,7 +107,8 @@ sub score_word {
 }
 
 &SimBot::plugin_register(plugin_id      => 'spell',
-                         plugin_help    => 'Checks your spelling.',
+						 plugin_params  => "<word> [<language>]",
+                         plugin_help    => "Checks your spelling.\n%bold%<language>%bold% specifies the language code to use, such as 'en' or 'en_US' The default is 'en'",
                          event_plugin_call  => \&get_spelling,
                          event_plugin_load  => \&messup_aspell,
                          query_word_score   => \&score_word,

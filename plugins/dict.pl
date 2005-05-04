@@ -126,7 +126,12 @@ sub look_up {
 
 # Register Plugin
 &SimBot::plugin_register(plugin_id   => "define",
-						 plugin_help => "Defines the term. Follow a term by 'in' and a dictionary name to search an alternate dictionary.",
-
+						 plugin_params => "[dictionaries with \"<term>\"|\"<term>\"] [in <dictionary>] [publicly|privately]",
+						 plugin_help => <<EOT;
+Defines the requested term. Quotation marks are optional unless the query has more than one word:
+ %bold%dictionaries with%bold%: Lists the dictionaries with the given term
+ %bold%in <dictionary>%bold%: Shows the entry from a specific dictionary, if it exists.
+ %bold%publicly|privately%bold%: Specify one of these terms to request the definition in the channel or via private message.  Public messages will be limited toa reasonable length.
+EOT,
 						 event_plugin_call => \&look_up,
 						 );

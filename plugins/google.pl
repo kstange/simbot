@@ -112,7 +112,8 @@ sub google_find {
 
 # Register Plugin
 &SimBot::plugin_register(plugin_id   => "find",
-						 plugin_help => "Searches Google with \"I'm Feeling Lucky\"",
+						 plugin_param => "<search terms>",
+						 plugin_help => "Searches Google with \"I'm Feeling Lucky.\" Most valid queries will work, including define:, calculations, and movie:.",
 
 						 event_plugin_call => \&google_find,
 						 );

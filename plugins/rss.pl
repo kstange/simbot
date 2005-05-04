@@ -506,6 +506,7 @@ sub nlp_match {
 
 &SimBot::plugin_register(
     plugin_id   => 'rss',
+	plugin_params => "<feed name>",
     plugin_help => 'Lists the three most recent posts in the requested RSS feed.',
     event_plugin_call     => \&latest_headlines_stub,
     event_plugin_load     => \&messup_rss,

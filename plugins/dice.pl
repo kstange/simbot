@@ -209,6 +209,7 @@ sub nlp_match {
 # Register Plugins
 &SimBot::plugin_register(plugin_id   => "roll",
 						 plugin_help => "Rolls dice. You can specify how many dice, and how many sides, in the format 3D6.",
+						 plugin_params => "[<dice>[D<sides>]]",
 
 						 event_plugin_call => \&roll_dice,
 
@@ -229,6 +230,7 @@ sub nlp_match {
 						 );
 
 &SimBot::plugin_register(plugin_id   => "flip",
+						 plugin_params => "[<number of coins>]",
 						 plugin_help => "Flips a coin.",
 
 						 event_plugin_call => \&flip_coin,
@@ -246,7 +248,7 @@ sub nlp_match {
 						  "i-want", "would-you", "command",],
 						 );
 
-&SimBot::plugin_register(plugin_id   => "rps",
+&SimBot::plugin_register(plugin_id   => "rps <selection>",
 						 plugin_help => "Pick rock, paper or scissors.",
 						 event_plugin_call => \&rps_shoot,
 						 );
