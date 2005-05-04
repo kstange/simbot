@@ -23,7 +23,6 @@
 #   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 # TODO:
-#   * make 'before that' work with %log last
 #   * see comment at about line 452
 #
 
