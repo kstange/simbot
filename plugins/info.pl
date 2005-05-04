@@ -506,9 +506,9 @@ sub munge_pronouns {
     if($person_being_referenced) {
         # you're, you are   -> $person_being_referenced is
         $content =~ s/\b(you\'re|you are)/${person_being_referenced} is/ig;
-        
+        #'
         # your              -> $person_being_referenced's
-        $content =~ s/\byour/${person_being_referenced}\'s/ig;
+        $content =~ s/\byour/${person_being_referenced}\'s/ig; #'
     }
     
     return $content;
@@ -554,7 +554,15 @@ sub normalize_urls {
 
 &SimBot::plugin_register(
     plugin_id   => 'info',
-    plugin_help => 'Tells you what simbot has learned about something.',
+    plugin_params => '(<key> [is [also] <fact>] | list <key>)',
+    plugin_help     => <<EOT,
+If only <key> is specified, a random associated fact will be returned.
+If <key> is <fact> is specified, <fact> will be stored under <key>, unless
+  <key> already exists. Use 'is also' to add facts to existing keys.
+If list <key> is specified, all associated facts will be returned.
+The truthfulness of any stored facts is not guaranteed.
+EOT
+
     event_plugin_call   => sub {}, # Do nothing.
     event_plugin_load   => \&messup_info,
     event_plugin_unload => \&cleanup_info,
