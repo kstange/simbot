@@ -48,15 +48,15 @@ use constant REQUESTED_TOO_MANY => 'Sorry, but I cannot send you more than '
 use constant REQUESTED_NONE => "No, I don't think I'll be doing that.";
 
 use constant SEEN_HELP => <<EOT;
-%seen <nick> [<events>] [count <number>] [content <phrase>]
- <nick> is the nickname of the person you are looking for, or '*' to match
-   anybody.
- <events> can be one or more of join, part, quit, kick, say, action, topic
- count <number> will return as many results as exist, up to <number>
-   You'll get one result if you don't specify a count
- content <phrase> will match results that contain the phrase
+Usage: %seen <nick> [<events>] [count <number>] [content <phrase>]
+  %bold%<nick>%bold% is the nickname of the person you are looking for, or '*' to match
+    anybody.
+  %bold%<events>%bold% can be one or more of join, part, quit, kick, say, action, topic
+  %bold%count <number>%bold% will return as many results as exist, up to <number>
+    You'll get one result if you don't specify a count
+  %bold%content <phrase>%bold% will match results that contain the phrase
 %seen before that
-  will repeat your last search, looking for an older match
+    will repeat your last search, looking for an older match
 EOT
 
 sub messup_sqlite_logger {
@@ -791,7 +791,7 @@ sub seen_nlp_match {
 
 &SimBot::plugin_register(
     plugin_id               => 'seen',
-    plugin_desc             => '%seen <nick> tells you when I last saw someone. %seen --help for more options',
+    plugin_desc             => SEEN_HELP,
     event_plugin_call       => \&do_seen,
     event_plugin_nlp_call   => \&seen_nlp_match,
     hash_plugin_nlp_verbs   => ['seen', 'see'],
