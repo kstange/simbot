@@ -196,191 +196,209 @@ sub set_seen {
     $dbh->commit;
 }
 
-sub access_log {
-    my ($kernel, $nick, $channel, $self, $query, @args) = @_;
+sub do_seen {
+    my ($kernel, $nick, $channel, undef, @args) = @_;
     
     my $nick_id = &get_nickchan_id($nick);
     
-    if($query =~ m/^recap$/) {
-        # let's autorecap!
-        # first, we need to find when the person asking for the recap
-        # left.
+    my ($seen_nick, $seen_nick_id, $seen_row);
+    my @events;
+    
+    if($args[0] eq 'before' && $args[1] eq 'that') {
+        my $context = &get_nick_context($nick_id);
         
-        my $start_query = $dbh->prepare(
-            'SELECT id FROM chatlog'
-            . ' WHERE channel_id = ?'
-            . ' AND source_nick_id = ?'
-            . ' AND (event = \'PARTED\''
-            . ' OR event = \'QUIT\''
-            . ' OR event = \'KICKED\')'
-            . ' ORDER BY time DESC'
-            . ' LIMIT 1'
-        );
-        
-        my $end_query = $dbh->prepare(
-            'SELECT id FROM chatlog'
-            . ' WHERE channel_id = ?'
-            . ' AND source_nick_id = ?'
-            . ' AND event = \'JOINED\''
-            . ' ORDER BY time DESC'
-            . ' LIMIT 1'
-        );
-        
-        my $log_query = $dbh->prepare(
-            'SELECT time, source_nick_id, event,'
-            . ' target_nick_id, content'
-            . ' FROM chatlog'
-            . ' WHERE channel_id = ?'
-            . ' AND id >= ?'
-            . ' AND id <= ?'
-        );
-        
-        my $channel_id = &get_nickchan_id(
-            &SimBot::option('network', 'channel')
-        );
-        $start_query->execute(
-            $channel_id,
-            $nick_id
-        );
-        
-        my $start_row;
-        unless(($start_row) = $start_query->fetchrow_array) {
-            $start_query->finish;
-            &SimBot::send_message($channel,
-                "$nick: Sorry, I didn't see you leave!"
-            );
-            return;
-        }
-        $start_query->finish;
-        
-        $end_query->execute(
-            $channel_id,
-            $nick_id
-        );
-        my $end_row;
-        unless(($end_row) = $end_query->fetchrow_array) {
-            $end_query->finish;
-            &SimBot::send_message($channel,
-                "$nick: Sorry, I didn't see you come back!"
-            );
-            return;
-        }
-        $end_query->finish;
-        
-        # ok, so now we have the range to fetch...
-        # let's get it!
-        $log_query->execute($channel_id, $start_row, $end_row);
-        if($log_query->rows == 2) {
-            $log_query->finish;
-            # the log only shows the person leaving and joining
-            &SimBot::send_message($channel,
-                "$nick: Nothing happened while you were gone."
-            );
-            return;
-        }
-        
-        my @msg;
-        my $row;
-        while($row = $log_query->fetchrow_hashref) {
-            push(@msg, &row_hashref_to_text($row));
-        }
-        $log_query->finish;
-        if($#msg > MAX_RECAP) {
-            $msg[-(MAX_RECAP)] = "[ Recap too long, giving you the last 20 lines ]";
-            @msg = @msg[-(MAX_RECAP)..-1];
-        }
-        &SimBot::send_pieces_with_notice($nick, undef,
-            join("\n", @msg));
-    } elsif($query =~ m/seen/) {
-        my ($seen_nick, $seen_nick_id, $seen_row);
-        my @events;
-        
-        if($args[0] eq 'before' && $args[1] eq 'that') {
-            my $context = &get_nick_context($nick_id);
-            
-            if($context =~ m/seen=(\d+)/) {
-                $seen_nick_id = $1;
-            } else {
-                &SimBot::send_message($channel,
-                    "$nick: I don't seem to remember what 'that' is.");
-                return;
-            }
-            if($context =~ m/seen-row=(\d+)/) {
-                $seen_row = $1;
-            } else {
-                die 'This shouldn\'t happen!';
-            }
-            if($context =~ m/seen-event=(\S+)/) {
-                @events = split(/,/, $1);
-            }
-            
+        if($context =~ m/seen=(\d+)/) {
+            $seen_nick_id = $1;
         } else {
-            $seen_nick = shift(@args);
-            &SimBot::debug(3, "sqlite-logger: Seen request by $nick for $seen_nick\n");
-            unless($seen_nick_id = &get_nickchan_id($seen_nick)) {
-                &SimBot::send_message($channel,
-                    "$nick: I do not know of a $seen_nick");
-                return;
-            }
+            &SimBot::send_message($channel,
+                "$nick: I don't seem to remember what 'that' is.");
+            return;
+        }
+        if($context =~ m/seen-row=(\d+)/) {
+            $seen_row = $1;
+        } else {
+            die 'This shouldn\'t happen!';
+        }
+        if($context =~ m/seen-event=(\S+)/) {
+            @events = split(/,/, $1);
+        }
         
-            while(my $cur_arg = shift(@args)) {
-                if($cur_arg =~ /(say|join|part|quit|nick|kick|notice|action|topic)/i) {
-                    my $cur_event = $1;
-                    if($cur_event =~ /^(join|part|kick)$/i) 
-                        { $cur_event .= 'ed'; }
-                        
-                    push(@events, uc($cur_event));
-                } elsif($cur_arg =~ m/before/) {
-                    my $time = shift(@args);
+    } else {
+        $seen_nick = shift(@args);
+        &SimBot::debug(3, "sqlite-logger: Seen request by $nick for $seen_nick\n");
+        unless($seen_nick_id = &get_nickchan_id($seen_nick)) {
+            &SimBot::send_message($channel,
+                "$nick: I do not know of a $seen_nick");
+            return;
+        }
+    
+        while(my $cur_arg = shift(@args)) {
+            if($cur_arg =~ /(say|join|part|quit|nick|kick|notice|action|topic)/i) {
+                my $cur_event = $1;
+                if($cur_event =~ /^(join|part|kick)$/i) 
+                    { $cur_event .= 'ed'; }
                     
-                }
+                push(@events, uc($cur_event));
+            } elsif($cur_arg =~ m/before/) {
+                my $time = shift(@args);
+                
             }
         }
+    }
 
-        my $seen_query;
-        my $query_str = 
-            'SELECT id, time, source_nick_id, event,'
-            . ' target_nick_id, content'
-            . ' FROM chatlog'
-            . ' WHERE (source_nick_id = ?'
-            . ' OR target_nick_id = ?)';
-        if(defined $seen_row) {
-            $query_str .= " AND id < $seen_row"; 
-        }
-        $query_str .= ' AND channel_id = ?';
-        if(@events) {
-            $query_str .= 
-                " AND (event = '" . join("' OR event = '", @events) . "')";
-        }
-        $query_str .= ' ORDER BY time DESC'
-            . ' LIMIT 1';
-            
-        unless($seen_query = $dbh->prepare($query_str)) {
-            &SimBot::send_message($channel,
-                "$nick: Sorry, but something went wrong accessing the log.");
-            return;
-        }
-        $seen_query->execute($seen_nick_id, $seen_nick_id, &get_nickchan_id(&SimBot::option('network', 'channel')));
+    my $seen_query;
+    my $query_str = 
+        'SELECT id, time, source_nick_id, event,'
+        . ' target_nick_id, content'
+        . ' FROM chatlog'
+        . ' WHERE (source_nick_id = ?'
+        . ' OR target_nick_id = ?)';
+    if(defined $seen_row) {
+        $query_str .= " AND id < $seen_row"; 
+    }
+    $query_str .= ' AND channel_id = ?';
+    if(@events) {
+        $query_str .= 
+            " AND (event = '" . join("' OR event = '", @events) . "')";
+    }
+    $query_str .= ' ORDER BY time DESC'
+        . ' LIMIT 1';
         
-        my $row;
-        if($row = $seen_query->fetchrow_hashref) {
-            $seen_query->finish;
-            &SimBot::send_message($channel,
-                "$nick: " . &row_hashref_to_text($row));
-        } else {
-            $seen_query->finish;
-            &SimBot::send_message($channel,
-                "$nick: Nothing matched your query.");
-            return;
-        }
-        
-        # update context so 'before that' works
-        &update_nick_context($nick_id, 'seen-row', $row->{'id'});
-        &update_nick_context($nick_id, 'seen', $seen_nick_id);
-        &update_nick_context($nick_id, 'seen-event',
-            join(',', @events));
+    unless($seen_query = $dbh->prepare($query_str)) {
+        &SimBot::send_message($channel,
+            "$nick: Sorry, but something went wrong accessing the log.");
+        return;
+    }
+    $seen_query->execute($seen_nick_id, $seen_nick_id, &get_nickchan_id(&SimBot::option('network', 'channel')));
+    
+    my $row;
+    if($row = $seen_query->fetchrow_hashref) {
+        $seen_query->finish;
+        &SimBot::send_message($channel,
+            "$nick: " . &row_hashref_to_text($row));
+    } else {
+        $seen_query->finish;
+        &SimBot::send_message($channel,
+            "$nick: Nothing matched your query.");
+        return;
+    }
+    
+    # update context so 'before that' works
+    &update_nick_context($nick_id, 'seen-row', $row->{'id'});
+    &update_nick_context($nick_id, 'seen', $seen_nick_id);
+    &update_nick_context($nick_id, 'seen-event',
+        join(',', @events));
+
+}
+
+sub do_recap {
+    my ($kernel, $nick, $channel, undef, @args) = @_;
+    # let's autorecap!
+    # first, we need to find when the person asking for the recap
+    # left.
+    
+    my $nick_id = &get_nickchan_id($nick);
+    
+    my $start_query = $dbh->prepare(
+        'SELECT id FROM chatlog'
+        . ' WHERE channel_id = ?'
+        . ' AND source_nick_id = ?'
+        . ' AND (event = \'PARTED\''
+        . ' OR event = \'QUIT\''
+        . ' OR event = \'KICKED\')'
+        . ' ORDER BY time DESC'
+        . ' LIMIT 1'
+    );
+    
+    my $end_query = $dbh->prepare(
+        'SELECT id FROM chatlog'
+        . ' WHERE channel_id = ?'
+        . ' AND source_nick_id = ?'
+        . ' AND event = \'JOINED\''
+        . ' ORDER BY time DESC'
+        . ' LIMIT 1'
+    );
+    
+    my $log_query = $dbh->prepare(
+        'SELECT time, source_nick_id, event,'
+        . ' target_nick_id, content'
+        . ' FROM chatlog'
+        . ' WHERE channel_id = ?'
+        . ' AND id >= ?'
+        . ' AND id <= ?'
+    );
+    
+    my $channel_id = &get_nickchan_id(
+        &SimBot::option('network', 'channel')
+    );
+    $start_query->execute(
+        $channel_id,
+        $nick_id
+    );
+    
+    my $start_row;
+    unless(($start_row) = $start_query->fetchrow_array) {
+        $start_query->finish;
+        &SimBot::send_message($channel,
+            "$nick: Sorry, I didn't see you leave!"
+        );
+        return;
+    }
+    $start_query->finish;
+    
+    $end_query->execute(
+        $channel_id,
+        $nick_id
+    );
+    my $end_row;
+    unless(($end_row) = $end_query->fetchrow_array) {
+        $end_query->finish;
+        &SimBot::send_message($channel,
+            "$nick: Sorry, I didn't see you come back!"
+        );
+        return;
+    }
+    $end_query->finish;
+    
+    # ok, so now we have the range to fetch...
+    # let's get it!
+    $log_query->execute($channel_id, $start_row, $end_row);
+    if($log_query->rows == 2) {
+        $log_query->finish;
+        # the log only shows the person leaving and joining
+        &SimBot::send_message($channel,
+            "$nick: Nothing happened while you were gone."
+        );
+        return;
+    }
+    
+    my @msg;
+    my $row;
+    while($row = $log_query->fetchrow_hashref) {
+        push(@msg, &row_hashref_to_text($row));
+    }
+    $log_query->finish;
+    if($#msg > MAX_RECAP) {
+        $msg[-(MAX_RECAP)] = "[ Recap too long, giving you the last 20 lines ]";
+        @msg = @msg[-(MAX_RECAP)..-1];
+    }
+    &SimBot::send_pieces_with_notice($nick, undef,
+        join("\n", @msg));
+}
+
+sub access_log {
+    my ($kernel, $nick, $channel, $self, $query, @args) = @_;
+    
+    
+    if($query =~ m/^recap$/) {
+        &do_recap($kernel, $nick, $channel, undef, @args);
+    } elsif($query =~ m/^seen/) {
+        &do_seen($kernel, $nick, $channel, undef, @args);
     } elsif($query =~ m/^last/) {
         # let's find the last time a certain event happened...
+        
+        my $nick_id = &get_nickchan_id($nick);
+        
         if(!defined $args[0] || ($args[0] =~ m/^\d+$/ && !defined $args[1])) {
             &SimBot::send_message($channel, "$nick: You need to specify an event, such as join, part, quit, kick, join, topic");
             return;
@@ -439,6 +457,8 @@ sub access_log {
     } elsif($query =~ m/^stats/) {
         my $statnick = $args[0];
         my $chan_id = &get_nickchan_id(&SimBot::option('network','channel'));
+        
+        my $nick_id = &get_nickchan_id($nick);
         
         if(!defined $statnick) {
             # no nick specified, so how 'bout some generic stats?
