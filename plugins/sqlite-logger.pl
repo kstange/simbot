@@ -753,6 +753,18 @@ sub update_nick_context {
     $query->execute($context, $nick_id);
 }
 
+# SCORE_WORD: Gives a score modifier to a word
+# for seen, we give a 40 point bonus to words that are the
+# nicknames of people we have seen.
+sub score_word {
+    my $word = $_[1];
+    if (get_nickchan_id($word)) {
+	   &SimBot::debug(4, "${word}:+1000(sqlite-logger) ");
+	   return 1000;
+    }
+    &SimBot::debug(5, "${word}:+0(sqlite-logger) ");
+    return 0;
+}
 
 sub seen_nlp_match {
     my ($kernel, $nick, $channel, $plugin, @params) = @_;
@@ -797,7 +809,7 @@ sub seen_nlp_match {
     event_channel_quit      => \&set_seen,
     event_channel_mode      => \&set_seen,
     event_server_nick       => \&log_nick_change,
-#    query_word_score        => \&score_word,
+    query_word_score        => \&score_word,
 
 );
 
