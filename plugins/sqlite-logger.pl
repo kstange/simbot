@@ -209,6 +209,7 @@ sub do_seen {
     my ($seen_nick, $seen_nick_id, $seen_row);
     my @events;
     my $count=1;
+    my $content;
     
     if($args[0] eq 'before' && $args[1] eq 'that') {
         my $context = &get_nick_context($nick_id);
@@ -227,6 +228,9 @@ sub do_seen {
         }
         if($context =~ m/seen-event=(\S+)/) {
             @events = split(/,/, $1);
+        }
+        if($context =~ m/seen-content="(.*?)"/) {
+            $content = $1;
         }
         
     } else {
@@ -250,11 +254,17 @@ sub do_seen {
                 
             } elsif($cur_arg =~ m/count/) {
                 $count = shift(@args);
+            } elsif($cur_arg =~ m/^content$/) {
+                $content = join(' ', @args);
+                last;
             }
         }
     }
     
-    if($count <= 0) {
+    if(!defined $count) {
+        &SimBot::send_message($channel, "$nick: 'count' must be followed by the number of results you want.");
+        return;
+    } elsif($count <= 0) {
         &SimBot::send_message($channel, "$nick: " . REQUESTED_NONE);
         return;
     } elsif($count > MAX_RESULTS) {
@@ -276,6 +286,10 @@ sub do_seen {
     if(@events) {
         $query_str .= 
             " AND (event = '" . join("' OR event = '", @events) . "')";
+    }
+    if(defined $content) {
+        $query_str .= ' AND content LIKE '
+            . $dbh->quote('%' . $content . '%');
     }
     $query_str .= ' ORDER BY time DESC'
         . ' LIMIT ' . $count;
@@ -313,6 +327,7 @@ sub do_seen {
     &update_nick_context($nick_id, 'seen', $seen_nick_id);
     &update_nick_context($nick_id, 'seen-event',
         join(',', @events));
+    &update_nick_context($nick_id, 'seen-content', qq("${content}"));
 
 }
 

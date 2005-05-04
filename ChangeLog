@@ -5,6 +5,8 @@ Version 1.0 alpha: (03 May 2005)
 	  - Now supports %seen. %log seen will hang around for the time being.
 	  - %seen <nick> <events> count <number> will give multiple matches, up
 	    to <number>.
+	  - %seen <nick> <events> content <words> will look in the log for the
+	    phrase <words>.
 	* simbot.pl:
 	  - Now properly stops sending data to the server when trying to quit.
 	
