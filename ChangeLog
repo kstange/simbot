@@ -1,8 +1,7 @@
 Version 1.0 alpha: (04 May 2005)
 	* plugins/sqlite-logger.pl
 	  - The asterix (*) can now be specified for the nickname, this will look
-	    for anybody matching. This replaces %log last, which will be removed
-	    later.
+	    for anybody matching. This replaces %log last.
 
 Version 1.0 alpha: (03 May 2005)
 	* plugins/seen.pl:
