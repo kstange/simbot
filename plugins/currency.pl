@@ -60,7 +60,10 @@ sub get_currency {
 }
 
 &SimBot::plugin_register(plugin_id      => 'currency',
-                         plugin_desc    => 'Converts currency',
+                         plugin_desc    =>
+'Usage: %currency <amount> <from country> <to country>
+%bold%<amount>%bold% is the amount of currency to exchange
+%bold%<from country>%bold% and %bold%<to country>%bold% are the %uline%countries%uline% to exchange currency between',
                          event_plugin_call  => \&get_currency,
                          event_plugin_load  => \&messup_currency,
                          
