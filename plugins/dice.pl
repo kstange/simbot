@@ -248,7 +248,8 @@ sub nlp_match {
 						  "i-want", "would-you", "command",],
 						 );
 
-&SimBot::plugin_register(plugin_id   => "rps <selection>",
+&SimBot::plugin_register(plugin_id   => "rps",
+						 plugin_params => "<selection>",
 						 plugin_help => "Pick rock, paper or scissors.",
 						 event_plugin_call => \&rps_shoot,
 						 );
