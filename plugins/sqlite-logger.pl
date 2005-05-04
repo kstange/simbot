@@ -49,6 +49,8 @@ use constant REQUESTED_NONE => "No, I don't think I'll be doing that.";
 
 use constant SEEN_HELP => <<EOT;
 %seen <nick> [<events>] [count <number>] [content <phrase>]
+ <nick> is the nickname of the person you are looking for, or '*' to match
+   anybody.
  <events> can be one or more of join, part, quit, kick, say, action, topic
  count <number> will return as many results as exist, up to <number>
    You'll get one result if you don't specify a count
