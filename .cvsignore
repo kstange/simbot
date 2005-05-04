@@ -1,11 +1,8 @@
 config.ini
-seen
-metarStationNames
 *.pag
 *.dir
 *.db
 simbot.sh
-gendocs.pl
 .DS_Store
 *.stackdump
 irclog
