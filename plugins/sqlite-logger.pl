@@ -322,7 +322,7 @@ sub do_seen {
     }
     if(@events) {
         $query_str .= 
-            " AND (event = '" . join("' OR event = '", @events) . "')";
+            " AND event IN ('" . join("','", @events) . "')";
     }
     if(defined $content) {
         $query_str .= ' AND content LIKE '
@@ -330,7 +330,6 @@ sub do_seen {
     }
     $query_str .= ' ORDER BY time DESC'
         . ' LIMIT ' . $count;
-        
     
     unless($seen_query = $dbh->prepare($query_str)) {
         &SimBot::send_message($channel,
