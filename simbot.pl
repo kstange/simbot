@@ -1458,7 +1458,7 @@ sub send_pieces {
 sub cont_send_pieces {
     my ($kernel, $type, $dest, $prefix, $text) = @_[KERNEL, ARG0, ARG1, ARG2, ARG3];
     my @words = split(/\b/, $text);
-    my $line = ($prefix ? $prefix . ' ' : '') . shift(@words);
+    my $line = (defined $prefix ? $prefix . ' ' : '') . shift(@words);
     my ($curWord);
 
     while(@words) {
