@@ -255,7 +255,7 @@ if(option('chat','snooze') !~ m/always|never/) {
 				 );
 
 &plugin_register(plugin_id   => "help",
-				 plugin_desc => "Shows this information.",
+				 plugin_desc => "Displays a list of available commands. Adding a command name as a parameter will display help text for that command.",
 				 event_plugin_call     => \&print_help,
 				 );
 
@@ -886,15 +886,31 @@ sub set_snooze {
 
 # PRINT_HELP: Prints a list of valid commands privately to the user.
 sub print_help {
-    my $nick = $_[1];
+    my ($nick, $command) = @_[1,4];
 	my $prefix = option('global', 'command_prefix');
-	my $message = '';
-    &debug(4, "help: requested by " . $nick . ".\n");
-    foreach(sort {$a cmp $b} keys(%plugin_desc)) {
-        $message .= "${prefix}$_ - $plugin_desc{$_}\n";
-    }
-    chomp $message;
-    &send_pieces($nick, undef, $message);
+	my $message;
+    &debug(4, "help: requested by " . $nick . "." .
+		   (defined $command ? " ($command)" : "") . "\n");
+	if (!defined $command) {
+		$message = "Prefix commands with '$prefix' when you use them. For help with a command, try typing %bold%" . $prefix . "help <command>%bold%\n";
+		my $count = 0;
+		my @commands = sort {$a cmp $b} keys(%plugin_desc);
+		while (defined $commands[$count]) {
+			$message .= sprintf(" %-12s  %-12s  %-12s %-12s\n",
+								$commands[$count++], $commands[$count++],
+								$commands[$count++], $commands[$count++]);
+		}
+	} else {
+		$command =~ s/^$prefix//;
+		if (!defined $plugin_desc{$command}) {
+			$message = "There is no help for that command, or it does not exist.";
+		} else {
+			$message = "Help for %bold%${prefix}$command%bold%:\n$plugin_desc{$command}";
+		}
+	}
+	$message = parse_style($message);
+	chomp $message;
+	&send_pieces($nick, undef, $message);
 }
 
 # PRINT_STATS: Prints some useless stats about the bot to the channel.
@@ -1432,7 +1448,7 @@ sub send_pieces {
 #   ARG3: $text:    the text to split.
 sub cont_send_pieces {
     my ($kernel, $type, $dest, $prefix, $text) = @_[KERNEL, ARG0, ARG1, ARG2, ARG3];
-    my @words = split(/ +/, $text);
+    my @words = split(/\b/, $text);
     my $line = ($prefix ? $prefix . ' ' : '') . shift(@words);
     my ($curWord);
 
@@ -1451,23 +1467,25 @@ sub cont_send_pieces {
             ($curWord, $nextWord) = ($1, $2);
             unshift(@words, $nextWord);
             if(length($line) + length($curWord) <= 440) {
-                $line .= ' ' . $curWord;
+                $line .= $curWord;
                 $kernel->delay('cont_send_pieces', 1, $type, $dest, $prefix,
-                               join(' ', @words));
+                               join('', @words));
             } else {
                 $kernel->delay('cont_send_pieces', 1, $type, $dest, $prefix,
-                               ("$curWord\n" . join(' ', @words)));
+                               ("$curWord\n" . join('', @words)));
             }
             last;
         } elsif(length($line) + length($curWord) <= 440) {
-            $line .= ' ' . $curWord;
-        } else {
+            $line .= $curWord;
+		} else {
             # next word would make the line too long.
             # tell POE to run cont_send_pieces again with the remaining
             # words.
-            unshift(@words, $curWord);
+			if ($curWord !~ m/^ +$/) {
+				unshift(@words, $curWord);
+			}
             $kernel->delay('cont_send_pieces', 1, $type, $dest, $prefix,
-                            join(' ', @words));
+                            join('', @words));
             last;
         }
     }
