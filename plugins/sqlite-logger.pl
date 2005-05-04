@@ -203,6 +203,7 @@ sub do_seen {
     
     my ($seen_nick, $seen_nick_id, $seen_row);
     my @events;
+    my $count=1;
     
     if($args[0] eq 'before' && $args[1] eq 'that') {
         my $context = &get_nick_context($nick_id);
@@ -242,6 +243,8 @@ sub do_seen {
             } elsif($cur_arg =~ m/before/) {
                 my $time = shift(@args);
                 
+            } elsif($cur_arg =~ m/count/) {
+                $count = shift(@args);
             }
         }
     }
@@ -262,7 +265,7 @@ sub do_seen {
             " AND (event = '" . join("' OR event = '", @events) . "')";
     }
     $query_str .= ' ORDER BY time DESC'
-        . ' LIMIT 1';
+        . ' LIMIT ' . $count;
         
     unless($seen_query = $dbh->prepare($query_str)) {
         &SimBot::send_message($channel,
@@ -270,21 +273,30 @@ sub do_seen {
         return;
     }
     $seen_query->execute($seen_nick_id, $seen_nick_id, &get_nickchan_id(&SimBot::option('network', 'channel')));
-    
     my $row;
-    if($row = $seen_query->fetchrow_hashref) {
-        $seen_query->finish;
-        &SimBot::send_message($channel,
-            "$nick: " . &row_hashref_to_text($row));
-    } else {
-        $seen_query->finish;
+    my $last_id;
+    my @responses;
+    while($row = $seen_query->fetchrow_hashref) {
+        unshift(@responses, &row_hashref_to_text($row));
+        $last_id = $row->{'id'};
+    }
+    $seen_query->finish;
+    
+    if(!@responses) {
+        # no responses
         &SimBot::send_message($channel,
             "$nick: Nothing matched your query.");
-        return;
+    } elsif($#responses == 0) {
+        # only one response, give it in the channel.
+        &SimBot::send_message($channel, "$nick: $responses[0]");
+    } else {
+        # many responses
+        &SimBot::send_message($channel, "$nick: OK, messaging you " . ($#responses + 1) . ' results.');
+        &SimBot::send_pieces_with_notice($nick, undef, join("\n", @responses));
     }
     
     # update context so 'before that' works
-    &update_nick_context($nick_id, 'seen-row', $row->{'id'});
+    &update_nick_context($nick_id, 'seen-row', $last_id);
     &update_nick_context($nick_id, 'seen', $seen_nick_id);
     &update_nick_context($nick_id, 'seen-event',
         join(',', @events));
@@ -388,7 +400,7 @@ sub do_recap {
 
 sub access_log {
     my ($kernel, $nick, $channel, $self, $query, @args) = @_;
-    
+    my $nick_id;
     
     if($query =~ m/^recap$/) {
         &do_recap($kernel, $nick, $channel, undef, @args);
@@ -397,7 +409,7 @@ sub access_log {
     } elsif($query =~ m/^last/) {
         # let's find the last time a certain event happened...
         
-        my $nick_id = &get_nickchan_id($nick);
+        $nick_id = &get_nickchan_id($nick);
         
         if(!defined $args[0] || ($args[0] =~ m/^\d+$/ && !defined $args[1])) {
             &SimBot::send_message($channel, "$nick: You need to specify an event, such as join, part, quit, kick, join, topic");
@@ -458,7 +470,7 @@ sub access_log {
         my $statnick = $args[0];
         my $chan_id = &get_nickchan_id(&SimBot::option('network','channel'));
         
-        my $nick_id = &get_nickchan_id($nick);
+        $nick_id = &get_nickchan_id($nick);
         
         if(!defined $statnick) {
             # no nick specified, so how 'bout some generic stats?
@@ -676,6 +688,7 @@ sub get_nick_context {
     );
     $query->execute($nick_id);
     my ($context) = $query->fetchrow_array;
+    $query->finish;
     return $context;
 }
 
