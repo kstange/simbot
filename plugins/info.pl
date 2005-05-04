@@ -554,7 +554,7 @@ sub normalize_urls {
 
 &SimBot::plugin_register(
     plugin_id   => 'info',
-    plugin_desc => 'Tells you what simbot has learned about something.',
+    plugin_help => 'Tells you what simbot has learned about something.',
     event_plugin_call   => sub {}, # Do nothing.
     event_plugin_load   => \&messup_info,
     event_plugin_unload => \&cleanup_info,

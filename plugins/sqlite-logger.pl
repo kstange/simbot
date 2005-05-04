@@ -48,7 +48,6 @@ use constant REQUESTED_TOO_MANY => 'Sorry, but I cannot send you more than '
 use constant REQUESTED_NONE => "No, I don't think I'll be doing that.";
 
 use constant SEEN_HELP => <<EOT;
-Usage: %seen <nick> [<events>] [count <number>] [content <phrase>]
   %bold%<nick>%bold% is the nickname of the person you are looking for, or '*' to match
     anybody.
   %bold%<events>%bold% can be one or more of join, part, quit, kick, say, action, topic
@@ -791,7 +790,8 @@ sub seen_nlp_match {
 
 &SimBot::plugin_register(
     plugin_id               => 'seen',
-    plugin_desc             => SEEN_HELP,
+	plugin_params           => "<nick> [<events>] [count <number>] [content <phrase>]",
+    plugin_help             => SEEN_HELP,
     event_plugin_call       => \&do_seen,
     event_plugin_nlp_call   => \&seen_nlp_match,
     hash_plugin_nlp_verbs   => ['seen', 'see'],

@@ -113,7 +113,7 @@ sub nick_change {
 
 # Register Plugin
 &SimBot::plugin_register(plugin_id   => "recap",
-						 plugin_desc => "Privately recaps up to " . MAX_BACKLOG
+						 plugin_help => "Privately recaps up to " . MAX_BACKLOG
 						 . " lines of chat backlog. The default is to recap " .
 						 STD_BACKLOG . " lines or from the point the user " .
 						 "last departed.",

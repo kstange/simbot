@@ -49,7 +49,7 @@ no strict 'refs';
 
 # Variables we want to use without an explicit package name
 use vars qw( %conf %chat_words $chosen_nick $chosen_server $alarm_sched_60
-			 %plugin_desc %hostmask_cache
+			 %plugin_help %plugin_params %hostmask_cache
 			 );
 
 # Error Descriptions
@@ -242,7 +242,8 @@ our %commands = (
 # register the snooze plugin only if snooze is allowed
 if(option('chat','snooze') !~ m/always|never/) {
     &plugin_register(plugin_id   => "snooze",
-					 plugin_desc => "Toggles snooze mode which prevents " .
+					 plugin_params => "<on|off>",
+					 plugin_help => "Toggles snooze mode which prevents " .
 					 "recording and responding to chat. Commands are still " .
 					 "processed.",
 					 event_plugin_call     => \&set_snooze,
@@ -250,12 +251,13 @@ if(option('chat','snooze') !~ m/always|never/) {
 }
 
 &plugin_register(plugin_id   => "stats",
-				 plugin_desc => "Shows useless stats about the database.",
+				 plugin_help => "Shows various statistics about the database.",
 				 event_plugin_call     => \&print_stats,
 				 );
 
 &plugin_register(plugin_id   => "help",
-				 plugin_desc => "Displays a list of available commands. Adding a command name as a parameter will display help text for that command.",
+				 plugin_params => "<command name>",
+				 plugin_help => "Displays a list of available commands. Adding a command name as a parameter will display help text for that command.",
 				 event_plugin_call     => \&print_help,
 				 );
 
@@ -263,7 +265,8 @@ if(option('chat','snooze') !~ m/always|never/) {
 # Register the delete plugin only if the option is enabled
 if(option('chat', 'delete_usage_max') != -1) {
 	&plugin_register(plugin_id   => "delete",
-					 plugin_desc => "Erases a word that has been previously learned.",
+					 plugin_params => "<word>",
+					 plugin_help => "Erases a word that has been previously learned.",
 					 event_plugin_call     => \&delete_words,
 					 );
 }
@@ -822,11 +825,12 @@ sub plugin_register {
 		die("$data{plugin_id}: a plugin is already registered to this handle");
     }
     $event_plugin_call{$data{plugin_id}} = $data{event_plugin_call};
-    if(!$data{plugin_desc}) {
-		&debug(5, $data{plugin_id} . ": this plugin has no description and will be hidden\n");
+    if(!$data{plugin_help}) {
+		&debug(5, $data{plugin_help} . ": this plugin has no help text and will be hidden\n");
     } else {
-		$plugin_desc{$data{plugin_id}} = $data{plugin_desc};
+		$plugin_help{$data{plugin_id}} = $data{plugin_help};
     }
+	$plugin_params{$data{plugin_id}} = $data{plugin_params};
     if ($data{event_plugin_load}) {
 		if (!&plugin_callback($data{plugin_id}, $data{event_plugin_load})) {
 			die("$data{plugin_id}: the plugin returned an error on load");
@@ -894,7 +898,7 @@ sub print_help {
 	if (!defined $command) {
 		$message = "Prefix commands with '$prefix' when you use them. For help with a command, try typing %bold%" . $prefix . "help <command>%bold%\n";
 		my $count = 0;
-		my @commands = sort {$a cmp $b} keys(%plugin_desc);
+		my @commands = sort {$a cmp $b} keys(%plugin_help);
 		while (defined $commands[$count]) {
 			$message .= sprintf(" %-12s  %-12s  %-12s %-12s\n",
 								$commands[$count++], $commands[$count++],
@@ -902,10 +906,15 @@ sub print_help {
 		}
 	} else {
 		$command =~ s/^$prefix//;
-		if (!defined $plugin_desc{$command}) {
+		if (!defined $plugin_help{$command} &&
+			!defined $plugin_params{$command}) {
 			$message = "There is no help for that command, or it does not exist.";
 		} else {
-			$message = "Help for %bold%${prefix}$command%bold%:\n$plugin_desc{$command}";
+			$message = "%uline%Usage:%uline% %bold%${prefix}$command%bold% "
+				. (defined $plugin_params{$command}
+				   ? $plugin_params{$command} : "")
+				. (defined $plugin_help{$command}
+				   ? "\n$plugin_help{$command} : "");
 		}
 	}
 	$message = parse_style($message);

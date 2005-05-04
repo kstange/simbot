@@ -126,7 +126,7 @@ sub look_up {
 
 # Register Plugin
 &SimBot::plugin_register(plugin_id   => "define",
-						 plugin_desc => "Defines the term. Follow a term by 'in' and a dictionary name to search an alternate dictionary.",
+						 plugin_help => "Defines the term. Follow a term by 'in' and a dictionary name to search an alternate dictionary.",
 
 						 event_plugin_call => \&look_up,
 						 );

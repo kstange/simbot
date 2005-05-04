@@ -65,7 +65,7 @@ sub print_todo {
 
 # Register Plugin
 &SimBot::plugin_register(plugin_id   => "todo",
-			 plugin_desc => "The ever changing development todo list",
+			 plugin_help => "The ever changing development todo list",
 			 event_plugin_call => \&print_todo,
 			 );
 

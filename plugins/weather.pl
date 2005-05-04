@@ -793,7 +793,7 @@ sub new_get_wx {
 # Register Plugins
 &SimBot::plugin_register(
 						 plugin_id   => "weather",
-						 plugin_desc => "Gets a weather report for the given station.",
+						 plugin_help => "Gets a weather report for the given station.",
 
 						 event_plugin_call    => \&new_get_wx,
 						 event_plugin_load    => \&messup_wx,
@@ -813,7 +813,7 @@ sub new_get_wx {
 
 &SimBot::plugin_register(
 						 plugin_id   => "metar",
-						 plugin_desc => "Gives a raw METAR report for the given station.",
+						 plugin_help => "Gives a raw METAR report for the given station.",
 
 						 event_plugin_call   => \&new_get_wx,
 

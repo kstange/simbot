@@ -112,7 +112,7 @@ sub google_find {
 
 # Register Plugin
 &SimBot::plugin_register(plugin_id   => "find",
-						 plugin_desc => "Searches Google with \"I'm Feeling Lucky\"",
+						 plugin_help => "Searches Google with \"I'm Feeling Lucky\"",
 
 						 event_plugin_call => \&google_find,
 						 );

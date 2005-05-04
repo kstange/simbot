@@ -1,4 +1,10 @@
 Version 1.0 alpha: (04 May 2005)
+        * simbot.pl:
+	  - Replace plugin_desc parameter with plugin_help and plugin_params
+	    to allow a very nicely formed usage description.  Plugins that have
+	    no help will not be listed, even if they have params, but if the
+	    user requests help on them, the params will be revealed if they
+	    exist.
 	* plugins/sqlite-logger.pl
 	  - The asterix (*) can now be specified for the nickname, this will look
 	    for anybody matching. This replaces %log last.

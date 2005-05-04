@@ -107,7 +107,7 @@ sub score_word {
 }
 
 &SimBot::plugin_register(plugin_id      => 'spell',
-                         plugin_desc    => 'Checks your spelling.',
+                         plugin_help    => 'Checks your spelling.',
                          event_plugin_call  => \&get_spelling,
                          event_plugin_load  => \&messup_aspell,
                          query_word_score   => \&score_word,
