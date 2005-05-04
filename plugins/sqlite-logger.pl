@@ -216,12 +216,19 @@ sub do_seen {
     
     my $nick_id = &get_nickchan_id($nick);
     
-    my ($seen_nick, $seen_nick_id, $seen_row);
+    my ($seen_nick, $seen_row);
     my @events;
     my $count=1;
     my $content;
     
-    if($args[0] =~ m/--help/i) {
+    my $nick_list;
+    
+    if(!defined $args[0]) {
+        # the user did a %seen without any arguments
+        &SimBot::send_message($channel,
+            "$nick: Who are you looking for? ('%seen --help' for more options)");
+        return;
+    } elsif($args[0] =~ m/--help/i) {
         &SimBot::send_message($channel, "$nick: OK, messaging you help.");
         &SimBot::send_pieces_with_notice($nick, undef, SEEN_HELP);
         return;
@@ -229,7 +236,7 @@ sub do_seen {
         my $context = &get_nick_context($nick_id);
         
         if($context =~ m/seen=(\d+)/) {
-            $seen_nick_id = $1;
+            $nick_list = $1;
         } else {
             &SimBot::send_message($channel,
                 "$nick: I don't seem to remember what 'that' is.");
@@ -250,7 +257,18 @@ sub do_seen {
     } else {
         $seen_nick = shift(@args);
         &SimBot::debug(3, "sqlite-logger: Seen request by $nick for $seen_nick\n");
-        unless($seen_nick_id = &get_nickchan_id($seen_nick)) {
+
+        if($seen_nick =~ m/^\*$/) {
+            # user is looking for anybody
+            # we'll do nothing
+        } elsif($seen_nick =~ m/\*/) {
+            # user is using wildcards
+            # FIXME: Later.
+            &SimBot::send_message($channel,
+                "$nick: Sorry, wildcard matching is not implemented yet.");
+            return;
+        } elsif(!($nick_list = &get_nickchan_id($seen_nick))) {
+            # The requested nick does not exist.
             &SimBot::send_message($channel,
                 "$nick: I do not know of a $seen_nick");
             return;
@@ -286,17 +304,20 @@ sub do_seen {
         return;
     }
 
+
+    # Build the query string
     my $seen_query;
     my $query_str = 
         'SELECT id, time, source_nick_id, event,'
         . ' target_nick_id, content'
-        . ' FROM chatlog'
-        . ' WHERE (source_nick_id = ?'
-        . ' OR target_nick_id = ?)';
+        . ' FROM chatlog WHERE channel_id = ?';
+    if(defined $nick_list) {
+        $query_str .= ' AND (source_nick_id IN (' . $nick_list . ')'
+        . ' OR target_nick_id IN (' . $nick_list . '))';
+    }
     if(defined $seen_row) {
         $query_str .= " AND id < $seen_row"; 
     }
-    $query_str .= ' AND channel_id = ?';
     if(@events) {
         $query_str .= 
             " AND (event = '" . join("' OR event = '", @events) . "')";
@@ -308,12 +329,13 @@ sub do_seen {
     $query_str .= ' ORDER BY time DESC'
         . ' LIMIT ' . $count;
         
+    
     unless($seen_query = $dbh->prepare($query_str)) {
         &SimBot::send_message($channel,
             "$nick: Sorry, but something went wrong accessing the log.");
         return;
     }
-    $seen_query->execute($seen_nick_id, $seen_nick_id, &get_nickchan_id(&SimBot::option('network', 'channel')));
+    $seen_query->execute(&get_nickchan_id(&SimBot::option('network', 'channel')));
     my $row;
     my $last_id;
     my @responses;
@@ -337,12 +359,14 @@ sub do_seen {
     }
     
     # update context so 'before that' works
-    &update_nick_context($nick_id, 'seen-row', $last_id);
-    &update_nick_context($nick_id, 'seen', $seen_nick_id);
-    &update_nick_context($nick_id, 'seen-event',
-        join(',', @events));
-    &update_nick_context($nick_id, 'seen-content', qq("${content}"));
-
+    {
+        no warnings qw( uninitialized );
+        &update_nick_context($nick_id, 'seen-row', $last_id);
+        &update_nick_context($nick_id, 'seen', $nick_list);
+        &update_nick_context($nick_id, 'seen-event',
+            join(',', @events));
+        &update_nick_context($nick_id, 'seen-content', qq("${content}"));
+    }
 }
 
 sub do_recap {
