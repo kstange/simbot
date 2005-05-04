@@ -826,7 +826,7 @@ sub plugin_register {
     }
     $event_plugin_call{$data{plugin_id}} = $data{event_plugin_call};
     if(!$data{plugin_help}) {
-		&debug(5, $data{plugin_help} . ": this plugin has no help text and will be hidden\n");
+		&debug(5, $data{plugin_id} . ": this plugin has no help text and will be hidden\n");
     } else {
 		$plugin_help{$data{plugin_id}} = $data{plugin_help};
     }
@@ -914,7 +914,7 @@ sub print_help {
 				. (defined $plugin_params{$command}
 				   ? $plugin_params{$command} : "")
 				. (defined $plugin_help{$command}
-				   ? "\n$plugin_help{$command} : "");
+				   ? "\n$plugin_help{$command}" : "");
 		}
 	}
 	$message = parse_style($message);
