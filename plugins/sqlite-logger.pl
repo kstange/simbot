@@ -724,6 +724,31 @@ sub update_nick_context {
     $query->execute($context, $nick_id);
 }
 
+
+sub seen_nlp_match {
+    my ($kernel, $nick, $channel, $plugin, @params) = @_;
+
+	my $person;
+
+	foreach (@params) {
+		if (m/(\w+) (seen|here)/i) {
+			$person = $1;
+		} elsif (m/(see|seen) (\w+)/i) {
+			$person = $2;
+		}
+	}
+
+	if (defined $person) {
+		$person = $SimBot::chosen_nick if ($person eq "you"
+										   || $person eq "yourself");
+		$person = $nick if ($person eq "me");
+		&do_seen($kernel, $nick, $channel, undef, $person);
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
 &SimBot::plugin_register(
     plugin_id               => 'log',
     event_plugin_call       => \&access_log,
@@ -746,4 +771,14 @@ sub update_nick_context {
 #    query_word_score        => \&score_word,
 
 );
+
+&SimBot::plugin_register(
+    plugin_id               => 'seen',
+    event_plugin_call       => \&do_seen,
+    event_plugin_nlp_call   => \&seen_nlp_match,
+    hash_plugin_nlp_verbs   => ['seen', 'see'],
+    hash_plugin_nlp_formats => ['{w} here', 'see {w}', '{w} seen', 'seen {w}'],
+    hash_plugin_nlp_questions => ['have-you', 'did-you', 'when-is', ],
+);
+    
 
