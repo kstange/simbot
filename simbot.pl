@@ -1942,6 +1942,7 @@ sub quit_session {
 			$message = option('network', 'quit_default');
 		}
 	}
+        
 	$terminating = 1 unless $terminating == 2;
 
 	# Everyone out of the pool!
@@ -1952,6 +1953,9 @@ sub quit_session {
 	$kernel->post(bot => quit => PROJECT . " " . VERSION
 				  . (($message ne "") ? ": $message" : ""));
 	&debug(3, "Disconnecting from IRC... $message\n");
+
+    # remove any alarms. This stops any verbose output simbot was giving
+    $kernel->alarm_remove_all( );
 
     $kernel->sig_handled();
 }
