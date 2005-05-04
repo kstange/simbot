@@ -40,7 +40,12 @@ use DBI;
 use constant MONTHS => ('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug',
     'Sep','Oct','Nov','Dec');
     
-use constant MAX_RECAP => 20;
+use constant MAX_RESULTS => 20;
+
+use constant REQUESTED_TOO_MANY => 'Sorry, but I cannot send you more than '
+    . MAX_RESULTS . ' results.';
+    
+use constant REQUESTED_NONE => "No, I don't think I'll be doing that.";
 
 sub messup_sqlite_logger {
     $dbh = DBI->connect(
@@ -248,6 +253,14 @@ sub do_seen {
             }
         }
     }
+    
+    if($count <= 0) {
+        &SimBot::send_message($channel, "$nick: " . REQUESTED_NONE);
+        return;
+    } elsif($count > MAX_RESULTS) {
+        &SimBot::send_message($channel, "$nick: " . REQUESTED_TOO_MANY);
+        return;
+    }
 
     my $seen_query;
     my $query_str = 
@@ -390,9 +403,9 @@ sub do_recap {
         push(@msg, &row_hashref_to_text($row));
     }
     $log_query->finish;
-    if($#msg > MAX_RECAP) {
-        $msg[-(MAX_RECAP)] = "[ Recap too long, giving you the last 20 lines ]";
-        @msg = @msg[-(MAX_RECAP)..-1];
+    if($#msg > MAX_RESULTS) {
+        $msg[-(MAX_RESULTS)] = "[ Recap too long, giving you the last 20 lines ]";
+        @msg = @msg[-(MAX_RESULTS)..-1];
     }
     &SimBot::send_pieces_with_notice($nick, undef,
         join("\n", @msg));
@@ -420,12 +433,10 @@ sub access_log {
         if($args[0] =~ m/^\d+$/) {
             $count = $args[0];
             if($count <= 0) {
-                &SimBot::send_message($channel, "$nick: OK, messaging you nothing like you asked.");
+                &SimBot::send_message($channel, "$nick: " . REQUESTED_NONE);
                 return;
-            } elsif($count >= 10) {
-                &SimBot::send_message($channel, "$nick: You probably didn't really want me to message you that many...");
-                # TODO: Let the user add -YES, if present, allow up to
-                # something else, maybe 15 or so.
+            } elsif($count > MAX_RESULTS) {
+                &SimBot::send_message($channel, "$nick: " . REQUESTED_TOO_MANY);
                 return;
             }
             $event = uc($args[1]);
