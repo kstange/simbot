@@ -1,5 +1,9 @@
 Version 1.0 alpha: (04 May 2005)
-        * simbot.pl:
+	* plugins/weather.pl:
+	  - Forecast support; %weather <lat> <long> will give a forecast or break
+	    horribly depending on how sober NOAA is and if the lat/long is in the
+	    US.
+	* simbot.pl:
 	  - Replace plugin_desc parameter with plugin_help and plugin_params
 	    to allow a very nicely formed usage description.  Plugins that have
 	    no help will not be listed, even if they have params, but if the

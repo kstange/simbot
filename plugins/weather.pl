@@ -42,11 +42,16 @@ package SimBot::plugin::weather;
 use strict;
 use warnings;
 
+use Data::Dumper;
+
 # The weather, more or less!
 use Geo::METAR;
 
 # the new fangled XML weather reports need to be parsed too!
 use XML::Simple;
+
+# and we need this to get the XML forecasts
+use SOAP::Lite;
 
 use POE;
 
@@ -754,6 +759,105 @@ sub got_xml {
         "$nick: $msg");
 }
 
+sub do_forecast {
+    # Credit/blame to http://golem.ph.utexas.edu/~distler/blog/archives/000500.html
+    # for much of this script
+    my ($nick, $channel, $lat, $long) = @_;
+    
+    
+    my $serviceURI = 'http://weather.gov/forecasts/xml';
+    my $method = 'NDFDgenByDay';
+    my $endpoint = "$serviceURI/SOAP_server/ndfdXMLserver.php";
+    my $soapAction = "$serviceURI/DWMLgen/wsdl/ndfdXML.wsdl#$method";
+    my $numDays = 6;
+    my $format = '12 hourly';
+    
+    my @time = localtime;
+    my $startDate = ($time[5] + 1900) . '-' . ($time[4] + 1) . '-'
+        . ($time[3]) . '-00:00';
+    
+    my $weather = SOAP::Lite->new(uri => $soapAction,
+                                proxy => $endpoint);
+    my $response = $weather->call(
+       SOAP::Data->name($method)
+         => SOAP::Data->type(decimal => $lat      )->name('latitude'),
+         => SOAP::Data->type(decimal => $long     )->name('longitude'),
+         => SOAP::Data->type(date    => $startDate)->name('startDate'),
+         => SOAP::Data->type(integer => $numDays  )->name('numDays'),
+         => SOAP::Data->type(string  => $format   )->name('format')
+       );
+    
+    if ($response->fault) {
+         &SimBot::send_message($channel, "$nick: Something unexpected happened: " . $response->faultstring);
+    } else {
+        open(OUT, ">forecast_debug");
+        print OUT $response->result;
+        
+        my $xml = $response->result;
+        
+        my $forecast;
+        if (!eval { $forecast = XMLin($xml); }) {
+            &SimBot::send_message($channel, "$nick: The forecast could not be parsed. Blame NOAA.");
+            return;
+        }
+        
+        my $params = $forecast->{'data'}->{'parameters'};
+        my $layout = $forecast->{'data'}->{'time-layout'};
+        my $title = $forecast->{'head'}->{'product'}->{'title'};
+        my $info_url = $forecast->{'head'}->{'source'}->{'more-information'};
+        
+        my ($maxperiodkey, $minperiodkey, $condsperiodkey);
+        
+        # arrays of keys for the time-periods in the forecast
+        LAYOUT:
+        for my $i (0 .. $#$layout) {
+          my $period_key = $layout->[$i]->{'start-valid-time'};
+          my $layout_key = $layout->[$i]->{'layout-key'};
+          $layout_key =~ /k-p24h-n\d-1/ ? do {$maxperiodkey=$period_key; next LAYOUT;} :
+          $layout_key =~ /k-p24h-n\d-2/ ? do {$minperiodkey=$period_key; next LAYOUT;} :
+          $layout_key =~ /k-p12h-n\d/ ?    ($condsperiodkey=$period_key) :
+                  die "unknown period key\n";
+        }
+        
+        $numDays = 2;
+        if ($numDays > $#$maxperiodkey + 1) {
+            $numDays = $#$maxperiodkey + 1;
+        }
+        my ($conditions, $temperatures, $hilo, $times, $precip, $icons);
+        
+        # turn the forecast into hashes, keyed by time-period
+        for my $i (0 .. 2*$numDays-1) {
+            $times->[$i] = $condsperiodkey->[$i]->{'period-name'};
+            $conditions->{$times->[$i]} =
+              $params->{'weather'}->{'weather-conditions'}->[$i]->{'weather-summary'};
+            $precip->{$times->[$i]} =
+              $params->{'probability-of-precipitation'}->{'value'}->[$i];
+        # towards the end of a 12-hour period, NOAA doesn't deign to "forecast" the
+        # weather for that period. So we hack around them.
+            $icons->{$times->[$i]} =
+              ($params->{'conditions-icon'}->{'icon-link'}->[$i] =~ /^HASH/ ) ?
+                   '' :
+                   $params->{'conditions-icon'}->{'icon-link'}->[$i];
+        }
+        for my $i (0 .. $numDays-1) {
+            $temperatures->{$maxperiodkey->[$i]->{'period-name'}} =
+              $params->{'temperature'}->{'Daily Maximum Temperature'}->{'value'}->[$i];
+            $temperatures->{$minperiodkey->[$i]->{'period-name'}} =
+              $params->{'temperature'}->{'Daily Minimum Temperature'}->{'value'}->[$i];
+            $hilo->{$maxperiodkey->[$i]->{'period-name'}} = 'High';
+            $hilo->{$minperiodkey->[$i]->{'period-name'}} = 'Low';
+        }
+        
+        # OK, so we have weather. Let's do something with it.
+        my $msg = '';
+        
+        for my $i (@$times) {
+            $msg .= $i . ': ' . $conditions->{$i} . ', ' . $temperatures->{$i} . '°F; ';
+        }
+        &SimBot::send_message($channel, "$nick: $msg");
+    }
+}
+
 sub nlp_match {
     my ($kernel, $nick, $channel, $plugin, @params) = @_;
 
@@ -781,6 +885,14 @@ sub new_get_wx {
     my ($kernel, $nick, $channel, $command, $station, @args) = @_;
     my $flags = 0;
     
+    my ($lat, $long);
+    if(($lat) = $station =~ /(-?[\d\.]+)/) {
+        my $long = $args[0];
+        
+        &do_forecast($nick, $channel, $lat, $long);
+        return;
+    }
+    
     if($command =~ /^.metar$/)      { $flags |= RAW_METAR; }
     foreach(@args) {
         if(m/^metar$/)              { $flags |= FORCE_METAR; }
@@ -793,9 +905,10 @@ sub new_get_wx {
 # Register Plugins
 &SimBot::plugin_register(
 						 plugin_id   => "weather",
-						 plugin_params => "<station ID> [metar|raw]",
+				         plugin_params => "<station ID> [metar|raw]",
 						 plugin_help =>
 "Gets a weather report for the given station.\nSpecifying %bold%metar%bold% will force the parsing the metar report instead of using the NOAA XML data.\nSpecifying %bold%raw%bold% will show the METAR report in its original form.",
+
 						 event_plugin_call    => \&new_get_wx,
 						 event_plugin_load    => \&messup_wx,
 						 event_plugin_unload  => \&cleanup_wx,
