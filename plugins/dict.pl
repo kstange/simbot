@@ -32,7 +32,7 @@ use constant DICT_SERVER => "dict.org";
 sub look_up {
     my ($kernel, $nick, $channel, $command) = @_;
 	my $line = join(' ', @_[ 4 .. $#_ ]);
-	my $dictionary, $term, $destination;
+	my ($dictionary, $term, $destination);
 	if ($line =~ /^\"?(.+?)\"?( (in|with) \"?(.+?)\"?)?( (privately|publicly))?$/i) {
 		if ($1 eq "dictionaries" && $3 eq "with") {
 			$dictionary = "?";
