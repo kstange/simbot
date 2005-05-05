@@ -554,12 +554,13 @@ sub normalize_urls {
 
 &SimBot::plugin_register(
     plugin_id   => 'info',
-    plugin_params => '(<key> [is [also] <fact>] | list <key>)',
+    plugin_params => '(<key> [is [also] <fact>] | list <key> | forget <key>)',
     plugin_help     => <<EOT,
 If only <key> is specified, a random associated fact will be returned.
 If <key> is <fact> is specified, <fact> will be stored under <key>, unless
   <key> already exists. Use 'is also' to add facts to existing keys.
 If list <key> is specified, all associated facts will be returned.
+If forget <key> is specified, all associated facts will be deleted.
 The truthfulness of any stored facts is not guaranteed.
 EOT
 
