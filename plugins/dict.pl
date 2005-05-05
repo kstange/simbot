@@ -58,9 +58,17 @@ sub look_up {
 	}
 
 	my %dbs = $dict->dbs();
+	# We're killing these because they're "pseudo-dictionary" names and
+	# they don't actually work right.
+	delete $dbs{"--exit--"} if defined $dbs{"--exit--"};
+	delete $dbs{"all"}      if defined $dbs{"all"};
+	delete $dbs{"trans"}    if defined $dbs{"trans"};
+	delete $dbs{"english"}  if defined $dbs{"english"};
+
 
 	if (!defined $term) {
-		&SimBot::send_message($channel, "$nick: Please specify which word you want defined. If you wish, you can specify 'in' and one of " . join(", ", keys(%dbs)) . ", after the word to indicate which dictionary to use.  By default, the first match in any dictionary will be used.");
+		&SimBot::send_message($channel, "$nick: Please specify which word you want defined.  You can specify 'in <dictionary>' after the word to search a specific dictionary from the list I am messaging you now.  If you don't specify, I'll just look for the first match.");
+		&SimBot::send_pieces_with_notice($nick, undef, "Available Dictionaries: " . join(", ", keys(%dbs)) . ".");
 		return;
 	}
 
@@ -95,7 +103,7 @@ sub look_up {
 			} elsif ($destination eq "publicly") {
 				&SimBot::send_pieces($channel, "$nick:", $definition);
 			} elsif ($destination eq "privately") {
-				&SimBot::send_pieces($nick, undef, $definition);
+				&SimBot::send_pieces_with_notice($nick, undef, $definition);
 			} else {
 				&SimBot::send_message($channel, "$nick: $definition");
 			}
@@ -114,13 +122,13 @@ sub look_up {
 					$dictionaries{${$entry}[0]}++;
 				}
 			}
-			&SimBot::send_message($channel, "$nick: A definition for $term is available in the following dictionaries: " . join(", ", keys (%dictionaries)) . ".");
+			&SimBot::send_pieces($channel, "$nick:", "A definition for $term is available in the following dictionaries: " . join(", ", keys (%dictionaries)) . ".");
 		} else {
 			&SimBot::send_message($channel, "$nick: I could not find a definition for $term in any available dictionaries.");
 		}
 
 	} else {
-		&SimBot::send_message($channel, "$nick: There is no dictionary called '$dictionary' available. Try one of " . join(", ", keys(%dbs)) . ".");
+		&SimBot::send_message($channel, &SimBot::parse_style("$nick: There is no dictionary called '$dictionary' available. Type %bold%$command%bold% with no parameters to see a list of dictionaries you can use."));
 	}
 }
 
@@ -128,7 +136,7 @@ sub look_up {
 &SimBot::plugin_register(plugin_id   => "define",
 						 plugin_params => "[dictionaries with \"<term>\"|\"<term>\" [in <dictionary>]] [publicly|privately]",
 						 plugin_help =>
-qq~Defines the requested term. Quotation marks are optional unless the query has more than one word:
+qq~Defines the requested term. Quotation marks are optional unless the query has more than one word.  To see a list of available dictionaries privately, simply use the define command with no parameters.
 %bold%dictionaries with%bold%: Lists the dictionaries with the given term.
 %bold%in <dictionary>%bold%: Shows the entry from a specific dictionary, if it exists.
 %bold%publicly%bold% or %bold%privately%bold%: Specify one of these terms to request the definition in the channel or via private message. Public messages will be limited to a reasonable length.~,
