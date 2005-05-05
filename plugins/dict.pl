@@ -32,17 +32,17 @@ use constant DICT_SERVER => "dict.org";
 sub look_up {
     my ($kernel, $nick, $channel, $command) = @_;
 	my $line = join(' ', @_[ 4 .. $#_ ]);
-	$line =~ /^\"?(.+?)\"?( (in|with) \"?(.+?)\"?)?( (privately|publicly))?$/i;
-	my $dictionary;
-	my $term;
-	if ($1 eq "dictionaries" && $3 eq "with") {
-		$dictionary = "?";
-		$term = $4
-	} else {
-		$dictionary = $4;
-		$term = $1;
+	my $dictionary, $term, $destination;
+	if ($line =~ /^\"?(.+?)\"?( (in|with) \"?(.+?)\"?)?( (privately|publicly))?$/i) {
+		if ($1 eq "dictionaries" && $3 eq "with") {
+			$dictionary = "?";
+			$term = $4;
+		} else {
+			$dictionary = $4;
+			$term = $1;
+		}
+		$destination = (defined $6 ? $6 : "default");
 	}
-	my $destination = (defined $6 ? $6 : "default");
 
 	&SimBot::debug(3, "define: Received request from " . $nick . ".\n");
 
@@ -59,7 +59,7 @@ sub look_up {
 
 	my %dbs = $dict->dbs();
 	# We're killing these because they're "pseudo-dictionary" names and
-	# they don't actually work right.
+	# they don't actually work right.  They won't return results anyway.
 	delete $dbs{"--exit--"} if defined $dbs{"--exit--"};
 	delete $dbs{"all"}      if defined $dbs{"all"};
 	delete $dbs{"trans"}    if defined $dbs{"trans"};
