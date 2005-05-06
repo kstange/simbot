@@ -945,9 +945,9 @@ sub new_get_wx {
 # Register Plugins
 &SimBot::plugin_register(
 						 plugin_id   => "weather",
-				         plugin_params => "<station ID> [metar|raw]",
+				         plugin_params => "(<station ID> [metar|raw] | forecast <zip>)",
 						 plugin_help =>
-"Gets a weather report for the given station.\nSpecifying %bold%metar%bold% will force the parsing the metar report instead of using the NOAA XML data.\nSpecifying %bold%raw%bold% will show the METAR report in its original form.",
+"Gets a weather report for the given station.\nSpecifying %bold%metar%bold% will force the parsing the metar report instead of using the NOAA XML data.\nSpecifying %bold%raw%bold% will show the METAR report in its original form.\nforecast <zip> will get the forecast for that US zip code.",
 
 						 event_plugin_call    => \&new_get_wx,
 						 event_plugin_load    => \&messup_wx,
