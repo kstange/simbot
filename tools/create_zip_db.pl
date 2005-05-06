@@ -37,6 +37,19 @@ use strict;
 use CAM::DBF;
 use DBI;
 
+
+my %states = qw(
+    01 AL   02 AK   04 AZ   05 AR   06 CA   08 CO   09 CT   10 DE   11 DC
+    12 FL   13 GA   15 HI   16 ID   17 IL   18 IN   19 IA   20 KS   21 KY
+    22 LA   23 ME   24 MD   25 MA   26 MI   27 MN   28 MS   29 MO   30 MT
+    31 NE   32 NV   33 NH   34 NJ   35 NM   36 NY   37 NC   38 ND   39 OH
+    40 OK   41 OR   42 PA   44 RI   45 SC   46 SC   47 TN   48 TX   49 UT
+    50 VT   51 VA   53 WA   54 WV   55 WI   56 WY
+    
+    60 AS   64 FM   66 GU   68 MH   69 MP   70 PW   72 PR   74 UM   78 VI
+);
+
+
 # set up the sqlite database
 my $sqlite_dbh = DBI->connect('dbi:SQLite:dbname=USzip','','',
     { RaiseError => 1, AutoCommit => 0 })
@@ -78,20 +91,26 @@ for my $row (0 .. $last_row) {
     
     my $lat = $cur_row->{'LATITUDE'};
     my $long = $cur_row->{'LONGITUDE'};
+    my $state = $cur_row->{'STATE'};
+    
+    if($states{$state})
+        { $state = $states{$state}; }
     
     $lat =~ s/^\s*//;
     $long =~ s/^\s*//;
     
     $insert_row_query->execute($cur_row->{'ZIP_CODE'}, $lat,
         $long, $cur_row->{'ZIP_CLASS'},
-        $cur_row->{'PONAME'}, $cur_row->{'STATE'}, $cur_row->{'COUNTY'});
+        $cur_row->{'PONAME'}, $state, $cur_row->{'COUNTY'});
 }
 
-print "Done!\nCreating the index...";
-# create the index
+print "Done!\nCreating indices...";
 $sqlite_dbh->do(<<EOT);
 CREATE UNIQUE INDEX uszipszip
     ON uszips (zip);
+
+CREATE INDEX uszipsstate
+    ON uszips (state);
 EOT
 print " Done!\nCommitting...";
 
