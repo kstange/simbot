@@ -1,7 +1,5 @@
 config.ini
-*.pag
-*.dir
-*.db
+rules.db
 simbot.sh
 .DS_Store
 *.stackdump

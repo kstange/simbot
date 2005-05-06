@@ -124,7 +124,7 @@ use constant FACT_URL           => 32;
 use constant FACT_LOCKED        => 16;
  
 sub messup_info {
-    dbmopen(%info, 'info', 0664);
+    dbmopen(%info, 'data/info', 0664);
 }
 
 sub cleanup_info {
