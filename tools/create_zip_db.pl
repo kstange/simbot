@@ -10,7 +10,7 @@
 #
 # USAGE:
 #   Download the ZIP1999 data from
-#       http://www.census.gov/geo/www/tiger/zip1999.html
+#       
 #   and put the zipnov99.DBF file in the same directory as this script.
 #   Then, run perl create_zip_db.pl. When the script completes, you should
 #   have a USzip file to put in your simbot directory.
@@ -63,18 +63,18 @@ CREATE TABLE uszips (
     zipclass STRING,
     poname STRING,
     state STRING,
-    county STRING
+    geocode INTEGER
 );
 EOT
 
-my $insert_row_query=$sqlite_dbh->prepare(
-    'INSERT INTO uszips'
-    . ' (zip, latitude, longitude, zipclass, poname, state, county)'
-    . ' VALUES (?, ?, ?, ?, ?, ?, ?)'
-);
-
 # we'll create the index when we are done, supposedly it's faster
 # that way
+
+my $insert_row_query=$sqlite_dbh->prepare(
+    'INSERT INTO uszips'
+    . ' (zip, latitude, longitude, zipclass, poname, state, geocode)'
+    . ' VALUES (?, ?, ?, ?, ?, ?, ?)'
+);
 
 # ok, that's done, now open the dbase III database
 my $dbase_dbf = new CAM::DBF('zipnov99.DBF')
@@ -92,6 +92,7 @@ for my $row (0 .. $last_row) {
     my $lat = $cur_row->{'LATITUDE'};
     my $long = $cur_row->{'LONGITUDE'};
     my $state = $cur_row->{'STATE'};
+    my $geocode = $state . sprintf('%03d', $cur_row->{'COUNTY'});
     
     if($states{$state})
         { $state = $states{$state}; }
@@ -101,7 +102,7 @@ for my $row (0 .. $last_row) {
     
     $insert_row_query->execute($cur_row->{'ZIP_CODE'}, $lat,
         $long, $cur_row->{'ZIP_CLASS'},
-        $cur_row->{'PONAME'}, $state, $cur_row->{'COUNTY'});
+        $cur_row->{'PONAME'}, $state, $geocode);
 }
 
 print "Done!\nCreating indices...";
