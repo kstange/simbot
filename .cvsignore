@@ -5,5 +5,4 @@ config.ini
 simbot.sh
 .DS_Store
 *.stackdump
-irclog
 forecast_debug

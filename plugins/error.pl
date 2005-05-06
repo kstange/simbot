@@ -23,7 +23,7 @@ use warnings;
 sub random_error {
     my ($kernel, $nick, $channel) = @_;
     &SimBot::debug(3, "error: Got error request from " . $nick . ".\n");
-    open(FILE, "errors.db");
+    open(FILE, "data/errors.db");
     my @lines = <FILE>;
     close(FILE);
     my $error = &SimBot::pick(@lines);

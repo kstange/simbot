@@ -59,7 +59,7 @@ EOT
 
 sub messup_sqlite_logger {
     $dbh = DBI->connect(
-        'dbi:SQLite:dbname=irclog',
+        'dbi:SQLite:dbname=data/irclog',
         '','', # user, pass aren't useful to SQLite
         { RaiseError => 1, AutoCommit => 0 }
     ) or die;

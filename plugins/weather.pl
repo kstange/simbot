@@ -106,7 +106,7 @@ sub messup_wx {
     $dbh = DBI->connect('dbi:SQLite:dbname=caches/weather','','',
         { RaiseError => 1, AutoCommit => 0 }) or die;
     
-    $zip_dbh = DBI->connect('dbi:SQLite:dbname=USzip','','',
+    $zip_dbh = DBI->connect('dbi:SQLite:dbname=data/USzip','','',
         { RaiseError => 1, AutoCommit => 0 }) or die;
         
     # let's create the table. If this fails, we don't care, as it
