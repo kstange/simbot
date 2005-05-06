@@ -799,8 +799,8 @@ sub do_forecast {
     if ($response->fault) {
          &SimBot::send_message($channel, "$nick: Something unexpected happened: " . $response->faultstring);
     } else {
-        open(OUT, ">forecast_debug");
-        print OUT $response->result;
+#        open(OUT, ">forecast_debug");
+#        print OUT $response->result;
         
         my $xml = $response->result;
         
