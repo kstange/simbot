@@ -986,12 +986,12 @@ sub new_get_wx {
         }
         return;
     }
-    if(($lat) = $station =~ /(-?[\d\.]+)/) {
-        my $long = $args[0];
-        
-        &get_forecast($nick, $channel, $lat, $long);
-        return;
-    }
+#    if(($lat) = $station =~ /(-?[\d\.]+)/) {
+#        my $long = $args[0];
+#        
+#        &get_forecast($nick, $channel, $lat, $long);
+#        return;
+#    }
     
     if($command =~ /^.metar$/)      { $flags |= RAW_METAR; }
     foreach(@args) {
