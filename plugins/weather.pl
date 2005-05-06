@@ -65,7 +65,7 @@ use HTTP::Status;
 use DBI;    # for sqlite database
 
 # declare globals
-use vars qw( $session $dbh );
+use vars qw( $session $dbh $zip_dbh );
 
 # These constants define the phrases simbot will use when responding
 # to weather requests.
@@ -104,6 +104,9 @@ sub cleanup_wx {
 sub messup_wx {
     # let's create our database
     $dbh = DBI->connect('dbi:SQLite:dbname=caches/weather','','',
+        { RaiseError => 1, AutoCommit => 0 }) or die;
+    
+    $zip_dbh = DBI->connect('dbi:SQLite:dbname=USzip','','',
         { RaiseError => 1, AutoCommit => 0 }) or die;
         
     # let's create the table. If this fails, we don't care, as it
@@ -764,7 +767,8 @@ sub do_forecast {
     # for much of this script
     my ($nick, $channel, $lat, $long) = @_;
     
-    
+    &SimBot::debug(3, 'weather: Received forecast request from ' . $nick
+        . " for $lat $long\n");
     my $serviceURI = 'http://weather.gov/forecasts/xml';
     my $method = 'NDFDgenByDay';
     my $endpoint = "$serviceURI/SOAP_server/ndfdXMLserver.php";
@@ -886,6 +890,22 @@ sub new_get_wx {
     my $flags = 0;
     
     my ($lat, $long);
+    if($station =~ /f(ore)?cast/) {
+        if(defined $args[0] && $args[0] =~ /^\d{5}$/) { # zip code
+            my $get_lat_long_query = $zip_dbh->prepare_cached(
+                'SELECT latitude, longitude FROM uszips'
+                . ' WHERE zip = ? LIMIT 1');
+            $get_lat_long_query->execute($args[0]);
+            if(($lat, $long) = $get_lat_long_query->fetchrow_array) {
+                &do_forecast($nick, $channel, $lat, $long);
+            } else {
+                &SimBot::send_message($channel, "$nick: I do not know where that zip code is.");
+            }
+        } else {
+            &SimBot::send_message($channel, "$nick: For what US Zip code do you want a forecast?");
+        }
+        return;
+    }
     if(($lat) = $station =~ /(-?[\d\.]+)/) {
         my $long = $args[0];
         

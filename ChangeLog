@@ -1,3 +1,11 @@
+Version 1.0 alpha: (05 May 2005)
+	* tools/create_zip_db.pl:
+	  - Creates the USzip file, a SQLite DB of US zip codes circa 1999 from
+	    US census data. This file lets us match zip codes to lat/long.
+	* plugins/weather.pl:
+	  - Slightly better forecast support, you can now use
+	    %weather forecast <zip> to get the forecast for your zip code.
+
 Version 1.0 alpha: (04 May 2005)
 	* plugins/weather.pl:
 	  - Forecast support; %weather <lat> <long> will give a forecast or break
