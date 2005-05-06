@@ -773,7 +773,12 @@ sub do_forecast {
     my $method = 'NDFDgenByDay';
     my $endpoint = "$serviceURI/SOAP_server/ndfdXMLserver.php";
     my $soapAction = "$serviceURI/DWMLgen/wsdl/ndfdXML.wsdl#$method";
-    my $numDays = 6;
+    
+    # how many days should we ask for? Max NOAA lets us is 7.
+    # Occasionally NOAA seems to give bogus data towards the end of the set
+    # this seems to happen no matter how many days we ask for, so let's
+    # ask for all 7 to hopefully get good data for 5 or so.
+    my $numDays = 7;
     my $format = '12 hourly';
     
     my @time = localtime;
@@ -823,7 +828,7 @@ sub do_forecast {
                   die "unknown period key\n";
         }
         
-        $numDays = 2;
+        $numDays = 5;
         if ($numDays > $#$maxperiodkey + 1) {
             $numDays = $#$maxperiodkey + 1;
         }
@@ -856,8 +861,23 @@ sub do_forecast {
         my $msg = '';
         
         for my $i (@$times) {
-            $msg .= $i . ': ' . $conditions->{$i} . ', ' . $temperatures->{$i} . '°F; ';
+            my $cur_msg = $i . ': ';
+            my $got_something = 0;
+            if($conditions->{$i}) {
+                $cur_msg .= $conditions->{$i} . ', ';
+                $got_something = 1;
+            }
+            if($temperatures->{$i} && $temperatures->{$i} !~ /^HASH/ ) {
+                $cur_msg .= $temperatures->{$i} . '°F';
+                $got_something = 1;
+            }
+            $cur_msg .= '; ';
+            
+            if($got_something) {
+                $msg .= $cur_msg;
+            }
         }
+        $msg =~ s/; $//;
         &SimBot::send_message($channel, "$nick: $msg");
     }
 }
