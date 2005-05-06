@@ -42,8 +42,6 @@ package SimBot::plugin::weather;
 use strict;
 use warnings;
 
-use Data::Dumper;
-
 # The weather, more or less!
 use Geo::METAR;
 
@@ -95,6 +93,10 @@ use constant FORCE_METAR        => 64;
 # cache here.
 sub cleanup_wx {
     $dbh->disconnect;
+    
+    # We shouldn't have done anything to the zip codes DB, but just in case
+    $zip_dbh->rollback;
+    $zip_dbh->disconnect;
 }
 
 ### messup_wx
@@ -268,30 +270,35 @@ sub got_station_list {
 # but in some cases the number is X.Y . Is that X degrees, Y minutes,
 # and 0 seconds, or X.Y degrees?
 # I'll figure it out later... most stations just report NA anyway.
-#        my ($latitude, $dir)
-#            = $cur_station->{'latitude'}
-#              =~ m/([\d\.]+)([NS])/;
-#              
-#        if($dir eq 'S') {
-#            $latitude = $latitude * -1;
-#        }
-#        
-#        my $longitude;
-#        ($longitude, $dir)
-#            = $cur_station->{'longitude'}
-#              =~ m/([\d\.]+)([EW])/;
-#              
-#        if($dir eq 'W') {
-#            $longitude = $longitude * -1;
-#        }
+        my ($lat_deg, $lat_min, $lat_sec, $lat_dir);
+        if(($lat_deg, $lat_min, $lat_sec, $lat_dir) = $cur_station->{'latitude'}
+            =~ m/(\d+)\.(\d+)(?:\.(\d+))([NS])/)
+        {
+            $lat_deg += $lat_min * 0.0166666667;
+            $lat_deg += $lat_sec * 0.000277777778;
+            if($lat_dir eq 'S') {
+                $lat_deg = $lat_deg * -1;
+            }
+        }
+        
+        my ($long_deg, $long_min, $long_sec, $long_dir);
+        if(($long_deg, $long_min, $long_sec, $long_dir) = $cur_station->{'longitude'}
+            =~ m/(\d+)\.(\d+)(?:\.(\d+))?([EW])/)
+        {
+            $long_deg += $long_min * 0.0166666667;
+            $long_deg += $long_sec * 0.000277777778;
+            if($long_dir eq 'W') {
+                $long_deg = $long_deg * -1;
+            }
+        }
             
         $update_station_query->execute(
             $cur_station->{'station_id'},
             $cur_station->{'station_name'},
             $cur_station->{'state'},
             'United States',
-            undef, #$latitude,
-            undef, #$longitude,
+            $lat_deg, #$latitude,
+            $long_deg, #$longitude,
             $cur_station->{'xml_url'}
         );
     }
