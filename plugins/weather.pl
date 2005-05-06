@@ -921,6 +921,7 @@ sub new_get_wx {
             } else {
                 &SimBot::send_message($channel, "$nick: I do not know where that zip code is.");
             }
+            $get_lat_long_query->finish;
         } else {
             &SimBot::send_message($channel, "$nick: For what US Zip code do you want a forecast?");
         }
