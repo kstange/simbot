@@ -654,7 +654,7 @@ sub got_xml {
 
 	# If this XML feed is unparsable, METAR /may/ be more useful.
 	# Hey, it sure beats die().
-	if (!eval { $cur_obs = XMLin($raw_xml, SuppressEmpty => 1); }) {
+	if (!eval { $cur_obs = XMLin($raw_xml, SuppressEmpty => 1, NormaliseSpace => 2); }) {
 		&SimBot::debug(3, "weather: XML parse error for $station; falling back to METAR.\n");
 		&SimBot::debug(4, "weather: XML parser failure: $@");
 		my $url =
@@ -691,7 +691,7 @@ sub got_xml {
 
     if(defined $weather && $weather !~ m/^null$/i) {
         $weather = lc($weather);
-        $weather =~ s/^\s*//;   # sometimes they have a space in front
+#        $weather =~ s/^\s*//;   # sometimes they have a space in front
         
         $weather =~ s/haze/hazy/;
         $weather =~ s/^(rain|snow)$/$1ing/;
@@ -782,7 +782,7 @@ sub got_alerts {
     
     my $cap_alert;
     
-    if (!eval { $cap_alert = XMLin($raw_xml, SuppressEmpty => 1); }) {
+    if (!eval { $cap_alert = XMLin($raw_xml, SuppressEmpty => 1, NormaliseSpace => 2); }) {
 		&SimBot::debug(3, "weather: XML parse error for alerts\n");
 		&SimBot::debug(4, "weather: XML parser failure: $@");
 
@@ -810,7 +810,7 @@ sub got_alerts {
     if(@alerts) {
         if($#alerts == 0) {
             &SimBot::send_message(&SimBot::option('network', 'channel'),
-                "$nick: $alerts[0] $alerts_link[0];");
+                "$nick: $alerts[0] $alerts_link[0]");
         } else {
             # more than one alert, we should do something a bit nicer...
             &SimBot::send_message(&SimBot::option('network', 'channel'),
