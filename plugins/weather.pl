@@ -147,6 +147,8 @@ EOT
             do_wx           => \&do_wx,
             got_wx          => \&got_wx,
             got_xml         => \&got_xml,
+            get_alerts      => \&get_alerts,
+            got_alerts      => \&got_alerts,
             got_station_name => \&got_station_name,
             got_station_list => \&got_station_list,
             shutdown        => \&shutdown,
@@ -762,13 +764,69 @@ sub got_xml {
         "$nick: $msg");
 }
 
-sub do_forecast {
+sub got_alerts {
+    my ($kernel, $request_packet, $response_packet)
+        = @_[KERNEL, ARG0, ARG1];
+    my ($nick, $lat, $long, $geocode)
+        = (split(/!/, $request_packet->[1], 4));
+    my $response = $response_packet->[0];
+    
+    if ($response->is_error) {
+        # The server isn't being nice to us.
+        # Let's just move on to getting the forecast
+        &SimBot::send_message(&SimBot::option('network', 'channel'),
+            "$nick: " . &get_forecast($nick, $lat, $long));
+        return;
+    }
+    my $raw_xml = $response->content;
+    
+    my $cap_alert;
+    
+    if (!eval { $cap_alert = XMLin($raw_xml, SuppressEmpty => 1); }) {
+		&SimBot::debug(3, "weather: XML parse error for alerts\n");
+		&SimBot::debug(4, "weather: XML parser failure: $@");
+
+        # Bad XML! Let's just move on to getting the forecast.
+        &SimBot::send_message(&SimBot::option('network', 'channel'),
+            "$nick: " . &get_forecast($nick, $lat, $long));
+
+		return;
+	}
+
+    my @alerts;
+    my @alerts_link;
+    
+    my $cap_info = $cap_alert->{'cap:info'};
+
+    for my $i (0 .. $#$cap_info) {
+        my $cur_geocode = int $cap_info->[$i]->{'cap:area'}->{'cap:geocode'};
+        if($cur_geocode == $geocode) {
+            # We have a warning!
+            push(@alerts,      $cap_info->[$i]->{'cap:event'});
+            push(@alerts_link, $cap_info->[$i]->{'cap:web'});
+        }
+    }
+
+    if(@alerts) {
+        if($#alerts == 0) {
+            &SimBot::send_message(&SimBot::option('network', 'channel'),
+                "$nick: $alerts[0] $alerts_link[0];");
+        } else {
+            # more than one alert, we should do something a bit nicer...
+            &SimBot::send_message(&SimBot::option('network', 'channel'),
+                "$nick: " . join (', ', @alerts));
+        }
+    }
+    # OK, we're done with the alerts... now do the forecast
+    &SimBot::send_message(&SimBot::option('network', 'channel'),
+        "$nick: " . &get_forecast($nick, $lat, $long));
+}
+
+sub get_forecast {
     # Credit/blame to http://golem.ph.utexas.edu/~distler/blog/archives/000500.html
     # for much of this script
-    my ($nick, $channel, $lat, $long) = @_;
+    my ($nick, $lat, $long) = @_;
     
-    &SimBot::debug(3, 'weather: Received forecast request from ' . $nick
-        . " for $lat $long\n");
     my $serviceURI = 'http://weather.gov/forecasts/xml';
     my $method = 'NDFDgenByDay';
     my $endpoint = "$serviceURI/SOAP_server/ndfdXMLserver.php";
@@ -797,7 +855,7 @@ sub do_forecast {
        );
     
     if ($response->fault) {
-         &SimBot::send_message($channel, "$nick: Something unexpected happened: " . $response->faultstring);
+         return 'Something unexpected happened: ' . $response->faultstring;
     } else {
 #        open(OUT, ">forecast_debug");
 #        print OUT $response->result;
@@ -806,8 +864,7 @@ sub do_forecast {
         
         my $forecast;
         if (!eval { $forecast = XMLin($xml); }) {
-            &SimBot::send_message($channel, "$nick: The forecast could not be parsed. Blame NOAA.");
-            return;
+            return 'The forecast could not be parsed. Blame NOAA.';
         }
         
         my $params = $forecast->{'data'}->{'parameters'};
@@ -878,7 +935,7 @@ sub do_forecast {
             }
         }
         $msg =~ s/; $//;
-        &SimBot::send_message($channel, "$nick: $msg");
+        return $msg;
     }
 }
 
@@ -909,15 +966,17 @@ sub new_get_wx {
     my ($kernel, $nick, $channel, $command, $station, @args) = @_;
     my $flags = 0;
     
-    my ($lat, $long);
+    my ($lat, $long, $state, $geocode);
     if($station =~ /f(ore)?cast/) {
         if(defined $args[0] && $args[0] =~ /^\d{5}$/) { # zip code
             my $get_lat_long_query = $zip_dbh->prepare_cached(
-                'SELECT latitude, longitude FROM uszips'
+                'SELECT latitude, longitude, state, geocode FROM uszips'
                 . ' WHERE zip = ? LIMIT 1');
             $get_lat_long_query->execute($args[0]);
-            if(($lat, $long) = $get_lat_long_query->fetchrow_array) {
-                &do_forecast($nick, $channel, $lat, $long);
+            if(($lat, $long, $state, $geocode) = $get_lat_long_query->fetchrow_array) {
+                #&get_forecast($nick, $channel, $lat, $long);
+                #&get_alerts($kernel, $nick, $channel, $lat, $long, $state, $geocode);
+                $kernel->post($session => 'get_alerts', $nick, $lat, $long, $state, $geocode);
             } else {
                 &SimBot::send_message($channel, "$nick: I do not know where that zip code is.");
             }
@@ -930,7 +989,7 @@ sub new_get_wx {
     if(($lat) = $station =~ /(-?[\d\.]+)/) {
         my $long = $args[0];
         
-        &do_forecast($nick, $channel, $lat, $long);
+        &get_forecast($nick, $channel, $lat, $long);
         return;
     }
     
@@ -941,6 +1000,21 @@ sub new_get_wx {
         if(m/^raw$/)                { $flags |= RAW_METAR; }
     }
     $kernel->post($session => 'do_wx', $nick, $station, $flags);
+}
+
+sub get_alerts {
+    my  ($kernel, $nick, $lat, $long, $state, $geocode) =
+      @_[KERNEL,  ARG0,  ARG1, ARG2,  ARG3,   ARG4    ];
+    
+    &SimBot::debug(3, 'weather: Received forecast request from ' . $nick
+        . " for $lat $long $geocode, in get_alerts\n");
+    
+    my $url = 'http://weather.gov/alerts/' . lc($state) . '.cap';
+    my $request = HTTP::Request->new(GET => $url);
+    $kernel->post('wxua' => 'request', 'got_alerts',
+                    $request, "$nick!$lat!$long!$geocode");
+                    
+    # We're done here - got_alerts will handle requesting the forecast
 }
 
 # Register Plugins
