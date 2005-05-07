@@ -105,7 +105,7 @@ sub cleanup_wx {
 # instead of giving up quickly so as to not block simbot
 sub messup_wx {
     # let's create our database
-    $dbh = DBI->connect('dbi:SQLite:dbname=caches/weather','','',
+    $dbh = DBI->connect('dbi:SQLite:dbname=data/weather','','',
         { RaiseError => 1, AutoCommit => 0 }) or die;
     
     $zip_dbh = DBI->connect('dbi:SQLite:dbname=data/USzip','','',
@@ -152,7 +152,6 @@ EOT
             get_alerts      => \&get_alerts,
             got_alerts      => \&got_alerts,
             got_station_name => \&got_station_name,
-            got_station_list => \&got_station_list,
             shutdown        => \&shutdown,
         }
     );
@@ -164,12 +163,6 @@ sub bootstrap {
     # Let's set an alias so our session will hang around
     # instead of just leaving since it has nothing to do
     $kernel->alias_set('wx_session');
-    
-    # and let's go update our known stations list...
-    &SimBot::debug(3, "weather: Updating known stations...\n");
-    my $request = HTTP::Request->new(GET=>'http://www.nws.noaa.gov/data/current_obs/index.xml');
-    $kernel->post('wxua' => 'request', 'got_station_list',
-                $request);
 }
 
 ### do_wx
@@ -239,57 +232,6 @@ sub do_wx {
     my $request = HTTP::Request->new(GET=>$url);
     $kernel->post('wxua' => 'request', 'got_wx',
                             $request, "$nick!$station!$flags");
-}
-
-sub got_station_list {
-    my ($kernel, $request_packet, $response_packet)
-        = @_[KERNEL, ARG0, ARG1];
-        
-    my $response = $response_packet->[0];
-    
-    if($response->is_error) {
-        &SimBot::debug(3, "weather: Could not get station list!\n");
-        return;
-    }
-    my $xml;
-    if (!eval { $xml = XMLin($response->content, SuppressEmpty => 1); }) {
-		&SimBot::debug(3, "weather: XML parse error for stations list: $@\n");
-		return;
-    }
-    &SimBot::debug(3, "weather: Got station list.\n");
-    
-    my $update_station_query = $dbh->prepare(
-        'INSERT OR REPLACE INTO stations (id, name, state, country, latitude, longitude, url)'
-        . ' VALUES (?,?,?,?,?,?,?)');
-        
-    foreach my $cur_station (@{$xml->{'station'}}) {
-        no warnings qw( uninitialized );
-
-        my ($lat_deg, $lat_min, $lat_sec, $lat_dir);
-        if(($lat_deg, $lat_min, $lat_sec, $lat_dir) = $cur_station->{'latitude'}
-            =~ m/(\d+)\.(\d+)(?:\.(\d+))([NS])/)
-        {
-            $lat_deg = &dms_to_degrees($lat_deg, $lat_min, $lat_sec, $lat_dir);
-        }
-        
-        my ($long_deg, $long_min, $long_sec, $long_dir);
-        if(($long_deg, $long_min, $long_sec, $long_dir) = $cur_station->{'longitude'}
-            =~ m/(\d+)\.(\d+)(?:\.(\d+))?([EW])/)
-        {
-            $long_deg = &dms_to_degrees($long_deg, $long_min, $long_sec, $long_dir);
-        }
-            
-        $update_station_query->execute(
-            $cur_station->{'station_id'},
-            $cur_station->{'station_name'},
-            $cur_station->{'state'},
-            'United States',
-            $lat_deg,
-            $long_deg,
-            $cur_station->{'xml_url'}
-        );
-    }
-    $dbh->commit;
 }
 
 sub got_station_name {
