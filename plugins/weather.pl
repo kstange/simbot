@@ -42,6 +42,8 @@ package SimBot::plugin::weather;
 use strict;
 use warnings;
 
+use Data::Dumper;
+
 # The weather, more or less!
 use Geo::METAR;
 
@@ -61,6 +63,8 @@ use HTTP::Request::Common qw(GET POST);
 use HTTP::Status;
 
 use DBI;    # for sqlite database
+
+use Time::Local;
 
 # declare globals
 use vars qw( $session $dbh $zip_dbh );
@@ -744,11 +748,7 @@ sub got_alerts {
     my @alerts;
     my @alerts_link;
     
-    my $cap_info = $cap_alert->{'cap:info'};
-
-#    for my $i (0 .. $#$cap_info) {
     foreach my $cur_cap_info (@{$cap_alert->{'cap:info'}}) {
-        #my $cur_geocode = int $cap_info->[$i]->{'cap:area'}->{'cap:geocode'};
         if(defined $cur_cap_info->{'geocode'}
             && $cur_cap_info->{'geocode'} == $geocode)
         {
@@ -774,47 +774,42 @@ sub got_alerts {
 }
 
 sub get_forecast {
-    # Credit/blame to http://golem.ph.utexas.edu/~distler/blog/archives/000500.html
-    # for much of this script
     my ($nick, $lat, $long) = @_;
     
     my $serviceURI = 'http://weather.gov/forecasts/xml';
     my $method = 'NDFDgenByDay';
     my $endpoint = "$serviceURI/SOAP_server/ndfdXMLserver.php";
     my $soapAction = "$serviceURI/DWMLgen/wsdl/ndfdXML.wsdl#$method";
-    
-    # how many days should we ask for? Max NOAA lets us is 7.
-    # Occasionally NOAA seems to give bogus data towards the end of the set
-    # this seems to happen no matter how many days we ask for, so let's
-    # ask for all 7 to hopefully get good data for 5 or so.
+
     my $numDays = 7;
-    my $format = '12 hourly';
+    my $format = '24 hourly';
     
     my @time = localtime;
-    my $startDate = ($time[5] + 1900) . '-' . ($time[4] + 1) . '-'
-        . ($time[3]) . '-00:00';
     
+    my $startDate = sprintf('%04d-%02d-%02d',
+        ($time[5] + 1900), ($time[4] + 1), ($time[3]));
+        
     my $weather = SOAP::Lite->new(uri => $soapAction,
                                 proxy => $endpoint);
     my $response = $weather->call(
-       SOAP::Data->name($method)
-         => SOAP::Data->type(decimal => $lat      )->name('latitude'),
-         => SOAP::Data->type(decimal => $long     )->name('longitude'),
-         => SOAP::Data->type(date    => $startDate)->name('startDate'),
-         => SOAP::Data->type(integer => $numDays  )->name('numDays'),
-         => SOAP::Data->type(string  => $format   )->name('format')
-       );
+        SOAP::Data->name($method)
+            => SOAP::Data->type(decimal => $lat      )->name('latitude'),
+            => SOAP::Data->type(decimal => $long     )->name('longitude'),
+            => SOAP::Data->type(date    => $startDate)->name('startDate'),
+            => SOAP::Data->type(integer => $numDays  )->name('numDays'),
+            => SOAP::Data->type(string  => $format   )->name('format')
+    );
     
     if ($response->fault) {
          return 'Something unexpected happened: ' . $response->faultstring;
     } else {
-#        open(OUT, ">forecast_debug");
-#        print OUT $response->result;
+        open(OUT, ">forecast_debug");
+        print OUT $response->result;
         
         my $xml = $response->result;
         
         my $forecast;
-        if (!eval { $forecast = XMLin($xml); }) {
+        if (!eval { $forecast = XMLin($xml, KeyAttr=>['type']); }) {
             return 'The forecast could not be parsed. Blame NOAA.';
         }
         
@@ -824,69 +819,61 @@ sub get_forecast {
         my $info_url = $forecast->{'head'}->{'source'}->{'more-information'};
         
         my ($maxperiodkey, $minperiodkey, $condsperiodkey);
+        my @days;
         
         # arrays of keys for the time-periods in the forecast
-        LAYOUT:
-        for my $i (0 .. $#$layout) {
-          my $period_key = $layout->[$i]->{'start-valid-time'};
-          my $layout_key = $layout->[$i]->{'layout-key'};
-          $layout_key =~ /k-p24h-n\d-1/ ? do {$maxperiodkey=$period_key; next LAYOUT;} :
-          $layout_key =~ /k-p24h-n\d-2/ ? do {$minperiodkey=$period_key; next LAYOUT;} :
-          $layout_key =~ /k-p12h-n\d/ ?    ($condsperiodkey=$period_key) :
-                  die "unknown period key\n";
-        }
-        
-        $numDays = 5;
-        if ($numDays > $#$maxperiodkey + 1) {
-            $numDays = $#$maxperiodkey + 1;
-        }
-        my ($conditions, $temperatures, $hilo, $times, $precip, $icons);
-        
-        # turn the forecast into hashes, keyed by time-period
-        for my $i (0 .. 2*$numDays-1) {
-            $times->[$i] = $condsperiodkey->[$i]->{'period-name'};
-            $conditions->{$times->[$i]} =
-              $params->{'weather'}->{'weather-conditions'}->[$i]->{'weather-summary'};
-            $precip->{$times->[$i]} =
-              $params->{'probability-of-precipitation'}->{'value'}->[$i];
-        # towards the end of a 12-hour period, NOAA doesn't deign to "forecast" the
-        # weather for that period. So we hack around them.
-            $icons->{$times->[$i]} =
-              ($params->{'conditions-icon'}->{'icon-link'}->[$i] =~ /^HASH/ ) ?
-                   '' :
-                   $params->{'conditions-icon'}->{'icon-link'}->[$i];
-        }
-        for my $i (0 .. $numDays-1) {
-            $temperatures->{$maxperiodkey->[$i]->{'period-name'}} =
-              $params->{'temperature'}->{'Daily Maximum Temperature'}->{'value'}->[$i];
-            $temperatures->{$minperiodkey->[$i]->{'period-name'}} =
-              $params->{'temperature'}->{'Daily Minimum Temperature'}->{'value'}->[$i];
-            $hilo->{$maxperiodkey->[$i]->{'period-name'}} = 'High';
-            $hilo->{$minperiodkey->[$i]->{'period-name'}} = 'Low';
-        }
-        
-        # OK, so we have weather. Let's do something with it.
-        my $msg = '';
-        
-        for my $i (@$times) {
-            my $cur_msg = $i . ': ';
-            my $got_something = 0;
-            if($conditions->{$i}) {
-                $cur_msg .= $conditions->{$i} . ', ';
-                $got_something = 1;
+        foreach my $cur_time_layout (@{$forecast->{'data'}->{'time-layout'}}) {
+            if($cur_time_layout->{'layout-key'} =~ m/k-p24h-n\d-1/) {
+                @days = @{$cur_time_layout->{'start-valid-time'}};
+                last;
             }
-            if($temperatures->{$i} && $temperatures->{$i} !~ /^HASH/ ) {
-                $cur_msg .= $temperatures->{$i} . '°F';
-                $got_something = 1;
+        }
+        
+        my (undef, undef, undef, $today_day, $today_mon, $today_year, $toay_wday) = localtime;
+        foreach (@days) {
+            my ($year, $month, $day) = m/^(\d+)-(\d+)-(\d+)/;
+            if($year == $today_year+1900
+                && $month == $today_mon+1
+                && $day == $today_day)
+            {
+                $_ = 'Today';
+            } else {
+                my $wday = (localtime(timelocal(undef, undef, undef, $day, $month-1, $year-1900)))[6];
+                $_ = ('Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat')[$wday];
+            }
+        }
+        
+        my (@temp_highs, @temp_lows, $temp_highs_unit, $temp_lows_unit);
+        
+        @temp_highs = @{$forecast->{'data'}->{'parameters'}->{'temperature'}->{'maximum'}->{'value'}};
+        $temp_highs_unit = $forecast->{'data'}->{'parameters'}->{'temperature'}->{'maximum'}->{'units'};
+        @temp_lows = @{$forecast->{'data'}->{'parameters'}->{'temperature'}->{'minimum'}->{'value'}};
+        $temp_lows_unit = $forecast->{'data'}->{'parameters'}->{'temperature'}->{'minimum'}->{'units'};
+                
+        my @conditions;
+        foreach my $cur_weather_conditions (@{$forecast->{'data'}->{'parameters'}->{'weather'}->{'weather-conditions'}}) {
+            push(@conditions, $cur_weather_conditions->{'weather-summary'});
+        }
+        
+        my $msg;
+        for my $i (0 .. $#days) {
+            my $cur_msg = "%bold%$days[$i]%bold%: ";
+            
+            if($conditions[$i]) { $cur_msg .= $conditions[$i] . ', '; }
+            if($temp_highs[$i] && $temp_lows[$i]
+                && $temp_highs[$i] !~ /^HASH/
+                && $temp_lows[$i] !~ /^HASH/) {
+                $cur_msg .= $temp_highs[$i] . '/' . $temp_lows[$i];
+            } elsif($temp_highs[$i] && $temp_highs[$i] !~ /^HASH/) {
+                $cur_msg .= 'high ' . $temp_highs[$i];
+            } elsif($temp_lows[$i] && $temp_lows[$i] !~ /^HASH/) {
+                $cur_msg .= 'low ' . $temp_lows[$i];
             }
             $cur_msg .= '; ';
-            
-            if($got_something) {
-                $msg .= $cur_msg;
-            }
+            $msg .= $cur_msg;
         }
         $msg =~ s/; $//;
-        return $msg;
+        return &SimBot::parse_style($msg);
     }
 }
 
@@ -937,12 +924,6 @@ sub new_get_wx {
         }
         return;
     }
-#    if(($lat) = $station =~ /(-?[\d\.]+)/) {
-#        my $long = $args[0];
-#        
-#        &get_forecast($nick, $channel, $lat, $long);
-#        return;
-#    }
     
     if($command =~ /^.metar$/)      { $flags |= RAW_METAR; }
     foreach(@args) {
