@@ -803,8 +803,8 @@ sub get_forecast {
     if ($response->fault) {
          return 'Something unexpected happened: ' . $response->faultstring;
     } else {
-        open(OUT, ">forecast_debug");
-        print OUT $response->result;
+#        open(OUT, ">forecast_debug");
+#        print OUT $response->result;
         
         my $xml = $response->result;
         
