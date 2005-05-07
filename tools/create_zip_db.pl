@@ -37,6 +37,7 @@ use strict;
 use CAM::DBF;
 use DBI;
 
+$| = 1;
 
 my %states = qw(
     01 AL   02 AK   04 AZ   05 AR   06 CA   08 CO   09 CT   10 DE   11 DC
