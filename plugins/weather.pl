@@ -265,11 +265,6 @@ sub got_station_list {
     foreach my $cur_station (@{$xml->{'station'}}) {
         no warnings qw( uninitialized );
 
-# NOAA seems to be inconsistant with how they represent
-# latitude and longitude. It appears to be degrees.minutes.seconds
-# but in some cases the number is X.Y . Is that X degrees, Y minutes,
-# and 0 seconds, or X.Y degrees?
-# I'll figure it out later... most stations just report NA anyway.
         my ($lat_deg, $lat_min, $lat_sec, $lat_dir);
         if(($lat_deg, $lat_min, $lat_sec, $lat_dir) = $cur_station->{'latitude'}
             =~ m/(\d+)\.(\d+)(?:\.(\d+))([NS])/)
@@ -289,8 +284,8 @@ sub got_station_list {
             $cur_station->{'station_name'},
             $cur_station->{'state'},
             'United States',
-            $lat_deg, #$latitude,
-            $long_deg, #$longitude,
+            $lat_deg,
+            $long_deg,
             $cur_station->{'xml_url'}
         );
     }
@@ -335,8 +330,8 @@ sub got_station_name {
                 $name,
                 $state,
                 $country,
-                $lat_deg, #FIXME: lat
-                $long_deg, #FIXME: long
+                $lat_deg,
+                $long_deg,
                 undef # URL is undef for metar
             );
         }
