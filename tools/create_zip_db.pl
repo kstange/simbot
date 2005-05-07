@@ -101,9 +101,25 @@ for my $row (0 .. $last_row) {
     $lat =~ s/^\s*//;
     $long =~ s/^\s*//;
     
-    $insert_row_query->execute($cur_row->{'ZIP_CODE'}, $lat,
-        $long, $cur_row->{'ZIP_CLASS'},
-        $cur_row->{'PONAME'}, $state, $geocode);
+    if($lat == 24.859832 && $long == -168.021815) {
+        # Bogus lat/long for many zips in Hawai'i
+        # unless there's a post office on the ocean floor.
+
+        if($cur_row->{'PONAME'} eq 'HONOLULU') {
+            $lat = 21.307039;
+            $long = -157.858343;
+        } else {
+            undef $lat;
+            undef $long;
+        }
+    }
+    
+    {
+        no warnings qw( uninitialized );
+        $insert_row_query->execute($cur_row->{'ZIP_CODE'}, $lat,
+            $long, $cur_row->{'ZIP_CLASS'},
+            $cur_row->{'PONAME'}, $state, $geocode);
+    }
 }
 
 print "Done!\nCreating indices...";
