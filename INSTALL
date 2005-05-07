@@ -20,7 +20,7 @@ features in SimBot:
 		For weather.pl, rss.pl
 
 	LWP: (libwwwperl)
-		For google.pl, currency.pl, tinyurl.pl
+		For google.pl, tinyurl.pl
 
 	HTML::Entities:
 		For google.pl, rss.pl
