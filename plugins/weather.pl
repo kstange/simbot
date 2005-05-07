@@ -148,7 +148,7 @@ EOT
         inline_states => {
             _start          => \&bootstrap,
             do_wx           => \&do_wx,
-            got_wx          => \&got_wx,
+            got_metar       => \&got_metar,
             got_xml         => \&got_xml,
             get_alerts      => \&get_alerts,
             got_alerts      => \&got_alerts,
@@ -231,7 +231,7 @@ sub do_wx {
         'http://weather.noaa.gov/pub/data/observations/metar/stations/'
         . $station . '.TXT';
     my $request = HTTP::Request->new(GET=>$url);
-    $kernel->post('wxua' => 'request', 'got_wx',
+    $kernel->post('wxua' => 'request', 'got_metar',
                             $request, "$nick!$station!$flags");
 }
 
@@ -286,11 +286,11 @@ sub got_station_name {
         'http://weather.noaa.gov/pub/data/observations/metar/stations/'
         . $station . '.TXT';
     my $request = HTTP::Request->new(GET=>$url);
-    $kernel->post('wxua' => 'request', 'got_wx',
+    $kernel->post('wxua' => 'request', 'got_metar',
                   $request, "$nick!$station!$flags");
 }
 
-sub got_wx {
+sub got_metar {
     # This parses METAR reports.
     # This should be replaced with something.
     # Either stop using Geo::METAR, or find some service that gives
@@ -583,7 +583,7 @@ sub got_xml {
 			'http://weather.noaa.gov/pub/data/observations/metar/stations/'
 			. $station . '.TXT';
 		my $request = HTTP::Request->new(GET=>$url);
-		$kernel->post('wxua' => 'request', 'got_wx',
+		$kernel->post('wxua' => 'request', 'got_metar',
 					  $request, "$nick!$station!0");
         return;
 	} elsif ($response->is_error) {
@@ -606,7 +606,7 @@ sub got_xml {
 			'http://weather.noaa.gov/pub/data/observations/metar/stations/'
 			. $station . '.TXT';
 		my $request = HTTP::Request->new(GET=>$url);
-		$kernel->post('wxua' => 'request', 'got_wx',
+		$kernel->post('wxua' => 'request', 'got_metar',
 					  $request, "$nick!$station!0");
 		return;
 	}
@@ -922,7 +922,7 @@ sub handle_user_command {
     foreach(@args) {
         if(m/^metar$/)              { $flags |= FORCE_METAR; }
         if(m/^m(etric)?$/)          { $flags |= UNITS_METRIC; }
-        if(m/^(us|imp(erial)?$/)    { $flags |= UNITS_IMPERIAL; }
+        if(m/^(us|imp(erial)?)$/)   { $flags |= UNITS_IMPERIAL; }
         if(m/^raw$/)                { $flags |= RAW_METAR; }
     }
     $kernel->post($session => 'do_wx', $nick, $station, $flags);
