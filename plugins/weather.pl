@@ -30,7 +30,6 @@
 #   * Known stations searching. (%weather ny should be able to list
 #     stations in NY. %weather massena, ny should get the weather for
 #     KMSS)
-#   * use zip->lat/long to find closest station
 #   * find other postal codes -> lat/long databases so we can find the closest
 #     station outside the US
 #   * KILL Geo::METAR DAMN IT
@@ -77,6 +76,8 @@ use constant FIND_STATION_AT => 'You can look up station IDs at http://www.nws.n
 
 use constant CANNOT_ACCESS => 'Sorry; I could not access NOAA.';
 
+
+use constant PI => 3.1415926;
 
 # Flags
 use constant RAW_METAR          => 128;
@@ -917,6 +918,8 @@ sub new_get_wx {
             &SimBot::send_message($channel, "$nick: For what US Zip code do you want a forecast?");
         }
         return;
+    } elsif($station =~ /^(\d\d\d\d\d)$/) {
+        $station = &find_closest_station($station);
     }
     
     if($command =~ /^.metar$/)      { $flags |= RAW_METAR; }
@@ -944,6 +947,45 @@ sub get_alerts {
     # We're done here - got_alerts will handle requesting the forecast
 }
 
+sub find_closest_station {
+    my ($zipcode) = @_;
+    
+    # OK, we need the lat/long for that zip code.
+    my $query = $zip_dbh->prepare(
+        'SELECT latitude, longitude FROM uszips WHERE zip = ?'
+    );
+    $query->execute($zipcode);
+    my ($zip_lat, $zip_long) = $query->fetchrow_array;
+    
+    $query->finish;
+    
+    # OK, now we need to find potential stations.
+    $query = $dbh->prepare(
+        'SELECT id, latitude, longitude FROM stations'
+        . ' WHERE latitude BETWEEN ? AND ?'
+        . ' AND longitude BETWEEN ? AND ?');
+        
+    $query->execute($zip_lat - 1, $zip_lat + 1,
+                                $zip_long - 1, $zip_long + 1);
+                                
+    my $nearest_station;
+    my $nearest_dist;
+    while(my ($cur_station, $cur_lat, $cur_long) = $query->fetchrow_array) {
+        my $theta = $cur_long - $zip_long;
+        my $dist = rad2deg(acos(
+                        sin(deg2rad($cur_lat)) * sin(deg2rad($zip_lat))
+                        + cos(deg2rad($cur_lat)) * cos(deg2rad($zip_lat)) * cos(deg2rad($theta))
+                        )) * 60 * 1.1515;
+                    
+        if(!defined $nearest_station || $nearest_dist > $dist) {
+            $nearest_station = $cur_station;
+            $nearest_dist = $dist;
+        }
+    }
+
+    return $nearest_station;
+}
+
 sub dms_to_degrees {
     my ($degrees, $minutes, $seconds, $dir) = @_;
     
@@ -953,6 +995,21 @@ sub dms_to_degrees {
     if(defined $dir && $dir =~ m/[SW]/) { $degrees = $degrees * -1; }
     
     return $degrees;
+}
+
+sub acos {
+    my ($rad) = @_;
+    return(atan2(sqrt(1 - $rad**2), $rad));
+}
+
+sub deg2rad {
+        my ($deg) = @_;
+        return ($deg * PI / 180);
+}
+
+sub rad2deg {
+        my ($rad) = @_;
+        return ($rad * 180 / PI);
 }
 
 # Register Plugins
