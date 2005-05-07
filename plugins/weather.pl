@@ -80,14 +80,17 @@ use constant CANNOT_ACCESS => 'Sorry; I could not access NOAA.';
 use constant PI => 3.1415926;
 
 # Flags
-use constant RAW_METAR          => 128;
-use constant FORCE_METAR        => 64;
-use constant UNITS_METRIC       => 32;
-use constant UNITS_IMPERIAL     => 16;
+use constant RAW_METAR          => 256;
+use constant FORCE_METAR        => 128;
+use constant UNITS_METRIC       => 64;
+use constant UNITS_IMPERIAL     => 32;
+use constant UNITS_AUTO         => 16;
 use constant NO_UNITS           => 8;
-#                               => 4;
-#                               => 2;
-#                               => 1;
+use constant DO_FORECAST        => 4;
+use constant DO_CONDITIONS      => 2;
+use constant DO_ALERTS          => 1;
+
+use constant DEFAULT_FLAGS      => DO_CONDITIONS | UNITS_AUTO;
 
 ### cleanup_wx
 # This method is run when SimBot is exiting. We save the station names
@@ -169,70 +172,123 @@ sub bootstrap {
 ### do_wx
 # this is called when POE tells us someone wants weather
 sub do_wx {
-    my  ($kernel, $nick, $station, $flags) =
+    my  ($kernel, $nick, $location, $flags) =
       @_[KERNEL,  ARG0,  ARG1,     ARG2];
 
     &SimBot::debug(3, 'weather: Received request from ' . $nick
-        . " for $station\n");
+        . " for $location\n");
 
-    if(length($station) != 4) {
-        # Whine and bail
+    # So, what are we doing?
+    unless($flags & DO_CONDITIONS
+        || $flags & DO_ALERTS || $flags & DO_FORECAST)
+    {
         &SimBot::send_message(&SimBot::option('network', 'channel'),
-                              "$nick: "
-                              . ($station ? STATION_LOOKS_WRONG
-                                          : STATION_UNSPECIFIED)
-                              . FIND_STATION_AT);
+            "$nick: Sorry, something unexpected happened. This has been logged, please try again later.");
+        &SimBot::debug(1, "weather: in do_wx with nothing to do!\n");
         return;
     }
-
-    $station = uc($station);
     
-    # Try to look up the station in the database.
-    # if it is there, check for a URL
-    # if there is no URL, it's metar, go do that
-    # if there is a URL, it's XML, go do that
-    # if it is not there, it's metar, go do that.
-    my $query = $dbh->prepare(
-        'SELECT name, url FROM stations'
-        . ' WHERE id = ?'
-    );
-    $query->execute($station);
-    my ($station_name, $url);
-    if((($station_name, $url) = $query->fetchrow_array)
-        && !($flags & RAW_METAR)
-        && !($flags & FORCE_METAR)
-        && (defined $url)) {
-        my $request = HTTP::Request->new(GET=>$url);
-        $kernel->post('wxua' => 'request', 'got_xml',
-            $request, "$nick!$station");
+    my($station, $postalcode, $lat, $long, $state, $geocode);
+    
+    if   ($location =~ /^\d{5}$/)       { $postalcode = $location; }
+    elsif($location =~ /^[A-Z0-9]{4}$/i) { $station = $location; }
+    
+    if(defined $station) {
+        # try to get lat/long/state from the station
+        my $query = $dbh->prepare_cached(
+            'SELECT latitude, longitude, state FROM stations'
+            . ' WHERE id = ? LIMIT 1'
+        );
+        $query->execute($station);
+        ($lat, $long, $state) = $query->fetchrow_array;
+        $query->finish;
         
-        return;
+        # FIXME: OK, now try to get the geocode from the lat/long
+        # (find nearest zip, use it's geocode)
     }
-
-    # Damn, guess we need to parse METAR.
+    if(defined $postalcode) {
+        # try to get lat/long/state/geocode from the postalcode db
+        my $query = $zip_dbh->prepare_cached(
+            'SELECT latitude, longitude, state, geocode FROM uszips'
+            . ' WHERE zip = ? LIMIT 1'
+        );
+        $query->execute($postalcode);
+        ($lat, $long, $state, $geocode) = $query->fetchrow_array;
+        $query->finish;
+    }
     
-    # do we have a station name?
-    unless(defined $station_name) {
-        &SimBot::debug(4,
-            "weather: Station name not found, looking it up\n");
-        my $url =
-            'http://weather.noaa.gov/cgi-bin/nsd_lookup.pl?station='
-            . $station;
-        my $request = HTTP::Request->new(GET => $url);
-        $kernel->post('wxua' => 'request', 'got_station_name',
-                      $request, "$nick!$station!$flags");
-        # We're done here - got_station_name will handle requesting
-        # the weather
-        return;
+    if(defined $postalcode && !defined $station) {
+        $station = &find_closest_station($postalcode);
     }
-    # we already have the station name... let's request the weather
-
-    $url =
-        'http://weather.noaa.gov/pub/data/observations/metar/stations/'
-        . $station . '.TXT';
-    my $request = HTTP::Request->new(GET=>$url);
-    $kernel->post('wxua' => 'request', 'got_metar',
-                            $request, "$nick!$station!$flags");
+    
+    if($flags & DO_ALERTS && defined $state && defined $geocode) {
+        $kernel->post($session => 'get_alerts', $nick, $lat, $long, $state, $geocode, $flags);
+    }
+    
+    if($flags & DO_CONDITIONS && defined $station) {
+        if(length($station) != 4) {
+            # Whine and bail
+            &SimBot::send_message(&SimBot::option('network', 'channel'),
+                                  "$nick: "
+                                  . ($station ? STATION_LOOKS_WRONG
+                                              : STATION_UNSPECIFIED)
+                                  . FIND_STATION_AT);
+            return;
+        }
+        
+        $station = uc($station);
+        
+        # Try to look up the station in the database.
+        # if it is there, check for a URL
+        # if there is no URL, it's metar, go do that
+        # if there is a URL, it's XML, go do that
+        # if it is not there, it's metar, go do that.
+        my $query = $dbh->prepare(
+            'SELECT name, url FROM stations'
+            . ' WHERE id = ?'
+        );
+        $query->execute($station);
+        my ($station_name, $url);
+        if((($station_name, $url) = $query->fetchrow_array)
+            && !($flags & RAW_METAR)
+            && !($flags & FORCE_METAR)
+            && (defined $url)) {
+            my $request = HTTP::Request->new(GET=>$url);
+            $kernel->post('wxua' => 'request', 'got_xml',
+                $request, "$nick!$station");
+            
+            return;
+        }
+        
+        # Damn, guess we need to parse METAR.
+        
+        # do we have a station name?
+        unless(defined $station_name) {
+            &SimBot::debug(4,
+                "weather: Station name not found, looking it up\n");
+            my $url =
+                'http://weather.noaa.gov/cgi-bin/nsd_lookup.pl?station='
+                . $station;
+            my $request = HTTP::Request->new(GET => $url);
+            $kernel->post('wxua' => 'request', 'got_station_name',
+                          $request, "$nick!$station!$flags");
+            # We're done here - got_station_name will handle requesting
+            # the weather
+            return;
+        }
+        # we already have the station name... let's request the weather
+        
+        $url =
+            'http://weather.noaa.gov/pub/data/observations/metar/stations/'
+            . $station . '.TXT';
+        my $request = HTTP::Request->new(GET=>$url);
+        $kernel->post('wxua' => 'request', 'got_metar',
+                                $request, "$nick!$station!$flags");
+    }
+    
+    if($flags & DO_FORECAST && defined $lat) {
+        
+    }
 }
 
 sub got_station_name {
@@ -712,15 +768,20 @@ sub got_xml {
 sub got_alerts {
     my ($kernel, $request_packet, $response_packet)
         = @_[KERNEL, ARG0, ARG1];
-    my ($nick, $lat, $long, $geocode)
-        = (split(/!/, $request_packet->[1], 4));
+    my ($nick, $lat, $long, $geocode, $flags)
+        = (split(/!/, $request_packet->[1], 5));
     my $response = $response_packet->[0];
+    
+    if(!defined $flags) {
+        my @caller = caller(1);
+        warn "get_forecast called with no flags from $caller[3] line $caller[2]";
+    }
     
     if ($response->is_error) {
         # The server isn't being nice to us.
         # Let's just move on to getting the forecast
         &SimBot::send_message(&SimBot::option('network', 'channel'),
-            "$nick: " . &get_forecast($nick, $lat, $long));
+            "$nick: " . &get_forecast($nick, $lat, $long, $flags));
         return;
     }
     my $raw_xml = $response->decoded_content;
@@ -733,7 +794,7 @@ sub got_alerts {
 
         # Bad XML! Let's just move on to getting the forecast.
         &SimBot::send_message(&SimBot::option('network', 'channel'),
-            "$nick: " . &get_forecast($nick, $lat, $long));
+            "$nick: " . &get_forecast($nick, $lat, $long, $flags));
 
 		return;
 	}
@@ -763,11 +824,22 @@ sub got_alerts {
     }
     # OK, we're done with the alerts... now do the forecast
     &SimBot::send_message(&SimBot::option('network', 'channel'),
-        "$nick: " . &get_forecast($nick, $lat, $long));
+        "$nick: " . &get_forecast($nick, $lat, $long, $flags));
 }
 
 sub get_forecast {
-    my ($nick, $lat, $long) = @_;
+    my ($nick, $lat, $long, $flags) = @_;
+    
+    if(!defined $flags) {
+        my @caller = caller(1);
+        warn "get_forecast called with no flags from $caller[3] line $caller[2]";
+        $flags = UNITS_IMPERIAL;
+    }
+    
+    if(! ($flags & UNITS_IMPERIAL || $flags & UNITS_METRIC)) {
+        # Trying to provide both units is fugly.
+        $flags |= UNITS_IMPERIAL;
+    }
     
     my $serviceURI = 'http://weather.gov/forecasts/xml';
     my $method = 'NDFDgenByDay';
@@ -855,12 +927,13 @@ sub get_forecast {
             if($conditions[$i]) { $cur_msg .= $conditions[$i] . ', '; }
             if($temp_highs[$i] && $temp_lows[$i]
                 && $temp_highs[$i] !~ /^HASH/
-                && $temp_lows[$i] !~ /^HASH/) {
-                $cur_msg .= $temp_highs[$i] . '/' . $temp_lows[$i];
+                && $temp_lows[$i] !~ /^HASH/)
+            {
+                $cur_msg .= &temp($temp_highs[$i], $temp_highs_unit, $flags | NO_UNITS) . '/' . &temp($temp_lows[$i], $temp_lows_unit, $flags);
             } elsif($temp_highs[$i] && $temp_highs[$i] !~ /^HASH/) {
-                $cur_msg .= 'high ' . $temp_highs[$i];
+                $cur_msg .= 'high ' . &temp($temp_highs[$i], $temp_highs_unit, $flags);
             } elsif($temp_lows[$i] && $temp_lows[$i] !~ /^HASH/) {
-                $cur_msg .= 'low ' . $temp_lows[$i];
+                $cur_msg .= 'low ' . &temp($temp_lows[$i], $temp_lows_unit, $flags);
             }
             $cur_msg .= '; ';
             $msg .= $cur_msg;
@@ -899,38 +972,32 @@ sub handle_user_command {
     
     my ($lat, $long, $state, $geocode);
     if($station =~ /f(ore)?cast/) {
-        if(defined $args[0] && $args[0] =~ /^\d{5}$/) { # zip code
-            my $get_lat_long_query = $zip_dbh->prepare_cached(
-                'SELECT latitude, longitude, state, geocode FROM uszips'
-                . ' WHERE zip = ? LIMIT 1');
-            $get_lat_long_query->execute($args[0]);
-            if(($lat, $long, $state, $geocode) = $get_lat_long_query->fetchrow_array) {
-                $kernel->post($session => 'get_alerts', $nick, $lat, $long, $state, $geocode);
-            } else {
-                &SimBot::send_message($channel, "$nick: I do not know where that zip code is.");
-            }
-            $get_lat_long_query->finish;
+        if(@args) {
+            $station = shift(@args);
+            $flags &= ~DO_CONDITIONS;
+            $flags |= DO_FORECAST | DO_ALERTS;
         } else {
-            &SimBot::send_message($channel, "$nick: For what US Zip code do you want a forecast?");
+            &SimBot::send_message($channel, "$nick: For what US ZIP code do you want a forecast?");
+            return;
         }
-        return;
-    } elsif($station =~ /^(\d\d\d\d\d)$/) {
-        $station = &find_closest_station($station);
     }
     
     if($command =~ /^.metar$/)      { $flags |= RAW_METAR; }
     foreach(@args) {
-        if(m/^metar$/)              { $flags |= FORCE_METAR; }
+        if(m/^metar$/)              { $flags |= FORCE_METAR | DO_CONDITIONS; }
         if(m/^m(etric)?$/)          { $flags |= UNITS_METRIC; }
+        if(m/^f(ore)?cast$/)        { $flags |= DO_FORECAST | DO_ALERTS; }
         if(m/^(us|imp(erial)?)$/)   { $flags |= UNITS_IMPERIAL; }
         if(m/^raw$/)                { $flags |= RAW_METAR; }
+        if(m/^cond(itions)?/)       { $flags |= DO_CONDITIONS; }
     }
+    if($flags == 0) { $flags |= DEFAULT_FLAGS; }
     $kernel->post($session => 'do_wx', $nick, $station, $flags);
 }
 
 sub get_alerts {
-    my  ($kernel, $nick, $lat, $long, $state, $geocode) =
-      @_[KERNEL,  ARG0,  ARG1, ARG2,  ARG3,   ARG4    ];
+    my  ($kernel, $nick, $lat, $long, $state, $geocode, $flags) =
+      @_[KERNEL,  ARG0,  ARG1, ARG2,  ARG3,   ARG4,     ARG5  ];
     
     &SimBot::debug(3, 'weather: Received forecast request from ' . $nick
         . " for $lat $long $geocode, in get_alerts\n");
@@ -939,7 +1006,7 @@ sub get_alerts {
     my $request = HTTP::Request->new(GET => $url);
     $request->header('Accept-Encoding' => 'gzip, deflate');
     $kernel->post('wxua' => 'request', 'got_alerts',
-                    $request, "$nick!$lat!$long!$geocode");
+                    $request, "$nick!$lat!$long!$geocode!$flags");
                     
     # We're done here - got_alerts will handle requesting the forecast
 }
@@ -1019,8 +1086,8 @@ sub temp {
         return $temp;
     }
     
-    if(    ($unit =~ m/C/i && $flags & UNITS_METRIC)
-        || ($unit =~ m/F/i && $flags & UNITS_IMPERIAL))
+    if(    ($unit =~ s/^C.*$/C/i && $flags & UNITS_METRIC)
+        || ($unit =~ s/^F.*$/F/i && $flags & UNITS_IMPERIAL))
     {
         # Temperature is already in the desired units.
         return (int $temp) . ($flags & NO_UNITS ? '' : '°' . $unit);
