@@ -393,6 +393,7 @@ sub latest_headlines {
             # cache is stale or missing
             &SimBot::debug(4, "rss: $feed is old or missing.\n");
             my $request = HTTP::Request->new(GET => $url);
+            $request->header('Accept-Encoding' => 'gzip, deflate');
             $request->if_modified_since($last_update);
             
             $kernel->post('ua' => 'request', 'got_response',
