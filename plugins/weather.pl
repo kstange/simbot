@@ -30,19 +30,15 @@
 #   * Known stations searching. (%weather ny should be able to list
 #     stations in NY. %weather massena, ny should get the weather for
 #     KMSS)
-#   * Find a way to convert zip codes to lat/long, use to find closest
-#     station
+#   * use zip->lat/long to find closest station
+#   * find other postal codes -> lat/long databases so we can find the closest
+#     station outside the US
 #   * KILL Geo::METAR DAMN IT
-#   * Forecasts would be nice. http://www.nws.noaa.gov/forecasts/xml/
-#   * Fix crash if simbot quits before station name cache is updated
-#       (don't try to update DB if it's closed)
 
 package SimBot::plugin::weather;
 
 use strict;
 use warnings;
-
-use Data::Dumper;
 
 # The weather, more or less!
 use Geo::METAR;
@@ -730,7 +726,7 @@ sub got_alerts {
             "$nick: " . &get_forecast($nick, $lat, $long));
         return;
     }
-    my $raw_xml = $response->content;
+    my $raw_xml = $response->decoded_content;
     
     my $cap_alert;
     
@@ -912,8 +908,6 @@ sub new_get_wx {
                 . ' WHERE zip = ? LIMIT 1');
             $get_lat_long_query->execute($args[0]);
             if(($lat, $long, $state, $geocode) = $get_lat_long_query->fetchrow_array) {
-                #&get_forecast($nick, $channel, $lat, $long);
-                #&get_alerts($kernel, $nick, $channel, $lat, $long, $state, $geocode);
                 $kernel->post($session => 'get_alerts', $nick, $lat, $long, $state, $geocode);
             } else {
                 &SimBot::send_message($channel, "$nick: I do not know where that zip code is.");
@@ -943,6 +937,7 @@ sub get_alerts {
     
     my $url = 'http://weather.gov/alerts/' . lc($state) . '.cap';
     my $request = HTTP::Request->new(GET => $url);
+    $request->header('Accept-Encoding' => 'gzip, deflate');
     $kernel->post('wxua' => 'request', 'got_alerts',
                     $request, "$nick!$lat!$long!$geocode");
                     
