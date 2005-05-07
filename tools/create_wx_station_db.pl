@@ -28,6 +28,7 @@ use Compress::Zlib;
 use LWP::UserAgent;
 use DBI;
 use XML::Simple;
+use File::Listing;
 
 use warnings;
 use strict;
@@ -85,7 +86,7 @@ if($response->is_error) {
     while($content) {
         if(++$line_count % 300 == 0) { print '.'; }
         ($cur_line, $content) = split(/\n/, $content, 2);
-        my ($station, undef, undef, $name, $state, $country, undef, $lat_dms, $long_dms) = split(/;/, $cur_line, 10);
+        my ($station, undef, undef, $name, $state, $country, undef, $lat_dms, $long_dms, undef, undef, $rbsn) = split(/;/, $cur_line);
         
         my ($long_deg);
         my ($lat_deg, $minutes, $seconds, $dir) = $lat_dms
@@ -108,7 +109,7 @@ if($response->is_error) {
             );
         }
     }
-    print "\nDone! Read $line_count lines\n"
+    print " Done! Read $line_count lines\n"
 }
 
 # now let's get the XML data file.
@@ -138,8 +139,52 @@ if($response->is_error) {
                 $cur_station->{'station_id'}
             );
         }
-        print "\nDone! Read $line_count lines\n";
+        print " Done! Read $line_count lines\n";
     }
+}
+
+# OK, now we have a great list of station codes. However, not all have
+# METAR reports. Let's find codes to remove...
+
+print "Downloading METAR directory listing (this may take a while)... ";
+$response = $ua->get('ftp://weather.noaa.gov/data/observations/metar/stations/');
+
+if($response->is_error) {
+    print STDERR "Failed! " . $response->code . ' ' . $response->message . "\n";
+} else {
+    my $line_count = 0;
+    print "Done!\nReading it in";
+    
+    # Stations with URLs are XML stations, we don't care if METAR is unavailable
+    # Create a temprary table as a list of candidates for deletion
+    $dbh->do(<<EOT);
+CREATE TEMPORARY TABLE delrows AS SELECT id FROM stations WHERE url IS NULL;
+CREATE UNIQUE INDEX delstationid ON delrows (id);
+EOT
+
+    my $remove_from_deletion_list_query = $dbh->prepare(
+        'DELETE FROM delrows WHERE id = ?');
+        
+    my @listing = parse_dir($response->content);
+    
+    foreach my $cur_file (@listing) {
+        if(++$line_count % 300 == 0) { print '.'; }
+        my ($name) = @$cur_file;
+        
+        if($name =~ /^([A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9])/) {
+            $remove_from_deletion_list_query->execute($1);
+        }
+    }
+    print " Done! Read $line_count lines.\n";
+    
+    my $useless_fact_query = $dbh->prepare('SELECT count() FROM delrows');
+    $useless_fact_query->execute;
+    my ($deletion_count) = $useless_fact_query->fetchrow_array;
+    print "Removing $deletion_count stations without reports... ";
+    
+    $dbh->do(
+        'DELETE FROM stations WHERE id IN (SELECT id FROM delrows)');
+    print "Done!\n";
 }
 
 {
