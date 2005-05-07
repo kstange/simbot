@@ -274,22 +274,14 @@ sub got_station_list {
         if(($lat_deg, $lat_min, $lat_sec, $lat_dir) = $cur_station->{'latitude'}
             =~ m/(\d+)\.(\d+)(?:\.(\d+))([NS])/)
         {
-            $lat_deg += $lat_min * 0.0166666667;
-            $lat_deg += $lat_sec * 0.000277777778;
-            if($lat_dir eq 'S') {
-                $lat_deg = $lat_deg * -1;
-            }
+            $lat_deg = &dms_to_degrees($lat_deg, $lat_min, $lat_sec, $lat_dir);
         }
         
         my ($long_deg, $long_min, $long_sec, $long_dir);
         if(($long_deg, $long_min, $long_sec, $long_dir) = $cur_station->{'longitude'}
             =~ m/(\d+)\.(\d+)(?:\.(\d+))?([EW])/)
         {
-            $long_deg += $long_min * 0.0166666667;
-            $long_deg += $long_sec * 0.000277777778;
-            if($long_dir eq 'W') {
-                $long_deg = $long_deg * -1;
-            }
+            $long_deg = &dms_to_degrees($long_deg, $long_min, $long_sec, $long_dir);
         }
             
         $update_station_query->execute(
@@ -317,25 +309,37 @@ sub got_station_name {
         && $response->content !~ /No station matched the supplied identifier/)
     {
         
-        $response->content =~ m|Station Name:.*?<B>(.*?)\s*</B>|s;
-        my $name = $1;
+        my ($name) = $response->content =~ m|Station Name:.*?<B>(.*?)\s*</B>|s;
         $response->content =~ m|State:.*?<B>(.*?)\s*</B>|s;
         my $state = ($1 eq $name ? undef : $1);
-        $response->content =~ m|Country:.*?<B>(.*?)\s*</B>|s;
-        my $country = $1;
+        my ($country) = $response->content =~ m|Country:.*?<B>(.*?)\s*</B>|s;
+        
+        my ($lat_deg,  $lat_min,  $lat_sec,  $lat_dir,
+            $long_deg, $long_min, $long_sec, $long_dir);
+        if(($lat_deg,  $lat_min,  $lat_sec,  $lat_dir,
+            $long_deg, $long_min, $long_sec, $long_dir) =
+            $response->content =~ m|Station Position:.*?<B>(\d+)-(\d+)(?:-(\d+))?([NS]).*?(\d+)-(\d+)(?:-(\d+))?([EW])|s)
+        {
+            $lat_deg = &dms_to_degrees($lat_deg, $lat_min, $lat_sec, $lat_dir);
+            $long_deg = &dms_to_degrees($long_deg, $long_min, $long_sec, $long_dir);
+        }
         
         my $update_station_query = $dbh->prepare(
             'INSERT OR REPLACE INTO stations (id, name, state, country, latitude, longitude, url)'
             . ' VALUES (?,?,?,?,?,?,?)');
-        $update_station_query->execute(
-            $station,
-            $name,
-            $state,
-            $country,
-            undef, #FIXME: lat
-            undef, #FIXME: long
-            undef # URL is undef for metar
-        );
+        
+        {
+            no warnings qw( uninitialized );
+            $update_station_query->execute(
+                $station,
+                $name,
+                $state,
+                $country,
+                $lat_deg, #FIXME: lat
+                $long_deg, #FIXME: long
+                undef # URL is undef for metar
+            );
+        }
         $dbh->commit;
     }
     &SimBot::debug(4, "weather: Got station name for $station\n");
@@ -1022,6 +1026,17 @@ sub get_alerts {
                     $request, "$nick!$lat!$long!$geocode");
                     
     # We're done here - got_alerts will handle requesting the forecast
+}
+
+sub dms_to_degrees {
+    my ($degrees, $minutes, $seconds, $dir) = @_;
+    
+    if(defined $minutes)    { $degrees += $minutes * 0.0166666667; }
+    if(defined $seconds)    { $degrees += $seconds * 0.000277777778; }
+    
+    if(defined $dir && $dir =~ m/[SW]/) { $degrees = $degrees * -1; }
+    
+    return $degrees;
 }
 
 # Register Plugins
