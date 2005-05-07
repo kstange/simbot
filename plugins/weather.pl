@@ -67,7 +67,7 @@ use vars qw( $session $dbh $zip_dbh );
 # These constants define the phrases simbot will use when responding
 # to weather requests.
 use constant STATION_LOOKS_WRONG =>
-    'That doesn\'t look like a METAR station. ';
+    q(That doesn't look like a METAR station. ); #'
 
 use constant STATION_UNSPECIFIED =>
     'Please provide a METAR station ID. ';
@@ -82,9 +82,9 @@ use constant PI => 3.1415926;
 # Flags
 use constant RAW_METAR          => 128;
 use constant FORCE_METAR        => 64;
-#use constant USE_METRIC         => 32;  # future use
-#use constant USE_IMPERIAL       => 16;  # future use
-#                               => 8;
+use constant UNITS_METRIC       => 32;
+use constant UNITS_IMPERIAL     => 16;
+use constant NO_UNITS           => 8;
 #                               => 4;
 #                               => 2;
 #                               => 1;
@@ -391,8 +391,7 @@ sub got_wx {
             my $temp_f = (defined $m->TEMP_F ? $m->TEMP_F
                           : (9/5)*$temp_c+32);
 
-            my $temp = $temp_f . '°F (' . int($temp_c) . '°C)';
-            push(@reply_with, $temp);
+            push(@reply_with, &temp($temp_c, 'C', $flags));
 
             # this nonsense checks for the odd wind declaration NZSP
             # gives. I dunno what to make of the first part, I
@@ -409,10 +408,9 @@ sub got_wx {
                 my $windchill = 35.74 + (0.6215 * $temp_f)
                                 - 35.75 * ($wind_mph ** 0.16)
                                 + 0.4275 * $temp_f * ($wind_mph ** 0.16);
-                my $windchill_c = ($windchill - 32) * (5/9);
-                push(@reply_with,
-                    sprintf('a wind chill of %.1f°F (%.1f°C)',
-                    $windchill, $windchill_c));
+
+                push(@reply_with, 'a wind chill of '
+                    . &temp($windchill, 'F', $flags));
             }
 
             # Humidity, only if we have a dewpoint!
@@ -435,10 +433,8 @@ sub got_wx {
                                     - 0.00000199 * $temp_f ** 2
                                                  * $humidity ** 2;
 
-                    my $heatindex_c = ($heatindex - 32) * (5/9);
-                    push(@reply_with,
-                        sprintf('a heat index of %.1f°F (%.1f°C)',
-                                $heatindex, $heatindex_c));
+                    push(@reply_with, 'a heat index of '
+                        . &temp($heatindex, 'F', $flags));
                 }
             }
         } else {
@@ -447,7 +443,7 @@ sub got_wx {
         }
 
         if($wind_mph) {
-            my $tmp = int($wind_mph) . ' mph';
+            my $tmp = &speed($wind_mph, 'MPH', $flags);
             if ($m->WIND_DIR_ENG) {
                 $tmp .= ' winds from the ' . $m->WIND_DIR_ENG;
             } else {
@@ -890,14 +886,14 @@ sub nlp_match {
 	}
 
 	if (defined $station) {
-		&new_get_wx($kernel, $nick, $channel, " weather", $station);
+		&handle_user_command($kernel, $nick, $channel, " weather", $station);
 		return 1;
 	} else {
 		return 0;
 	}
 }
 
-sub new_get_wx {
+sub handle_user_command {
     my ($kernel, $nick, $channel, $command, $station, @args) = @_;
     my $flags = 0;
     
@@ -925,7 +921,8 @@ sub new_get_wx {
     if($command =~ /^.metar$/)      { $flags |= RAW_METAR; }
     foreach(@args) {
         if(m/^metar$/)              { $flags |= FORCE_METAR; }
-#        if(m/^metric$/)             { $flags |= USE_METRIC; }
+        if(m/^m(etric)?$/)          { $flags |= UNITS_METRIC; }
+        if(m/^(us|imp(erial)?$/)    { $flags |= UNITS_IMPERIAL; }
         if(m/^raw$/)                { $flags |= RAW_METAR; }
     }
     $kernel->post($session => 'do_wx', $nick, $station, $flags);
@@ -1003,23 +1000,104 @@ sub acos {
 }
 
 sub deg2rad {
-        my ($deg) = @_;
-        return ($deg * PI / 180);
+    my ($deg) = @_;
+    return ($deg * PI / 180);
 }
 
 sub rad2deg {
-        my ($rad) = @_;
-        return ($rad * 180 / PI);
+    my ($rad) = @_;
+    return ($rad * 180 / PI);
+}
+
+sub temp {
+    my ($temp, $unit, $flags) = @_;
+    if(!defined $unit
+        || $unit !~ m/C|F/i)
+    {
+        my @caller = caller(1);
+        warn "unit missing or invalid in temp, called from $caller[3] line $caller[2]";
+        return $temp;
+    }
+    
+    if(    ($unit =~ m/C/i && $flags & UNITS_METRIC)
+        || ($unit =~ m/F/i && $flags & UNITS_IMPERIAL))
+    {
+        # Temperature is already in the desired units.
+        return (int $temp) . ($flags & NO_UNITS ? '' : '°' . $unit);
+    }
+    
+    my ($temp_c, $temp_f);
+    if($unit =~ /C/i) {
+        $temp_c = $temp;
+        $temp_f = $temp * 1.8 + 32;
+    } elsif($unit =~ /F/i) {
+        $temp_f = $temp;
+        $temp_c = ($temp - 32) * (5/9);
+    }
+        
+    if($flags & UNITS_METRIC) {
+        return (int $temp_c)
+            . ($flags & NO_UNITS ? '' : '°C');
+    }
+    
+    if($flags & UNITS_IMPERIAL) {
+        return (int $temp_f)
+            . ($flags & NO_UNITS ? '' : '°F');
+    }
+    
+    return (int $temp_f) . ($flags & NO_UNITS ? '' : '°F')
+    . ' (' . (int $temp_c) . ($flags & NO_UNITS ? '' : '°C') . ')';
+}
+
+sub speed {
+    my ($speed, $unit, $flags) = @_;
+    
+    if(!defined $unit
+        || $unit !~ m(kt|km/h|mph)i)
+    {
+        my @caller = caller(1);
+        warn "unit missing or invalid in speed, called from $caller[3] line $caller[2]";
+        return $speed;
+    }
+    
+    if($unit =~ m(mph)) { $unit = 'MPH'; }
+    
+    if(    ($unit =~ m(km/h)i && $flags & UNITS_METRIC)
+        || ($unit =~ m(MPH)i  && $flags & UNITS_IMPERIAL))
+    {
+        return (int $speed) . ($flags & NO_UNITS ? '' : ' ' . $unit);
+    }
+    
+    my ($speed_kmh, $speed_mph);
+    if($unit =~ /kt/i) {
+        $speed_kmh = 1.85325 * $speed;
+        $speed_mph = 1.15155 * $speed;
+    } elsif($unit =~ /MPH/i) {
+        $speed_kmh = 1.609344 * $speed;
+        $speed_mph = $speed;
+    } elsif($unit =~ m(km/h)i) {
+        $speed_kmh = $speed;
+        $speed_mph = 0.621371;
+    }
+    
+    if($flags & UNITS_METRIC) {
+        return (int $speed_kmh) . ($flags & NO_UNITS ? '' : ' km/h');
+    }
+    
+    if($flags & UNITS_IMPERIAL) {
+        return (int $speed_mph) . ($flags & NO_UNITS ? '' : ' MPH');
+    }
+    return (int $speed_mph) . ($flags & NO_UNITS ? '' : ' MPH'). ' (' . (int $speed_kmh) . ($flags & NO_UNITS ? '' : ' km/h') . ')';
 }
 
 # Register Plugins
 &SimBot::plugin_register(
 						 plugin_id   => "weather",
-				         plugin_params => "(<station ID|zip> [metar|raw] | forecast <zip>)",
+				         plugin_params => "(<station ID|zip> [metar|raw] [metric|us] | forecast <zip>)",
 						 plugin_help =>
 "Gets a weather report for the given station or zip.\nSpecifying %bold%metar%bold% will force the parsing the metar report instead of using the NOAA XML data.\nSpecifying %bold%raw%bold% will show the METAR report in its original form.\nforecast <zip> will get the forecast for that US zip code.",
 
-						 event_plugin_call    => \&new_get_wx,
+						 event_plugin_call    => \&handle_user_command,
 						 event_plugin_load    => \&messup_wx,
 						 event_plugin_unload  => \&cleanup_wx,
 
@@ -1040,6 +1118,7 @@ sub rad2deg {
 						 plugin_params => "<station ID>",
 						 plugin_help => "Gives a raw METAR report for the given station.",
 
-						 event_plugin_call   => \&new_get_wx,
+						 event_plugin_call   => \&handle_user_command,
 
 						 );
+
