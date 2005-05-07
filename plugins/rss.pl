@@ -230,6 +230,8 @@ sub do_rss {
         if(!$announce) { next; } 
 
         $request = HTTP::Request->new(GET => $url);
+        $request->header('Accept-Encoding' => 'gzip, deflate');
+        
         if(defined $last_update) {
             $request->if_modified_since($last_update);
         }
@@ -295,7 +297,7 @@ sub got_response {
         $last_update = time;
     } elsif($response->is_success) {
         $last_update = time;
-        if (!eval { $rss->parse($response->content); }) {
+        if (!eval { $rss->parse($response->decoded_content); }) {
 			&SimBot::debug(1, "rss:  Parse error in $key: $@");
 			return;
         }
