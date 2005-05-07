@@ -62,8 +62,11 @@ EOT
 
 # Set up our user agent
 my $ua = LWP::UserAgent->new;
-$ua->default_header('Accept-Encoding' => 'gzip, deflate');
-
+if (defined &HTTP::Response::decoded_content) {
+	$ua->default_header('Accept-Encoding' => 'gzip, deflate');
+} else {
+	print "Warning: Your HTTP::Response does not support gzip\n";
+}
 
 # Now with the boring stuff down, get the rather large METAR list
 print "Downloading METAR station list... ";
@@ -74,7 +77,12 @@ if($response->is_error) {
     . $response->message . "\n";
 } else {
     print "Done!\nReading it in";
-    my $content = $response->decoded_content;
+	my $content;
+	if (defined &HTTP::Response::decoded_content) {
+		$content = $response->decoded_content;
+	} else {
+		$content = $response->content;
+	}
     my $cur_line;
     my $line_count = 0;
     
@@ -87,15 +95,17 @@ if($response->is_error) {
         ($cur_line, $content) = split(/\n/, $content, 2);
         my ($station, undef, undef, $name, $state, $country, undef, $lat_dms, $long_dms) = split(/;/, $cur_line, 10);
         
-        my ($long_deg);
-        my ($lat_deg, $minutes, $seconds, $dir) = $lat_dms
-            =~ m/(\d+)-(\d+)(?:-(\d+))?([NS])/;
-        $lat_deg = &dms_to_degrees($lat_deg, $minutes, $seconds, $dir);
-        
-        ($long_deg, $minutes, $seconds, $dir) = $long_dms
-            =~ m/(\d+)-(\d+)(?:-(\d+))?([EW])/;
-        $long_deg = &dms_to_degrees($long_deg, $minutes, $seconds, $dir);
-        
+		my ($lat_deg, $long_deg, $minutes, $seconds, $dir);
+		if (defined $lat_dms) {
+			($lat_deg, $minutes, $seconds, $dir) = $lat_dms
+				=~ m/(\d+)-(\d+)(?:-(\d+))?([NS])/;
+			$lat_deg = &dms_to_degrees($lat_deg, $minutes, $seconds, $dir);
+        }
+		if (defined $long_dms) {
+			($long_deg, $minutes, $seconds, $dir) = $long_dms
+				=~ m/(\d+)-(\d+)(?:-(\d+))?([EW])/;
+			$long_deg = &dms_to_degrees($long_deg, $minutes, $seconds, $dir);
+        }
         {
             no warnings qw( uninitialized );
             $update_station_query->execute(
@@ -123,7 +133,13 @@ if($response->is_error) {
 } else {
     print "Done!\nReading it in";
     my $xml;
-    if (!eval { $xml = XMLin($response->decoded_content, SuppressEmpty => 1); }) {
+	my $content;
+ 	if (defined &HTTP::Response::decoded_content) {
+		$content = $response->decoded_content;
+	} else {
+		$content = $response->content;
+	}
+   if (!eval { $xml = XMLin($content, SuppressEmpty => 1); }) {
 		print STDERR " Failed!\n$@\n";
     } else {
         my $update_station_query = $dbh->prepare(
