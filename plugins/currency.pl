@@ -49,12 +49,18 @@ sub messup_currency {
 sub get_currency {
     my ($kernel, $nick, $channel, $self, $orig_amount, $from_currency, $to_currency) = @_;
     
+	if (!defined $to_currency) {
+		&SimBot::send_message($channel, "$nick: Sorry, you need to specify an amount, followed by the names of countries to covert from and to.");
+		return;
+	}
+
     # first, let's get the exchange rate
     my $rate;
-    if($rate = $SOAP->getRate($from_currency, $to_currency)) {
+    if(eval { $rate = $SOAP->getRate($from_currency, $to_currency) } && defined $rate) {
         &SimBot::send_message($channel, "$nick: $orig_amount $from_currency is "
             . $orig_amount * $rate . " $to_currency");
     } else {
+		&SimBot::debug(2, "currency: $@") if defined $@;
         &SimBot::send_message($channel, "$nick: Sorry, something went wrong. Try using a country name instead of a currency name.");
     }
 }
@@ -66,5 +72,4 @@ sub get_currency {
 %bold%<from country>%bold% and %bold%<to country>%bold% are the %uline%countries%uline% to exchange currency between',
                          event_plugin_call  => \&get_currency,
                          event_plugin_load  => \&messup_currency,
-                         
                          );
