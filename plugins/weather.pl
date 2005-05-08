@@ -62,7 +62,7 @@ use DBI;    # for sqlite database
 use Time::Local;
 
 # declare globals
-use vars qw( $session $dbh $zip_dbh );
+use vars qw( $session $dbh $postalcodes_dbh );
 
 # These constants define the phrases simbot will use when responding
 # to weather requests.
@@ -102,8 +102,8 @@ sub cleanup_wx {
     $dbh->disconnect;
     
     # We shouldn't have done anything to the zip codes DB, but just in case
-    $zip_dbh->rollback;
-    $zip_dbh->disconnect;
+    $postalcodes_dbh->rollback;
+    $postalcodes_dbh->disconnect;
 }
 
 ### messup_wx
@@ -115,7 +115,7 @@ sub messup_wx {
     $dbh = DBI->connect('dbi:SQLite:dbname=data/weather','','',
         { RaiseError => 1, AutoCommit => 0 }) or die;
     
-    $zip_dbh = DBI->connect('dbi:SQLite:dbname=data/USzip','','',
+    $postalcodes_dbh = DBI->connect('dbi:SQLite:dbname=data/postalcodes','','',
         { RaiseError => 1, AutoCommit => 0 }) or die;
         
     # let's create the table. If this fails, we don't care, as it
@@ -193,7 +193,9 @@ sub do_wx {
     
     my($station, $postalcode, $lat, $long, $state, $geocode);
     
-    if   ($location =~ /^\d{5}$/)       { $postalcode = $location; }
+    if   ($location =~ /^\d{5}$/)       { $postalcode = $location; } # US
+    elsif($location =~ /^([A-Z]{1,2}[0-9]{1,2}[A-Z]?)(?: [0-9][A-Z]{2})?$/)
+                                        { $postalcode = $1; } # UK
     elsif($location =~ /^[A-Z0-9]{4}$/i) { $station = $location; }
     
     if(defined $station) {
@@ -211,9 +213,9 @@ sub do_wx {
     }
     if(defined $postalcode) {
         # try to get lat/long/state/geocode from the postalcode db
-        my $query = $zip_dbh->prepare_cached(
-            'SELECT latitude, longitude, state, geocode FROM uszips'
-            . ' WHERE zip = ? LIMIT 1'
+        my $query = $postalcodes_dbh->prepare_cached(
+            'SELECT latitude, longitude, state, geocode FROM postalcodes'
+            . ' WHERE code = ? LIMIT 1'
         );
         $query->execute($postalcode);
         ($lat, $long, $state, $geocode) = $query->fetchrow_array;
@@ -1028,8 +1030,8 @@ sub find_closest_station {
     my ($zipcode) = @_;
     
     # OK, we need the lat/long for that zip code.
-    my $query = $zip_dbh->prepare(
-        'SELECT latitude, longitude FROM uszips WHERE zip = ?'
+    my $query = $postalcodes_dbh->prepare(
+        'SELECT latitude, longitude FROM postalcodes WHERE code = ?'
     );
     $query->execute($zipcode);
     my ($zip_lat, $zip_long) = $query->fetchrow_array;
