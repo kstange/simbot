@@ -1,3 +1,17 @@
+Version 1.0 alpha: (07 May 2005)
+	* plugins/weather.pl:
+	  - Some unit conversion support. Add 'm' or 'metric' to show metric units,
+	    'us' or 'imp' or 'imperial' for imperial units.
+	  - Support for UK post codes
+	* tools/create_postalcode_db.pl:
+	  - Replaces tools/create_zip_db.pl
+	  - Includes UK post codes
+
+Version 1.0 alpha: (06 May 2005)
+	* plugins/weather.pl:
+	  - Support for %weather <zip> to look up the closest station for
+	    current observations.
+
 Version 1.0 alpha: (05 May 2005)
 	* tools/create_zip_db.pl:
 	  - Creates the USzip file, a SQLite DB of US zip codes circa 1999 from
