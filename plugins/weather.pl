@@ -80,6 +80,7 @@ use constant CANNOT_ACCESS => 'Sorry; I could not access NOAA.';
 use constant PI => 3.1415926;
 
 # Flags
+use constant USING_DEFAULTS     => 512;
 use constant RAW_METAR          => 256;
 use constant FORCE_METAR        => 128;
 use constant UNITS_METRIC       => 64;
@@ -90,7 +91,9 @@ use constant DO_FORECAST        => 4;
 use constant DO_CONDITIONS      => 2;
 use constant DO_ALERTS          => 1;
 
-use constant DEFAULT_FLAGS      => DO_CONDITIONS | UNITS_AUTO;
+# USING_DEFAULTS *MUST* be in DEFAULT_FLAGS, otherwise you'll get annoying
+# error messages when things fail.
+use constant DEFAULT_FLAGS      => USING_DEFAULTS | DO_CONDITIONS | UNITS_AUTO;
 
 ### cleanup_wx
 # This method is run when SimBot is exiting. We save the station names
@@ -221,8 +224,13 @@ sub do_wx {
         $station = &find_closest_station($postalcode);
     }
     
-    if($flags & DO_ALERTS && defined $state && defined $geocode) {
-        $kernel->post($session => 'get_alerts', $nick, $lat, $long, $state, $geocode, $flags);
+    if($flags & DO_ALERTS) {
+        if(defined $state && defined $geocode) {
+            $kernel->post($session => 'get_alerts', $nick, $lat, $long, $state, $geocode, $flags);
+        } elsif(!($flags & USING_DEFAULTS)) {
+            &SimBot::send_message(&SimBot::option('network', 'channel'),
+                "$nick: Sorry, but I have no forecast for that location.");
+        }
     }
     
     if($flags & DO_CONDITIONS && defined $station) {
@@ -982,16 +990,21 @@ sub handle_user_command {
         }
     }
     
-    if($command =~ /^.metar$/)      { $flags |= RAW_METAR; }
+    if($command =~ /^.metar$/)      { $flags |= RAW_METAR | DO_CONDITIONS; }
     foreach(@args) {
         if(m/^metar$/)              { $flags |= FORCE_METAR | DO_CONDITIONS; }
         if(m/^m(etric)?$/)          { $flags |= UNITS_METRIC; }
         if(m/^f(ore)?cast$/)        { $flags |= DO_FORECAST | DO_ALERTS; }
         if(m/^(us|imp(erial)?)$/)   { $flags |= UNITS_IMPERIAL; }
-        if(m/^raw$/)                { $flags |= RAW_METAR; }
+        if(m/^raw$/)                { $flags |= RAW_METAR | DO_CONDITIONS; }
         if(m/^cond(itions)?/)       { $flags |= DO_CONDITIONS; }
     }
-    if($flags == 0) { $flags |= DEFAULT_FLAGS; }
+    if($flags == 0
+        || $flags == UNITS_METRIC
+        || $flags == UNITS_IMPERIAL)
+    {
+        $flags |= DEFAULT_FLAGS;
+    }
     $kernel->post($session => 'do_wx', $nick, $station, $flags);
 }
 
