@@ -210,6 +210,7 @@ sub do_wx {
         
         # FIXME: OK, now try to get the geocode from the lat/long
         # (find nearest zip, use it's geocode)
+        # this would allow %weather kbdl forecast to work
     }
     if(defined $postalcode) {
         # try to get lat/long/state/geocode from the postalcode db
@@ -265,7 +266,7 @@ sub do_wx {
             && (defined $url)) {
             my $request = HTTP::Request->new(GET=>$url);
             $kernel->post('wxua' => 'request', 'got_xml',
-                $request, "$nick!$station");
+                $request, "$nick!$station!$flags");
             
             return;
         }
@@ -630,8 +631,8 @@ sub got_metar {
 sub got_xml {
     my ($kernel, $request_packet, $response_packet)
         = @_[KERNEL, ARG0, ARG1];
-    my ($nick, $station)
-        = (split(/!/, $request_packet->[1], 2));
+    my ($nick, $station, $flags)
+        = (split(/!/, $request_packet->[1], 3));
     my $response = $response_packet->[0];
 
 	# NOAA tries to be very helpful by offering a "did you mean?" list
@@ -650,7 +651,7 @@ sub got_xml {
 			. $station . '.TXT';
 		my $request = HTTP::Request->new(GET=>$url);
 		$kernel->post('wxua' => 'request', 'got_metar',
-					  $request, "$nick!$station!0");
+					  $request, "$nick!$station!$flags");
         return;
 	} elsif ($response->is_error) {
 		&SimBot::debug(3, "weather: Couldn't get XML weather for $station: " . $response->code . " " . $response->message . "\n");
@@ -673,20 +674,20 @@ sub got_xml {
 			. $station . '.TXT';
 		my $request = HTTP::Request->new(GET=>$url);
 		$kernel->post('wxua' => 'request', 'got_metar',
-					  $request, "$nick!$station!0");
+					  $request, "$nick!$station!$flags");
 		return;
 	}
 
 	my $u_time     = $cur_obs->{'observation_time'};
 	my $location   = $cur_obs->{'location'};
 	my $weather    = $cur_obs->{'weather'};
-	my $temp       = $cur_obs->{'temperature_string'};
+	my $temp       = $cur_obs->{'temp_c'};
 	my $rhumid     = $cur_obs->{'relative_humidity'};
 	my $wdir       = $cur_obs->{'wind_dir'};
 	my $wmph       = $cur_obs->{'wind_mph'};
 	my $wgust      = $cur_obs->{'wind_gust_mph'};
-	my $hidx       = $cur_obs->{'heat_index_string'};
-	my $wchill     = $cur_obs->{'windchill_string'};
+	my $hidx       = $cur_obs->{'heat_index_c'};
+	my $wchill     = $cur_obs->{'windchill_c'};
 	my $visibility = $cur_obs->{'visibility'};
 
 	my $msg = 'As reported ';
@@ -724,16 +725,16 @@ sub got_xml {
         $msg .= ' it is ';
     }
     
-    if(defined $temp)       { $msg .= $temp; }
+    if(defined $temp)       { $msg .= &temp($temp, 'C', $flags); }
 
     $msg .= ', with';
 
     if(defined $hidx && $hidx !~ m/(Not Applicable|null)/i) {
-        push(@reply_with, "a heat index of $hidx");
+        push(@reply_with, 'a heat index of ' . &temp($hidx, 'C', $flags));
     }
 
     if(defined $wchill && $wchill !~ m/(Not Applicable|null)/i) {
-        push(@reply_with, "a wind chill of $wchill");
+        push(@reply_with, 'a wind chill of ' . &temp($wchill, 'C', $flags));
     }
 
     if(defined $rhumid && $rhumid != 0) {
@@ -745,15 +746,16 @@ sub got_xml {
         if($wmph <= 0) {
             $mmsg = 'calm winds';
             if(defined $wgust && $wgust > 0)
-                { $mmsg .= " gusting to $wgust MPH from the $wdir"; }
+                { $mmsg .= ' gusting to ' . &speed($wgust, 'MPH', $flags)
+                    . " from the $wdir"; }
         } else {
             if($wdir =~ m/Variable/i)
                 { $mmsg = 'variable ' };
-            $mmsg .= "$wmph MPH winds";
+            $mmsg .= &speed($wmph, 'MPH', $flags) . ' winds';
             if($wdir !~ m/Variable/i)
                 { $mmsg .= " from the $wdir"; }
             if(defined $wgust && $wgust > 0)
-                { $mmsg .= " gusting to $wgust MPH"; }
+                { $mmsg .= ' gusting to ' . &speed($wgust, 'MPH', $flags); }
         }
         push(@reply_with, $mmsg);
     }
@@ -888,15 +890,13 @@ sub get_forecast {
             return 'The forecast could not be parsed. Blame NOAA.';
         }
         
-        my $params = $forecast->{'data'}->{'parameters'};
-        my $layout = $forecast->{'data'}->{'time-layout'};
-        my $title = $forecast->{'head'}->{'product'}->{'title'};
-        my $info_url = $forecast->{'head'}->{'source'}->{'more-information'};
-        
         my ($maxperiodkey, $minperiodkey, $condsperiodkey);
         my @days;
         
-        # arrays of keys for the time-periods in the forecast
+        # Find the time layout we care about. This is certainly not the
+        # Right Way, and if forecast ever breaks, suspect this.
+        # (We really should be reading in all the time layouts, and reference
+        # them against the data we care about to find the right one)
         foreach my $cur_time_layout (@{$forecast->{'data'}->{'time-layout'}}) {
             if($cur_time_layout->{'layout-key'} =~ m/k-p24h-n\d-1/) {
                 @days = @{$cur_time_layout->{'start-valid-time'}};
