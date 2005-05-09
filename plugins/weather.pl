@@ -752,7 +752,6 @@ sub got_alerts {
     
     
     foreach my $cur_cap_info (@{$cap_alert->{'cap:info'}}) {
-        warn $cur_cap_info->{'cap:area'}->{'cap:geocode'} . " $geocode";
         if(defined $cur_cap_info->{'cap:area'}->{'cap:geocode'}
             && $cur_cap_info->{'cap:area'}->{'cap:geocode'} == $geocode)
         {
