@@ -735,7 +735,7 @@ sub got_alerts {
     
     my $cap_alert;
     
-    if (!eval { $cap_alert = XMLin($raw_xml, NormaliseSpace => 2, ForceArray => ('cap:info')); }) {
+    if (!eval { $cap_alert = XMLin($raw_xml, NormaliseSpace => 2, ForceArray => ['cap:info']); }) {
 		&SimBot::debug(3, "weather: XML parse error for alerts\n");
 		&SimBot::debug(4, "weather: XML parser failure: $@");
 
@@ -749,9 +749,11 @@ sub got_alerts {
     my @alerts;
     my @alerts_link;
     
+    
     foreach my $cur_cap_info (@{$cap_alert->{'cap:info'}}) {
-        if(defined $cur_cap_info->{'geocode'}
-            && $cur_cap_info->{'geocode'} == $geocode)
+        warn $cur_cap_info->{'cap:area'}->{'cap:geocode'} . " $geocode";
+        if(defined $cur_cap_info->{'cap:area'}->{'cap:geocode'}
+            && $cur_cap_info->{'cap:area'}->{'cap:geocode'} == $geocode)
         {
             # We have a warning!
             push(@alerts,      $cur_cap_info->{'cap:event'});
