@@ -45,6 +45,9 @@ features in SimBot:
 		
 	SOAP::Lite:
 		For currency.pl
+		
+	DateTime:
+		For time.pl
 
 This all, of course, requires that you have Perl installed.
 
