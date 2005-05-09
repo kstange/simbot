@@ -320,8 +320,6 @@ sub got_metar {
     }
     my (undef, $raw_metar) = split(/\n/, $response->content);
 
-    # Geo::METAR has issues not ignoring the remarks section of the
-    # METAR report. Let's strip it out.
     &SimBot::debug(4, "weather: METAR is " . $raw_metar . "\n");
 
     my $station_name_query = $dbh->prepare_cached(
@@ -346,13 +344,15 @@ sub got_metar {
             "$nick: METAR report for $station_name is $raw_metar.");
         return;
     }
-
-    my $wind_mph;
-            
+    
+    
+    # Geo::METAR has issues not ignoring the remarks section of the
+    # METAR report. Let's strip it out.
     my $remarks;
     ($raw_metar, undef, $remarks)
         = $raw_metar =~ m/^(.*?)( RMK (.*))?$/;
     $raw_metar =~ s|/////KT|00000KT|;
+    $raw_metar =~ s{\b(BLU|WHT|GRN|YLO|AMB|RED)\b}{};
     &SimBot::debug(5, "weather: Reduced METAR is " . $raw_metar . "\n");
 
     my $m = new Geo::METAR;
@@ -369,6 +369,7 @@ sub got_metar {
                 . "metar $station if you want to try parsing it yourself.");
         return;
     }
+    my $wind_mph;
 
 	$m->{date_time} =~ m/(\d\d)(\d\d)(\d\d)Z/;
 	my $time = "$2:$3";
