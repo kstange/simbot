@@ -158,7 +158,6 @@ EOT
             got_xml         => \&got_xml,
             get_alerts      => \&get_alerts,
             got_alerts      => \&got_alerts,
-            got_station_name => \&got_station_name,
             shutdown        => \&shutdown,
         }
     );
@@ -186,7 +185,7 @@ sub do_wx {
         || $flags & DO_ALERTS || $flags & DO_FORECAST)
     {
         &SimBot::send_message(&SimBot::option('network', 'channel'),
-            "$nick: Sorry, something unexpected happened. This has been logged, please try again later.");
+            "$nick: Sorry, something unexpected happened. This has been logged; please try again later.");
         &SimBot::debug(1, "weather: in do_wx with nothing to do!\n");
         return;
     }
@@ -198,6 +197,9 @@ sub do_wx {
                                         { $postalcode = $1; } # UK
     elsif($location =~ /^[A-Z0-9]{4}$/i) { $station = $location; }
     
+    
+    # OK, now we know what location specification the user gave us.
+    # now let's try to figure out the other location information
     if(defined $station) {
         # try to get lat/long/state from the station
         my $query = $dbh->prepare_cached(
@@ -227,10 +229,15 @@ sub do_wx {
         $station = &find_closest_station($postalcode);
     }
     
+    # OK, we have all the locations we're gonna get.
+    # Now let's try to do what we were asked to
+    
     if($flags & DO_ALERTS) {
         if(defined $state && defined $geocode) {
             $kernel->post($session => 'get_alerts', $nick, $lat, $long, $state, $geocode, $flags);
         } elsif(!($flags & USING_DEFAULTS)) {
+            # If we don't have enough information to do the forecast or
+            # alerts, only complain if we aren't using the default options.
             &SimBot::send_message(&SimBot::option('network', 'channel'),
                 "$nick: Sorry, but I have no forecast for that location.");
         }
@@ -254,13 +261,13 @@ sub do_wx {
         # if there is no URL, it's metar, go do that
         # if there is a URL, it's XML, go do that
         # if it is not there, it's metar, go do that.
-        my $query = $dbh->prepare(
-            'SELECT name, url FROM stations'
+        my $query = $dbh->prepare_cached(
+            'SELECT url FROM stations'
             . ' WHERE id = ?'
         );
         $query->execute($station);
-        my ($station_name, $url);
-        if((($station_name, $url) = $query->fetchrow_array)
+        my ($url);
+        if((($url) = $query->fetchrow_array)
             && !($flags & RAW_METAR)
             && !($flags & FORCE_METAR)
             && (defined $url)) {
@@ -271,24 +278,7 @@ sub do_wx {
             return;
         }
         
-        # Damn, guess we need to parse METAR.
-        
-        # do we have a station name?
-        unless(defined $station_name) {
-            &SimBot::debug(4,
-                "weather: Station name not found, looking it up\n");
-            my $url =
-                'http://weather.noaa.gov/cgi-bin/nsd_lookup.pl?station='
-                . $station;
-            my $request = HTTP::Request->new(GET => $url);
-            $kernel->post('wxua' => 'request', 'got_station_name',
-                          $request, "$nick!$station!$flags");
-            # We're done here - got_station_name will handle requesting
-            # the weather
-            return;
-        }
-        # we already have the station name... let's request the weather
-        
+        # Damn, guess we need to parse METAR.        
         $url =
             'http://weather.noaa.gov/pub/data/observations/metar/stations/'
             . $station . '.TXT';
@@ -298,63 +288,9 @@ sub do_wx {
     }
     
     if($flags & DO_FORECAST && defined $lat) {
-        
+        # Right now, forecast is handled as part of alerts.
+        # FIXME: This should change.
     }
-}
-
-sub got_station_name {
-    my ($kernel, $request_packet, $response_packet)
-        = @_[KERNEL, ARG0, ARG1];
-    my ($nick, $station, $flags)
-        = (split(/!/, $request_packet->[1], 3));
-    my $response = $response_packet->[0];
-
-    if (!$response->is_error
-        && $response->content !~ /The supplied value is invalid/
-        && $response->content !~ /No station matched the supplied identifier/)
-    {
-        
-        my ($name) = $response->content =~ m|Station Name:.*?<B>(.*?)\s*</B>|s;
-        $response->content =~ m|State:.*?<B>(.*?)\s*</B>|s;
-        my $state = ($1 eq $name ? undef : $1);
-        my ($country) = $response->content =~ m|Country:.*?<B>(.*?)\s*</B>|s;
-        
-        my ($lat_deg,  $lat_min,  $lat_sec,  $lat_dir,
-            $long_deg, $long_min, $long_sec, $long_dir);
-        if(($lat_deg,  $lat_min,  $lat_sec,  $lat_dir,
-            $long_deg, $long_min, $long_sec, $long_dir) =
-            $response->content =~ m|Station Position:.*?<B>(\d+)-(\d+)(?:-(\d+))?([NS]).*?(\d+)-(\d+)(?:-(\d+))?([EW])|s)
-        {
-            $lat_deg = &dms_to_degrees($lat_deg, $lat_min, $lat_sec, $lat_dir);
-            $long_deg = &dms_to_degrees($long_deg, $long_min, $long_sec, $long_dir);
-        }
-        
-        my $update_station_query = $dbh->prepare(
-            'INSERT OR REPLACE INTO stations (id, name, state, country, latitude, longitude, url)'
-            . ' VALUES (?,?,?,?,?,?,?)');
-        
-        {
-            no warnings qw( uninitialized );
-            $update_station_query->execute(
-                $station,
-                $name,
-                $state,
-                $country,
-                $lat_deg,
-                $long_deg,
-                undef # URL is undef for metar
-            );
-        }
-        $dbh->commit;
-    }
-    &SimBot::debug(4, "weather: Got station name for $station\n");
-    # ok, now we have the station name... let's request the weather
-    my $url =
-        'http://weather.noaa.gov/pub/data/observations/metar/stations/'
-        . $station . '.TXT';
-    my $request = HTTP::Request->new(GET=>$url);
-    $kernel->post('wxua' => 'request', 'got_metar',
-                  $request, "$nick!$station!$flags");
 }
 
 sub got_metar {
@@ -388,7 +324,7 @@ sub got_metar {
     # METAR report. Let's strip it out.
     &SimBot::debug(4, "weather: METAR is " . $raw_metar . "\n");
 
-    my $station_name_query = $dbh->prepare(
+    my $station_name_query = $dbh->prepare_cached(
         'SELECT name, state, country FROM stations'
         . ' WHERE id = ?');
     $station_name_query->execute($station);
@@ -438,7 +374,7 @@ sub got_metar {
 	my $time = "$2:$3";
 	my $day=$1;
 
-    my $reply = "As reported at $time GMT at $station_name";
+    my $reply = "As reported at $time UTC at $station_name";
     my @reply_with;
 
     # There's no point in this exercise unless there's data in there
@@ -645,7 +581,7 @@ sub got_xml {
 	# wants rather than letting NOAA's web server decide for him.
 	if ($response->code eq '404' || $response->code =~ /^3/) {
 		&SimBot::debug(3,
-					   "weather: Couldn't get XML weather for $station; falling back to METAR.\n");
+            "weather: Couldn't get XML weather for $station; falling back to METAR.\n");
 		my $url =
 			'http://weather.noaa.gov/pub/data/observations/metar/stations/'
 			. $station . '.TXT';
@@ -703,7 +639,6 @@ sub got_xml {
 
     if(defined $weather && $weather !~ m/^null$/i) {
         $weather = lc($weather);
-#        $weather =~ s/^\s*//;   # sometimes they have a space in front
         
         $weather =~ s/haze/hazy/;
         $weather =~ s/^(rain|snow)$/$1ing/;
@@ -919,12 +854,13 @@ sub get_forecast {
         }
         
         my (@temp_highs, @temp_lows, $temp_highs_unit, $temp_lows_unit);
+        my $temp_key = $forecast->{'data'}->{'parameters'}->{'temperature'};
         
-        @temp_highs = @{$forecast->{'data'}->{'parameters'}->{'temperature'}->{'maximum'}->{'value'}};
-        $temp_highs_unit = $forecast->{'data'}->{'parameters'}->{'temperature'}->{'maximum'}->{'units'};
-        @temp_lows = @{$forecast->{'data'}->{'parameters'}->{'temperature'}->{'minimum'}->{'value'}};
-        $temp_lows_unit = $forecast->{'data'}->{'parameters'}->{'temperature'}->{'minimum'}->{'units'};
-                
+        @temp_highs = @{$temp_key->{'maximum'}->{'value'}};
+        $temp_highs_unit = $temp_key->{'maximum'}->{'units'};
+        @temp_lows = @{$temp_key->{'minimum'}->{'value'}};
+        $temp_lows_unit = $temp_key->{'minimum'}->{'units'};
+
         my @conditions;
         foreach my $cur_weather_conditions (@{$forecast->{'data'}->{'parameters'}->{'weather'}->{'weather-conditions'}}) {
             push(@conditions, $cur_weather_conditions->{'weather-summary'});
@@ -1030,7 +966,7 @@ sub find_closest_station {
     my ($zipcode) = @_;
     
     # OK, we need the lat/long for that zip code.
-    my $query = $postalcodes_dbh->prepare(
+    my $query = $postalcodes_dbh->prepare_cached(
         'SELECT latitude, longitude FROM postalcodes WHERE code = ?'
     );
     $query->execute($zipcode);
@@ -1039,7 +975,7 @@ sub find_closest_station {
     $query->finish;
     
     # OK, now we need to find potential stations.
-    $query = $dbh->prepare(
+    $query = $dbh->prepare_cached(
         'SELECT id, latitude, longitude FROM stations'
         . ' WHERE latitude BETWEEN ? AND ?'
         . ' AND longitude BETWEEN ? AND ?');
