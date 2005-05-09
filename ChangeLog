@@ -1,3 +1,11 @@
+Version 1.0 alpha: (08 May 2005)
+	* plugins/time.pl:
+	  - New plugin!
+	  - Shows the current time in a number of time zones.
+	  - %time <zones> shows the local time and the requested zones, 
+	    otherwise shows local and those defined in config.ini.
+	    Failing that, local and UTC.
+
 Version 1.0 alpha: (07 May 2005)
 	* plugins/weather.pl:
 	  - Some unit conversion support. Add 'm' or 'metric' to show metric units,
