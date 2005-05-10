@@ -824,6 +824,12 @@ sub plugin_register {
     } else {
 		die("$data{plugin_id}: a plugin is already registered to this handle");
     }
+    if ($data{event_plugin_load}) {
+		if (!&plugin_callback($data{plugin_id}, $data{event_plugin_load})) {
+			die("$data{plugin_id}: the plugin returned an error on load");
+		}
+
+    }
     $event_plugin_call{$data{plugin_id}} = $data{event_plugin_call};
     if(!$data{plugin_help}) {
 		&debug(5, $data{plugin_id} . ": this plugin has no help text and will be hidden\n");
@@ -831,12 +837,6 @@ sub plugin_register {
 		$plugin_help{$data{plugin_id}} = $data{plugin_help};
     }
 	$plugin_params{$data{plugin_id}} = $data{plugin_params};
-    if ($data{event_plugin_load}) {
-		if (!&plugin_callback($data{plugin_id}, $data{event_plugin_load})) {
-			die("$data{plugin_id}: the plugin returned an error on load");
-		}
-
-    }
     foreach (keys(%data)) {
 		if ($_ =~ /^event_(plugin|bot|channel|private|server)_.*/) {
 			$$_{$data{plugin_id}} = $data{$_};
