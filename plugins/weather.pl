@@ -479,7 +479,8 @@ sub got_metar {
                 $cond = lc($cond);
 
                 my $rmk = $cond;
-                if($dist) { $rmk .= " $dist mi to the $dir"; }
+                if($dist) { $rmk .= &dist($dist, 'mi', $flags)
+                                . " to the $dir"; }
 
                 push(@reply_with, $rmk);
             }
@@ -665,11 +666,11 @@ sub got_xml {
 
     $msg .= ', with';
 
-    if(defined $hidx && $hidx !~ m/(Not Applicable|null)/i) {
+    if(defined $hidx && $hidx !~ m/(Not Applicable|null)/i && $hidx > $temp) {
         push(@reply_with, 'a heat index of ' . &temp($hidx, 'C', $flags));
     }
 
-    if(defined $wchill && $wchill !~ m/(Not Applicable|null)/i) {
+    if(defined $wchill && $wchill !~ m/(Not Applicable|null)/i && $wchill < $temp) {
         push(@reply_with, 'a wind chill of ' . &temp($wchill, 'C', $flags));
     }
 
@@ -697,7 +698,8 @@ sub got_xml {
     }
 
     if(defined $visibility && $visibility !~ m/(Not Applicable|null)/i) {
-        push(@reply_with, "$visibility visibility");
+        my ($vis, $vis_unit) = $visibility =~ m/^([\d\.]+)\s([a-z]+)/i;
+        push(@reply_with, &distance($vis, $vis_unit, $flags) . ' visibility');
     }
 
     my $sep;
@@ -805,6 +807,7 @@ sub get_forecast {
         
     my $weather = SOAP::Lite->new(uri => $soapAction,
                                 proxy => $endpoint);
+    $weather->transport->timeout(8);
     my $response = $weather->call(
         SOAP::Data->name($method)
             => SOAP::Data->type(decimal => $lat      )->name('latitude'),
@@ -1108,6 +1111,45 @@ sub speed {
         return (int $speed_mph) . ($flags & NO_UNITS ? '' : ' MPH');
     }
     return (int $speed_mph) . ($flags & NO_UNITS ? '' : ' MPH'). ' (' . (int $speed_kmh) . ($flags & NO_UNITS ? '' : ' km/h') . ')';
+}
+
+sub distance {
+    my ($dist, $unit, $flags) = @_;
+    if(!defined $unit
+        || $unit !~ m/mi|km/i)
+    {
+        my @caller = caller(1);
+        warn "unit missing or invalid in distance, called from $caller[3] line $caller[2]";
+        return $dist;
+    }
+        if(    ($unit =~ m/mi/i && $flags & UNITS_METRIC)
+            || ($unit =~ m/km/i && $flags & UNITS_IMPERIAL))
+    {
+        # Distance is already in the desired units.
+        return (int $dist) . ($flags & NO_UNITS ? '' : $unit);
+    }
+    
+    my ($dist_mi, $dist_km);
+    if($unit =~ /km/i) {
+        $dist_km = $dist;
+        $dist_mi = $dist * 1.609344;
+    } elsif($unit =~ /mi/i) {
+        $dist_mi = $dist;
+        $dist_km = $dist * 0.621371192;
+    }
+        
+    if($flags & UNITS_METRIC) {
+        return (int $dist_km)
+            . ($flags & NO_UNITS ? '' : ' km');
+    }
+    
+    if($flags & UNITS_IMPERIAL) {
+        return (int $dist_mi)
+            . ($flags & NO_UNITS ? '' : ' mi');
+    }
+    
+    return (int $dist_mi) . ($flags & NO_UNITS ? '' : ' mi')
+    . ' (' . (int $dist_km) . ($flags & NO_UNITS ? '' : ' km') . ')';
 }
 
 # Register Plugins
