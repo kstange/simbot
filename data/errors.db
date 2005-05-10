@@ -27,3 +27,4 @@ The application "unknown" has unexpectedly quit, because an error of type 10 occ
 You must type a file name.
 X connection to localhost:10.0 broken (explicit kill or server shutdown).
 Broken pipe
+Error 500: Cannot find bean cart in any scope
