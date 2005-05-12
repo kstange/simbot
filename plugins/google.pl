@@ -65,8 +65,8 @@ sub google_find {
 			&SimBot::send_message($channel, "$nick: $result");
 		} elsif ($response->content =~ m|Definitions of <b>(.*?)</b> on the Web:|) {
 			my $term = $1;
-			if ($response->content =~ m/<li>(.*?)(<br>|<li>)/) {
-				my $result = $1;
+			if ($response->content =~ m/<li>($term is )?(.*?)\n?(<br>|<li>)/i) {
+				my $result = $2;
 				$result =~ s|[\n\r]||g;
 				$result = HTML::Entities::decode($result);
 				&SimBot::send_pieces($channel, "$nick: ", "\"$term\" is $result");
