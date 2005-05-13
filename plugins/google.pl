@@ -83,14 +83,19 @@ sub google_find {
             # Movies!
             
             # Let's count the stars...
-            my @star_list = $response->content =~ m{<nobr><img src="/images/showtimes-star-(on|off)\.gif" border=0><img src="/images/showtimes-star-(on|off)\.gif" border=0><img src="/images/showtimes-star-(on|off)\.gif" border=0><img src="/images/showtimes-star-(on|off)\.gif" border=0><img src="/images/showtimes-star-(on|off)\.gif" border=0></nobr>};
+            my @star_list = $response->content =~ m{<nobr><img src="/images/showtimes-star-(on|off|half)\.gif" border=0><img src="/images/showtimes-star-(on|off|half)\.gif" border=0><img src="/images/showtimes-star-(on|off|half)\.gif" border=0><img src="/images/showtimes-star-(on|off|half)\.gif" border=0><img src="/images/showtimes-star-(on|off|half)\.gif" border=0></nobr>};
             my $stars;
-            if   ($star_list[4] eq 'on')    { $stars = 5; }
-            elsif($star_list[3] eq 'on')    { $stars = 4; }
-            elsif($star_list[2] eq 'on')    { $stars = 3; }
-            elsif($star_list[1] eq 'on')    { $stars = 2; }
-            elsif($star_list[0] eq 'on')    { $stars = 1; }
-            else                            { $stars = 0; }
+            if   ($star_list[4] eq 'on')    { $stars = 5;   }
+            elsif($star_list[4] eq 'half')  { $stars = 4.5; }
+            elsif($star_list[3] eq 'on')    { $stars = 4;   }
+            elsif($star_list[3] eq 'half')  { $stars = 3.5; }
+            elsif($star_list[2] eq 'on')    { $stars = 3;   }
+            elsif($star_list[2] eq 'half')  { $stars = 2.5; }
+            elsif($star_list[1] eq 'on')    { $stars = 2;   }
+            elsif($star_list[1] eq 'half')  { $stars = 1.5; }
+            elsif($star_list[0] eq 'on')    { $stars = 1;   }
+            elsif($star_list[0] eq 'half')  { $stars = 0.5; }
+            else                            { $stars = 0;   }
             
             my ($url, $title) = $response->content =~ m|<td valign=top><a href="(/reviews?\S+)">(.*?)</a>|;
             $url = 'http://www.google.com' . $url;
