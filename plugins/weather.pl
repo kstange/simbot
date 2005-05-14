@@ -82,7 +82,7 @@ use constant PI => 3.1415926;
 # Flags
 use constant USING_DEFAULTS     => 512;
 use constant RAW_METAR          => 256;
-use constant FORCE_METAR        => 128;
+#                               => 128;
 use constant UNITS_METRIC       => 64;
 use constant UNITS_IMPERIAL     => 32;
 use constant UNITS_AUTO         => 16;
@@ -131,8 +131,7 @@ CREATE TABLE stations (
     state STRING,
     country STRING,
     latitude REAL,
-    longitude REAL,
-    url STRING
+    longitude REAL
 );
 
 CREATE UNIQUE INDEX stationid
@@ -155,7 +154,6 @@ EOT
             _start          => \&bootstrap,
             do_wx           => \&do_wx,
             got_metar       => \&got_metar,
-            got_xml         => \&got_xml,
             get_alerts      => \&get_alerts,
             got_alerts      => \&got_alerts,
             shutdown        => \&shutdown,
@@ -255,31 +253,7 @@ sub do_wx {
         }
         
         $station = uc($station);
-        
-        # Try to look up the station in the database.
-        # if it is there, check for a URL
-        # if there is no URL, it's metar, go do that
-        # if there is a URL, it's XML, go do that
-        # if it is not there, it's metar, go do that.
-        my $query = $dbh->prepare_cached(
-            'SELECT url FROM stations'
-            . ' WHERE id = ?'
-        );
-        $query->execute($station);
-        my ($url);
-        if((($url) = $query->fetchrow_array)
-            && !($flags & RAW_METAR)
-            && !($flags & FORCE_METAR)
-            && (defined $url)) {
-            my $request = HTTP::Request->new(GET=>$url);
-            $kernel->post('wxua' => 'request', 'got_xml',
-                $request, "$nick!$station!$flags");
-            
-            return;
-        }
-        
-        # Damn, guess we need to parse METAR.        
-        $url =
+        my $url =
             'http://weather.noaa.gov/pub/data/observations/metar/stations/'
             . $station . '.TXT';
         my $request = HTTP::Request->new(GET=>$url);
@@ -338,6 +312,7 @@ sub got_metar {
     } else {
         $station_name = $station;
     }
+    $station_name_query->finish;
     
     if($flags & RAW_METAR) {
         &SimBot::send_message(&SimBot::option('network', 'channel'),
@@ -566,155 +541,6 @@ sub got_metar {
         "$nick: $reply");
 }
 
-sub got_xml {
-    my ($kernel, $request_packet, $response_packet)
-        = @_[KERNEL, ARG0, ARG1];
-    my ($nick, $station, $flags)
-        = (split(/!/, $request_packet->[1], 3));
-    my $response = $response_packet->[0];
-
-	# NOAA tries to be very helpful by offering a "did you mean?" list
-	# returning an HTTP 300 response, instead of a 404 error.  This is
-	# annoying when we are not a human being.  It also means we get an
-	# HTTP 301 redirection if we have a similar METAR ID with only one
-	# suitable alternative.  I have a feeling that if NOAA is trying to
-	# give us a 3xx response, it'll be for a different report than the
-	# user asked for, so we're going to trust the user knows what he
-	# wants rather than letting NOAA's web server decide for him.
-	if ($response->code eq '404' || $response->code =~ /^3/) {
-		&SimBot::debug(3,
-            "weather: Couldn't get XML weather for $station; falling back to METAR.\n");
-		my $url =
-			'http://weather.noaa.gov/pub/data/observations/metar/stations/'
-			. $station . '.TXT';
-		my $request = HTTP::Request->new(GET=>$url);
-		$kernel->post('wxua' => 'request', 'got_metar',
-					  $request, "$nick!$station!$flags");
-        return;
-	} elsif ($response->is_error) {
-		&SimBot::debug(3, "weather: Couldn't get XML weather for $station: " . $response->code . " " . $response->message . "\n");
-		&SimBot::send_message(&SimBot::option('network', 'channel'), "$nick: " . CANNOT_ACCESS);
-        return;
-	}
-
-    &SimBot::debug(4, 'weather: Got XML weather for ' . $nick
-        . " for $station\n");
-    my $raw_xml = $response->content;
-	my $cur_obs;
-
-	# If this XML feed is unparsable, METAR /may/ be more useful.
-	# Hey, it sure beats die().
-	if (!eval { $cur_obs = XMLin($raw_xml, SuppressEmpty => 1, NormaliseSpace => 2); }) {
-		&SimBot::debug(3, "weather: XML parse error for $station; falling back to METAR.\n");
-		&SimBot::debug(4, "weather: XML parser failure: $@");
-		my $url =
-			'http://weather.noaa.gov/pub/data/observations/metar/stations/'
-			. $station . '.TXT';
-		my $request = HTTP::Request->new(GET=>$url);
-		$kernel->post('wxua' => 'request', 'got_metar',
-					  $request, "$nick!$station!$flags");
-		return;
-	}
-
-	my $u_time     = $cur_obs->{'observation_time'};
-	my $location   = $cur_obs->{'location'};
-	my $weather    = $cur_obs->{'weather'};
-	my $temp       = $cur_obs->{'temp_c'};
-	my $rhumid     = $cur_obs->{'relative_humidity'};
-	my $wdir       = $cur_obs->{'wind_dir'};
-	my $wmph       = $cur_obs->{'wind_mph'};
-	my $wgust      = $cur_obs->{'wind_gust_mph'};
-	my $hidx       = $cur_obs->{'heat_index_c'};
-	my $wchill     = $cur_obs->{'windchill_c'};
-	my $visibility = $cur_obs->{'visibility'};
-
-	my $msg = 'As reported ';
-	my @reply_with;
-
-	if(defined $u_time) {
-        $u_time =~ s/Last Updated on //;
-        $msg .= 'on ' . $u_time . ' ';
-    }
-
-    if(defined $location)   { $msg .= 'at ' . $location; }
-    else                    { $msg .= 'at ' . $station; }
-
-    if(defined $weather && $weather !~ m/^null$/i) {
-        $weather = lc($weather);
-        
-        $weather =~ s/haze/hazy/;
-        $weather =~ s/^(rain|snow)$/$1ing/;
-	$weather =~ s/^thunderstorm$/a thunderstorm/;
-        
-        if   ($weather =~ m/not applicable|na/)
-                { $msg .= ' it is '; }
-        elsif($weather =~ m/ing$/)
-                { $msg .= " it is $weather and "; }
-        elsif($weather =~ m/^(patches of) / # was (a|patches of)
-              || $weather =~ m/showers|clouds/)
-                { $msg .= " there are $weather and "; }
-        elsif($weather =~ m/fog|smoke|rain|dust|sand|thunderstorm/)
-                { $msg .= " there is $weather and "; }
-        
-        else
-                { $msg .= " it is $weather and "; }
-    } else {
-        $msg .= ' it is ';
-    }
-    
-    if(defined $temp)       { $msg .= &temp($temp, 'C', $flags); }
-
-    $msg .= ', with';
-
-    if(defined $hidx && $hidx !~ m/(Not Applicable|null)/i && $hidx > $temp) {
-        push(@reply_with, 'a heat index of ' . &temp($hidx, 'C', $flags));
-    }
-
-    if(defined $wchill && $wchill !~ m/(Not Applicable|null)/i && $wchill < $temp) {
-        push(@reply_with, 'a wind chill of ' . &temp($wchill, 'C', $flags));
-    }
-
-    if(defined $rhumid && $rhumid != 0) {
-        push(@reply_with, "${rhumid}% humidity");
-    }
-
-    if(defined $wmph) {
-        my $mmsg = '';
-        if($wmph <= 0) {
-            $mmsg = 'calm winds';
-            if(defined $wgust && $wgust > 0)
-                { $mmsg .= ' gusting to ' . &speed($wgust, 'MPH', $flags)
-                    . " from the $wdir"; }
-        } else {
-            if($wdir =~ m/Variable/i)
-                { $mmsg = 'variable ' };
-            $mmsg .= &speed($wmph, 'MPH', $flags) . ' winds';
-            if($wdir !~ m/Variable/i)
-                { $mmsg .= " from the $wdir"; }
-            if(defined $wgust && $wgust > 0)
-                { $mmsg .= ' gusting to ' . &speed($wgust, 'MPH', $flags); }
-        }
-        push(@reply_with, $mmsg);
-    }
-
-    if(defined $visibility && $visibility !~ m/(Not Applicable|null)/i) {
-        my ($vis, $vis_unit) = $visibility =~ m/^([\d\.]+)\s([a-z]+)/i;
-        push(@reply_with, &distance($vis, $vis_unit, $flags) . ' visibility');
-    }
-
-    my $sep;
-    if($#reply_with == 1) {
-        $sep = ' and ';
-    } elsif($#reply_with > 1) {
-        $sep = ', ';
-        $reply_with[-1] = 'and ' . $reply_with[-1];
-    }
-    $msg .= ' ' . join($sep, @reply_with);
-
-    &SimBot::send_message(&SimBot::option('network', 'channel'),
-        "$nick: $msg");
-}
-
 sub got_alerts {
     my ($kernel, $request_packet, $response_packet)
         = @_[KERNEL, ARG0, ARG1];
@@ -940,7 +766,6 @@ sub handle_user_command {
     
     if($command =~ /^.metar$/)      { $flags |= RAW_METAR | DO_CONDITIONS; }
     foreach(@args) {
-        if(m/^metar$/)              { $flags |= FORCE_METAR | DO_CONDITIONS; }
         if(m/^m(etric)?$/)          { $flags |= UNITS_METRIC; }
         if(m/^f(ore)?cast$/)        { $flags |= DO_FORECAST | DO_ALERTS; }
         if(m/^(us|imp(erial)?)$/)   { $flags |= UNITS_IMPERIAL; }
@@ -1127,11 +952,11 @@ sub distance {
         warn "unit missing or invalid in distance, called from $caller[3] line $caller[2]";
         return $dist;
     }
-        if(    ($unit =~ m/mi/i && $flags & UNITS_METRIC)
-            || ($unit =~ m/km/i && $flags & UNITS_IMPERIAL))
+        if(    ($unit =~ m/km/i && $flags & UNITS_METRIC)
+            || ($unit =~ m/mi/i && $flags & UNITS_IMPERIAL))
     {
         # Distance is already in the desired units.
-        return (int $dist) . ($flags & NO_UNITS ? '' : $unit);
+        return (int $dist) . ($flags & NO_UNITS ? '' : ' ' . $unit);
     }
     
     my ($dist_mi, $dist_km);

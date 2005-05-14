@@ -53,8 +53,7 @@ CREATE TABLE stations (
     state STRING,
     country STRING,
     latitude REAL,
-    longitude REAL,
-    url STRING
+    longitude REAL
 );
 EOT
 
@@ -112,37 +111,6 @@ if($response->is_error) {
     print " Done! Read $line_count lines\n"
 }
 
-# now let's get the XML data file.
-# this only has US stations, and generally lacks lat/long.
-
-print "Downloading XML station list... ";
-$response = $ua->get('http://www.nws.noaa.gov/data/current_obs/index.xml');
-
-if($response->is_error) {
-    print STDERR "Failed!\n  " . $response->code . ' '
-    . $response->message . "\n";
-} else {
-    print "Done!\nReading it in";
-    my $xml;
-    if (!eval { $xml = XMLin($response->decoded_content, SuppressEmpty => 1); }) {
-		print STDERR " Failed!\n$@\n";
-    } else {
-        my $update_station_query = $dbh->prepare(
-            'UPDATE stations SET url = ? WHERE id = ?');
-        my $line_count = 0;
-        foreach my $cur_station (@{$xml->{'station'}}) {
-            if(++$line_count % 300 == 0) { print '.'; }
-            no warnings qw( uninitialized );
-                        
-            $update_station_query->execute(
-                $cur_station->{'xml_url'},
-                $cur_station->{'station_id'}
-            );
-        }
-        print " Done! Read $line_count lines\n";
-    }
-}
-
 # OK, now we have a great list of station codes. However, not all have
 # METAR reports. Let's find codes to remove...
 
@@ -155,10 +123,9 @@ if($response->is_error) {
     my $line_count = 0;
     print "Done!\nReading it in";
     
-    # Stations with URLs are XML stations, we don't care if METAR is unavailable
     # Create a temprary table as a list of candidates for deletion
     $dbh->do(<<EOT);
-CREATE TEMPORARY TABLE delrows AS SELECT id FROM stations WHERE url IS NULL;
+CREATE TEMPORARY TABLE delrows AS SELECT id FROM stations;
 CREATE UNIQUE INDEX delstationid ON delrows (id);
 EOT
 
