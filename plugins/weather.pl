@@ -428,6 +428,9 @@ sub got_metar {
             } else {
                 $tmp .= ' variable winds';
             }
+			if ($m->WIND_GUST_MPH) {
+				$tmp .= ' gusting to ' . &speed($m->WIND_GUST_MPH, 'MPH', $flags);
+			}
             push(@reply_with, $tmp);
         }
 
