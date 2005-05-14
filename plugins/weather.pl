@@ -808,14 +808,19 @@ sub get_forecast {
     my $weather = SOAP::Lite->new(uri => $soapAction,
                                 proxy => $endpoint);
     $weather->transport->timeout(8);
-    my $response = $weather->call(
-        SOAP::Data->name($method)
-            => SOAP::Data->type(decimal => $lat      )->name('latitude'),
-            => SOAP::Data->type(decimal => $long     )->name('longitude'),
-            => SOAP::Data->type(date    => $startDate)->name('startDate'),
-            => SOAP::Data->type(integer => $numDays  )->name('numDays'),
-            => SOAP::Data->type(string  => $format   )->name('format')
-    );
+    my $response;
+    if(!eval {
+        $response = $weather->call(
+            SOAP::Data->name($method)
+                => SOAP::Data->type(decimal => $lat      )->name('latitude'),
+                => SOAP::Data->type(decimal => $long     )->name('longitude'),
+                => SOAP::Data->type(date    => $startDate)->name('startDate'),
+                => SOAP::Data->type(integer => $numDays  )->name('numDays'),
+                => SOAP::Data->type(string  => $format   )->name('format')
+        );
+    }) {
+        return 'I cannot contact NOAA. Please try again later.';
+    }
     
     if ($response->fault) {
          return 'Something unexpected happened: ' . $response->faultstring;
