@@ -51,13 +51,13 @@ sub get_currency {
     # first, let's get the exchange rate
     my $rate;
     if(!defined $SOAP) {
-        unless($SOAP = new SOAP::Lite
-                -> service(WSDL_FILE_LOCATION)
-                ->transport->timeout(5))
+        unless($SOAP = SOAP::Lite->new(
+                service => WSDL_FILE_LOCATION))
         {
             &SimBot::send_message($channel, "$nick: Sorry, but I am having trouble accessing my source for currency conversions. Please try again later.");
             return;
         }
+#        $SOAP->transport->timeout(5);
     }
     if(eval { $rate = $SOAP->getRate($from_currency, $to_currency) } && defined $rate) {
         &SimBot::send_message($channel, "$nick: $orig_amount $from_currency is "
