@@ -24,6 +24,8 @@
 # Hi, my name(space) is:
 package SimBot;
 
+use Data::Dumper;
+
 # Sometimes we end up in Unicode.  Since IRC and Unicode are not good
 # friends, we'll take a ride back to ISO-8859-1 before we send the
 # server any questionable strings.  This requires Perl 5.8.0 or a perl
@@ -1941,9 +1943,9 @@ sub server_error {
 	   if(!defined $chosen_server) {
 	       die q($chosen_server is undefined);
 	   }
-		for (my $i = 0; defined @{$conf{'network'}{'servers'}}[$i]; $i++) {
-			if ($chosen_server eq @{$conf{'network'}{'servers'}}[$i]) {
-				splice(@{$conf{'network'}{'servers'}}, $i, 1)
+		for (my $i = 0; defined @{$conf{'network'}{'server'}}[$i]; $i++) {
+			if ($chosen_server eq @{$conf{'network'}{'server'}}[$i]) {
+				splice(@{$conf{'network'}{'server'}}, $i, 1)
 			}
 		}
 	}
