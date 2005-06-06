@@ -329,7 +329,7 @@ POE::Session->new
 	  irc_433          => \&pick_new_nick,    # nickname in use
 	  irc_socketerr    => \&socket_error,     # internet wants to yell at us
 	  irc_error        => \&server_error,     # server wants to yell at us
-	  irc_465          => \&server_banned,      # ERR_YOUREBANNEDCREEP
+	  irc_465          => \&server_banned,    # ERR_YOUREBANNEDCREEP
 	  irc_disconnected => \&irc_disconnected, # disconnected
 	  irc_303          => \&server_ison,      # check ison reply
 	  irc_352          => \&server_who,       # check who reply
@@ -1953,7 +1953,7 @@ sub server_notice {
 # SERVER_BANNED: The server has told us you're banned, creep.
 #  no, really. Numeric 465, ERR_YOUREBANNEDCREEP
 sub server_banned {
-    &debug(1, "Banned! $_[ARG1]\n");
+    &debug(1, "Banned from $_[ARG0]: $_[ARG1]\n");
     
     if(!defined $chosen_server) {
         die q($chosen_server is undefined);
