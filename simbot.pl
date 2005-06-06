@@ -1938,7 +1938,10 @@ sub irc_disconnected {
 sub server_error {
     &debug(1, "$_[ARG0]\n");
 	if ($_[ARG0] =~ /k-lined/i) {
-		for (my $i = 0; !defined @{$conf{'network'}{'servers'}}[$i]; $i++) {
+	   if(!defined $chosen_server) {
+	       die q($chosen_server is undefined);
+	   }
+		for (my $i = 0; defined @{$conf{'network'}{'servers'}}[$i]; $i++) {
 			if ($chosen_server eq @{$conf{'network'}{'servers'}}[$i]) {
 				splice(@{$conf{'network'}{'servers'}}, $i, 1)
 			}
