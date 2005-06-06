@@ -329,6 +329,7 @@ POE::Session->new
 	  irc_433          => \&pick_new_nick,    # nickname in use
 	  irc_socketerr    => \&socket_error,     # internet wants to yell at us
 	  irc_error        => \&server_error,     # server wants to yell at us
+	  irc_465          => \&server_banned,      # ERR_YOUREBANNEDCREEP
 	  irc_disconnected => \&irc_disconnected, # disconnected
 	  irc_303          => \&server_ison,      # check ison reply
 	  irc_352          => \&server_who,       # check who reply
@@ -354,6 +355,7 @@ POE::Session->new
 	  irc_ctcp_time    => \&process_time,
 	  irc_ctcp_finger  => \&process_finger,
 	  irc_ctcp_ping    => \&process_ping,
+	  irc_snotice      => \&server_notice,
 
 	  # These are our own custom events-- signs that we're using POE correctly.
 	  scheduler_60     => \&run_scheduler_60, # run events every 60 seconds
@@ -1939,25 +1941,38 @@ sub irc_disconnected {
 # SERVER_ERROR: The server's whining at us. We should listen.
 sub server_error {
     &debug(1, "$_[ARG0]\n");
-    if ($_[ARG0] =~ /k-lined/i) {
-        if(!defined $chosen_server) {
-            die q($chosen_server is undefined);
-        }
-        for (my $i = 0; defined @{$conf{'network'}{'server'}}[$i]; $i++) {
-            if ($chosen_server eq @{$conf{'network'}{'server'}}[$i]) {
-                splice(@{$conf{'network'}{'server'}}, $i, 1)
-            }
-        }
-        if(!@{$conf{'network'}{'server'}}) {
-            # hmm... we've removed our last server
-            &debug(1, "No more servers to connect to! Please add some to config.ini.\n");
-            # Everyone out of the pool!
-            foreach(keys(%event_plugin_unload)) {
-	           	&plugin_callback($_, $event_plugin_unload{$_});
-            }
-            $terminating=100;
+#    if ($_[ARG0] =~ /k-lined/i) {
+#    }
+}
+
+# SERVER_NOTICE: The server has something to say. We should listen.
+sub server_notice {
+    &debug(3, "$_[ARG0]\n");
+}
+
+# SERVER_BANNED: The server has told us you're banned, creep.
+#  no, really. Numeric 465, ERR_YOUREBANNEDCREEP
+sub server_banned {
+    &debug(1, "Banned! $_[ARG1]\n");
+    
+    if(!defined $chosen_server) {
+        die q($chosen_server is undefined);
+    }
+    for (my $i = 0; defined @{$conf{'network'}{'server'}}[$i]; $i++) {
+        if ($chosen_server eq @{$conf{'network'}{'server'}}[$i]) {
+            splice(@{$conf{'network'}{'server'}}, $i, 1)
         }
     }
+    if(!@{$conf{'network'}{'server'}}) {
+        # hmm... we've removed our last server
+        &debug(1, "No more servers to connect to! Please add some to config.ini.\n");
+        # Everyone out of the pool!
+        foreach(keys(%event_plugin_unload)) {
+	       	&plugin_callback($_, $event_plugin_unload{$_});
+        }
+        $terminating=100;
+    }
+
 }
 
 # SOCKET_ERROR: Spit out the error, then reconnect to IRC.
