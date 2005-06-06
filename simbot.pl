@@ -1939,16 +1939,25 @@ sub irc_disconnected {
 # SERVER_ERROR: The server's whining at us. We should listen.
 sub server_error {
     &debug(1, "$_[ARG0]\n");
-	if ($_[ARG0] =~ /k-lined/i) {
-	   if(!defined $chosen_server) {
-	       die q($chosen_server is undefined);
-	   }
-		for (my $i = 0; defined @{$conf{'network'}{'server'}}[$i]; $i++) {
-			if ($chosen_server eq @{$conf{'network'}{'server'}}[$i]) {
-				splice(@{$conf{'network'}{'server'}}, $i, 1)
-			}
-		}
-	}
+    if ($_[ARG0] =~ /k-lined/i) {
+        if(!defined $chosen_server) {
+            die q($chosen_server is undefined);
+        }
+        for (my $i = 0; defined @{$conf{'network'}{'server'}}[$i]; $i++) {
+            if ($chosen_server eq @{$conf{'network'}{'server'}}[$i]) {
+                splice(@{$conf{'network'}{'server'}}, $i, 1)
+            }
+        }
+        if(!@{$conf{'network'}{'server'}}) {
+            # hmm... we've removed our last server
+            &debug(1, "No more servers to connect to! Please add some to config.ini.\n");
+            # Everyone out of the pool!
+            foreach(keys(%event_plugin_unload)) {
+	           	&plugin_callback($_, $event_plugin_unload{$_});
+            }
+            $terminating=100;
+        }
+    }
 }
 
 # SOCKET_ERROR: Spit out the error, then reconnect to IRC.
@@ -1975,7 +1984,7 @@ sub quit_session {
 		}
 	}
         
-	$terminating = 1 unless $terminating == 2;
+	$terminating = 1 unless $terminating > 1;
 
 	# Everyone out of the pool!
 	foreach(keys(%event_plugin_unload)) {
@@ -2033,5 +2042,9 @@ if ($terminating == 2) {
 		. (defined $args{config} ? " --config=\"$args{config}\"" : "");
 } else {
     &debug(3, "Terminated.\n");
-	exit 0;
+	if($terminating > 2) {
+	   exit $terminating; #abnormal exit
+    } else {
+        exit 0;
+    }
 }
