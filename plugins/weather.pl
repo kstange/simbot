@@ -681,7 +681,11 @@ sub get_forecast {
         my (undef, undef, undef, $today_day, $today_mon, $today_year, $toay_wday) = localtime;
         foreach (@days) {
             my ($year, $month, $day) = m/^(\d+)-(\d+)-(\d+)/;
-            if($year == $today_year+1900
+            if($year <= 2000) {
+	        # NOAA's giving us bogus data again
+		&SimBot::debug(1, "weather: Forecast is in the past, check your clock!\n");
+		return 'Could not get the forecast.';
+            } elsif($year == $today_year+1900
                 && $month == $today_mon+1
                 && $day == $today_day)
             {
