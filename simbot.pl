@@ -1929,6 +1929,12 @@ sub irc_disconnected {
 		&debug(3, "Disconnected!\n");
 		$kernel->post(bot => unregister => "all");
 
+
+        # Everyone out of the pool!
+        foreach(keys(%event_plugin_unload)) {
+            &plugin_callback($_, $event_plugin_unload{$_});
+        }
+
 		# since the event loop should soon have nothing to do
 		# it'll exit. Or something like that.
     } else {
@@ -1966,10 +1972,6 @@ sub server_banned {
     if(!@{$conf{'network'}{'server'}}) {
         # hmm... we've removed our last server
         &debug(1, "No more servers to connect to! Please add some to config.ini.\n");
-        # Everyone out of the pool!
-        foreach(keys(%event_plugin_unload)) {
-	       	&plugin_callback($_, $event_plugin_unload{$_});
-        }
         $terminating=100;
     }
 
@@ -2000,11 +2002,6 @@ sub quit_session {
 	}
         
 	$terminating = 1 unless $terminating > 1;
-
-	# Everyone out of the pool!
-	foreach(keys(%event_plugin_unload)) {
-		&plugin_callback($_, $event_plugin_unload{$_});
-	}
 
 	$kernel->post(bot => quit => PROJECT . " " . VERSION
 				  . (($message ne "") ? ": $message" : ""));
