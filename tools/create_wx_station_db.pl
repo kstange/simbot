@@ -87,6 +87,9 @@ if($response->is_error) {
         ($cur_line, $content) = split(/\n/, $content, 2);
         my ($station, undef, undef, $name, $state, $country, undef, $lat_dms, $long_dms, undef, undef, $rbsn) = split(/;/, $cur_line);
         
+        $name =~ s/\s+$//;
+        $name =~ s/^\s+//;
+        
         my ($long_deg);
         my ($lat_deg, $minutes, $seconds, $dir) = $lat_dms
             =~ m/(\d+)-(\d+)(?:-(\d+))?([NS])/;
@@ -123,7 +126,7 @@ if($response->is_error) {
     my $line_count = 0;
     print "Done!\nReading it in";
     
-    # Create a temprary table as a list of candidates for deletion
+    # Create a temporary table as a list of candidates for deletion
     $dbh->do(<<EOT);
 CREATE TEMPORARY TABLE delrows AS SELECT id FROM stations;
 CREATE UNIQUE INDEX delstationid ON delrows (id);
