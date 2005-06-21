@@ -357,6 +357,12 @@ sub got_metar {
     if ($raw_metar =~ /NIL$/) {
         $reply .= " there is no data available";
     } else {
+        # Geo::METAR's error messages are a bit too aggressive...
+        local $SIG{__DIE__} = sub {
+            (my $msg = $_[0]) =~ s/You suck. /Geo::METAR says: /;
+            die $msg;
+        };
+        
         # Temperature and related details *only* if we have
         # a temperature!
         if (defined $m->TEMP_C || $raw_metar =~ m|(M?\d\d)/|) {
