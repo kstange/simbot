@@ -72,6 +72,8 @@ my $response = $ua->get('http://weather.noaa.gov/data/nsd_cccc.gz');
 if($response->is_error) {
     print STDERR "Failed!\n  " . $response->code . ' '
     . $response->message . "\n";
+    $dbh->rollback;
+    exit(1);
 } else {
     print "Done!\nReading it in";
     my $content = $response->decoded_content;
@@ -122,6 +124,8 @@ $response = $ua->get('ftp://weather.noaa.gov/data/observations/metar/stations/')
 
 if($response->is_error) {
     print STDERR "Failed! " . $response->code . ' ' . $response->message . "\n";
+    $dbh->rollback;
+    exit(1);
 } else {
     my $line_count = 0;
     print "Done!\nReading it in";
