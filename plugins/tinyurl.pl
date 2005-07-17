@@ -41,6 +41,34 @@ use vars qw( @match_rules %urlcache );
 
 use LWP::UserAgent;
 
+use DBI;
+
+use vars qw{ $dbh $db_query $db_insert_query };
+
+sub messup_tinyurl {
+    # Let's create our database
+    $dbh = DBI->connect('dbi:SQLite:dbname=caches/tinyurl','','',
+        { RaiseError => 1, AutoCommit => 1}) or die;
+        
+    {
+        local $dbh->{RaiseError};
+        local $dbh->{PrintError};
+        
+        $dbh->do(<<EOT);
+CREATE TABLE redirects (
+    from_url STRING UNIQUE,
+    to_url STRING
+);
+
+CREATE UNIQUE INDEX redirectfrom
+    ON redirects (from_url);
+EOT
+    }
+    
+    $db_query = $dbh->prepare('SELECT to_url FROM redirects WHERE from_url = ? LIMIT 1');
+    $db_insert_query = $dbh->prepare('INSERT INTO redirects (from_url, to_url) VALUES (?, ?)');
+}
+
 # these are matching rules for various tinyurl style services
 # they should be qr// regular expressions. The entire URL needs to be
 # in ().
@@ -73,25 +101,48 @@ sub handle_chat {
     foreach my $cur_rule (@match_rules) {
         if($content =~ /$cur_rule/) {
             my $url = munge_url($1);
-            &SimBot::debug(3, "tinyurl: Looking up ${url}\n");
             
-            my $useragent =
-                LWP::UserAgent->new(requests_redirectable => undef);
-            $useragent->agent(SimBot::PROJECT . '/' . SimBot::VERSION);
-            $useragent->timeout(5);
-            my $request = HTTP::Request->new(GET => $url);
-            my $response = $useragent->request($request);
-            if($response->previous) {
-                if($response->previous->is_redirect) {
-                    &SimBot::send_message($channel, 'TinyURL points to '
-                            . &shorten_url($response->request->uri()));
-                } else {
-                    &SimBot::debug(3, "   failed! (no redirect)\n");           
-                }
+            $db_query->execute($url);
+            my $to_url;
+            if(($to_url) = $db_query->fetchrow_array()) {
+                &SimBot::debug(3, "tinyurl: Looking up ${url} (cached)\n");
+                &SimBot::send_message($channel, 'TinyURL points to '
+                    . &shorten_url($to_url));
             } else {
-                &SimBot::debug(3, "   failed!\n");
-                warn $response->content;
+                &SimBot::debug(3, "tinyurl: Looking up ${url}\n");
+                
+                my $useragent =
+                    LWP::UserAgent->new(requests_redirectable => undef);
+                $useragent->agent(SimBot::PROJECT . '/' . SimBot::VERSION);
+                $useragent->timeout(5);
+                my $request = HTTP::Request->new(GET => $url);
+                my $response = $useragent->request($request);
+                if($response->previous) {
+                    if($response->previous->is_redirect) {
+                        $to_url = $response->request->uri();
+                        $db_insert_query->execute($url, $to_url);
+                        &SimBot::send_message($channel, 'TinyURL points to '
+                                . &shorten_url($to_url));
+                    } else {
+                        &SimBot::debug(3, "   failed! (no redirect)\n");           
+                    }
+                } else {
+                    # not a HTTP redirect, maybe a META?
+                    if($response->content =~ m{<meta http-equiv="refresh" content="(.*?)"}) {
+                        $to_url = $1;
+                        $to_url =~ s/^\d+\;//g;
+                        $to_url =~ s/^URL=//g;
+                        
+                        $db_insert_query->execute($url, $to_url);
+                        &SimBot::send_message($channel, 'TinyURL points to '
+                                . &shorten_url($to_url));
+                    } else {
+                        &SimBot::debug(3, "   failed!\n");
+                        warn $response->content;
+                    }
+                }
             }
+            $db_query->finish;
             return;
         }
     }       
@@ -129,7 +180,7 @@ sub shorten_url {
 
 &SimBot::plugin_register(
     plugin_id   => 'tinyurl',
-#    event_plugin_load   => \&messup_tinyurl,
+    event_plugin_load   => \&messup_tinyurl,
 #    event_plugin_unload => \&cleanup_tinyurl,
     event_channel_message   => \&handle_chat,
 );
