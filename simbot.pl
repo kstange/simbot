@@ -992,7 +992,7 @@ sub delete_words {
     my (undef, $nick, $channel, undef, $word) = @_;
 	my $max = option('chat', 'delete_usage_max');
 	$word = lc($word);
-	if (defined $word) {
+	if (defined $word && $word ne "") {
 		my @deleted = &delete_word($word, $max);
 		if (!@deleted && !defined $chat_words{$word}) {
 			&send_message($channel, "$nick: I don't remember ever seeing that word before. It will be hard to forget it.");
