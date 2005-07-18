@@ -77,6 +77,8 @@ EOT
     qr%(http://([\S]+\.)?url123\.com/[\S]+)%,
     qr%(http://[\S+]\.v3\.net)%,
     qr%(http://heh\.pl/[\S]+)%,
+    qr%(http://shorterlink\.(com|co\.uk)/[\S]+)%,
+    qr%(http://(biglink|babyurl)\.com/[\S]+)%,
 );
 # makeashorterlink.com aka masl.to doesn't work as it doesn't use
 # http redirects. Doesn't matter, as it warns you where you're about to
@@ -131,7 +133,7 @@ sub handle_chat {
                     # not a HTTP redirect, maybe a META?
                     if($response->content =~ m{<meta http-equiv="refresh" content="(.*?)"}) {
                         $to_url = $1;
-                        $to_url =~ s/^\d+\;//g;
+                        $to_url =~ s/^\d+\s*\;//g;
                         $to_url =~ s/^URL=//g;
                         
                         $db_insert_query->execute($url, $to_url);
