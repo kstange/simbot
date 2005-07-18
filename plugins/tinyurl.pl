@@ -78,7 +78,7 @@ EOT
     qr%(http://[\S+]\.v3\.net)%,
     qr%(http://heh\.pl/[\S]+)%,
     qr%(http://shorterlink\.(com|co\.uk)/[\S]+)%,
-    qr%(http://(biglink|babyurl)\.com/[\S]+)%,
+    qr%(http://(biglnk|babyurl)\.com/[\S]+)%,
 );
 # makeashorterlink.com aka masl.to doesn't work as it doesn't use
 # http redirects. Doesn't matter, as it warns you where you're about to
