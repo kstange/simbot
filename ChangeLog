@@ -1,3 +1,9 @@
+Version 1.0 alpha: (18 Jul 2005)
+	* plugins/weather.pl:
+	  - Added our own METAR parser. With luck, this will be more sane.
+	  - If we can figure out a valid time for the report, we tell the user how
+	    old the report is instead of the UTC time.
+
 Version 1.0 alpha: (08 May 2005)
 	* plugins/time.pl:
 	  - New plugin!

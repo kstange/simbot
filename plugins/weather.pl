@@ -32,17 +32,13 @@
 #     KMSS)
 #   * find other postal codes -> lat/long databases so we can find the closest
 #     station outside the US
-#   * KILL Geo::METAR DAMN IT
 
 package SimBot::plugin::weather;
 
 use strict;
 use warnings;
 
-# The weather, more or less!
-use Geo::METAR;
-
-# the new fangled XML weather reports need to be parsed too!
+# the new fangled XML weather reports need to be parsed!
 use XML::Simple;
 
 # and we need this to get the XML forecasts
@@ -94,6 +90,42 @@ use constant DO_ALERTS          => 1;
 # USING_DEFAULTS *MUST* be in DEFAULT_FLAGS, otherwise you'll get annoying
 # error messages when things fail.
 use constant DEFAULT_FLAGS      => USING_DEFAULTS | DO_CONDITIONS | UNITS_AUTO;
+
+our %cond_names = (
+    'MI', 'shallow',
+    'PR', 'partial',
+    'BC', 'patches',
+    'DR', 'low drifting',
+    'BL', 'blowing',
+    'SH', 'showers',
+    'TS', 'thunderstorm',
+    'FZ', 'freezing',
+    
+    'DZ', 'drizzle',
+    'RA', 'rain',
+    'SN', 'snow',
+    'SG', 'snow grains',
+    'IC', 'ice crystals',
+    'PL', 'ice pellets',
+    'GR', 'hail',
+    'GS', 'small hail and/or snow pellets',
+    'UP', 'unknown precipitation',
+    
+    'BR', 'mist',
+    'FG', 'fog',
+    'FU', 'smoke',
+    'VA', 'volcanic ash',
+    'DU', 'widespread dust',
+    'SA', 'sand',
+    'HZ', 'haze',
+    'PY', 'spray',
+    
+    'PO', 'well-developed dust/sand whirls',
+    'SQ', 'squalls',
+    'FC', 'funnel cloud/tornado/waterspout',
+    'SS', 'sandstorm',
+);
+
 
 ### cleanup_wx
 # This method is run when SimBot is exiting. We save the station names
@@ -268,11 +300,6 @@ sub do_wx {
 }
 
 sub got_metar {
-    # This parses METAR reports.
-    # This should be replaced with something.
-    # Either stop using Geo::METAR, or find some service that gives
-    # us XML reports like NOAA does for US stations.
-    
     my ($kernel, $request_packet, $response_packet)
         = @_[KERNEL, ARG0, ARG1];
     my ($nick, $station, $flags)
@@ -292,8 +319,8 @@ sub got_metar {
         }
         return;
     }
-    my (undef, $raw_metar) = split(/\n/, $response->content);
-
+    my ($datestamp, $raw_metar) = split(/\n/, $response->content);
+    
     &SimBot::debug(4, "weather: METAR is " . $raw_metar . "\n");
 
     my $station_name_query = $dbh->prepare_cached(
@@ -320,21 +347,14 @@ sub got_metar {
         return;
     }
     
+    my $wxhash = &parse_metar("${datestamp}\n${raw_metar}");
     
-    # Geo::METAR has issues not ignoring the remarks section of the
-    # METAR report. Let's strip it out.
     my $remarks;
     ($raw_metar, undef, $remarks)
         = $raw_metar =~ m/^(.*?)( RMK (.*))?$/;
-    $raw_metar =~ s|/////KT|00000KT|;
-    $raw_metar =~ s{\b(BLU|WHT|GRN|YLO|AMB|RED)\b}{};
-    &SimBot::debug(5, "weather: Reduced METAR is " . $raw_metar . "\n");
-
-    my $m = new Geo::METAR;
-    $m->metar($raw_metar);
 
     # Let's form a response!
-    if (!defined $m->{date_time}) {
+    if (!defined $wxhash->{report_time}) {
         # Something is very weird about this METAR.  It has no date,
         # so we are probably not going to get anything useful out of
         # it.
@@ -344,63 +364,61 @@ sub got_metar {
                 . "metar $station if you want to try parsing it yourself.");
         return;
     }
-    my $wind_mph;
-
-	$m->{date_time} =~ m/(\d\d)(\d\d)(\d\d)Z/;
-	my $time = "$2:$3";
-	my $day=$1;
-
-    my $reply = "As reported at $time UTC at $station_name";
+    my ($wind_mph, $temp_f, $temp_c);
+    
+    my $reply = 'As reported ';
+    if(defined $wxhash->{'report_time'}->{'unixtime'}) {
+        $reply .= &SimBot::timeago($wxhash->{'report_time'}->{'unixtime'});
+    } else {
+        $reply .= sprintf('at %d:%02d',
+            $wxhash->{'report_time'}->{'hour'},
+            $wxhash->{'report_time'}->{'minute'});
+    }
+    $reply .= " at $station_name";
     my @reply_with;
 
     # There's no point in this exercise unless there's data in there
     if ($raw_metar =~ /NIL$/) {
         $reply .= " there is no data available";
-    } else {
-        # Geo::METAR's error messages are a bit too aggressive...
-        local $SIG{__DIE__} = sub {
-            (my $msg = $_[0]) =~ s/You suck. /Geo::METAR says: /;
-            die $msg;
-        };
-        
+    } else {        
         # Temperature and related details *only* if we have
         # a temperature!
-        if (defined $m->TEMP_C || $raw_metar =~ m|(M?\d\d)/|) {
+        if (defined $wxhash->{'temperature'}) {
             # We have a temp, "it is"
             $reply .= " it is ";
 
-            # This nonsense checks to see if we have a temperature in
-            # the report that Geo::METAR is too stupid to see.
-            my $temp_c = (defined $m->TEMP_C ? $m->TEMP_C : $1);
-            $temp_c =~ s/M/-/;
-            my $temp_f = (defined $m->TEMP_F ? $m->TEMP_F
-                          : (9/5)*$temp_c+32);
-
-            push(@reply_with, &temp($temp_c, 'C', $flags));
-
-            # this nonsense checks for the odd wind declaration NZSP
-            # gives. I dunno what to make of the first part, I
-            # suspect it is a direction. Compass directions don't make
-            # much sense where every direction is north ;-)
-            if($raw_metar =~ m|(GRID\d{2}(\d{3}))|) {
-                $wind_mph = $2 * 1.1507771555;
-            } else {
-                $wind_mph = $m->WIND_MPH;
-            }
-
-            if($temp_f <= 40 && $wind_mph > 5) {
-                # Do we have a wind chill?
-                my $windchill = 35.74 + (0.6215 * $temp_f)
-                                - 35.75 * ($wind_mph ** 0.16)
-                                + 0.4275 * $temp_f * ($wind_mph ** 0.16);
-
-                push(@reply_with, 'a wind chill of '
-                    . &temp($windchill, 'F', $flags));
+            push(@reply_with, &temp($wxhash->{'temperature'}->{'value'},
+                                    $wxhash->{'temperature'}->{'unit'},
+                                    $flags));
+            $temp_f = &temp($wxhash->{'temperature'}->{'value'},
+                            $wxhash->{'temperature'}->{'unit'},
+                            UNITS_IMPERIAL | NO_UNITS);
+            $temp_c = &temp($wxhash->{'temperature'}->{'value'},
+                            $wxhash->{'temperature'}->{'unit'},
+                            UNITS_METRIC | NO_UNITS);
+                            
+            if(defined $wxhash->{'wind_speed'}) {
+                $wind_mph = &speed($wxhash->{'wind_speed'}->{'value'},
+                                   $wxhash->{'wind_speed'}->{'unit'},
+                                   UNITS_IMPERIAL | NO_UNITS);
+                                   
+                if($temp_f <= 40 && $wind_mph > 5) {
+                    # Do we have a wind chill?
+                    my $windchill = 35.74 + (0.6215 * $temp_f)
+                                    - 35.75 * ($wind_mph ** 0.16)
+                                    + 0.4275 * $temp_f * ($wind_mph ** 0.16);
+                
+                    push(@reply_with, 'a wind chill of '
+                        . &temp($windchill, 'F', $flags));
+                }
             }
 
             # Humidity, only if we have a dewpoint!
-            if (defined $m->C_DEW) {
-                my $humidity = 100 * ( ( (112 - (0.1 * $temp_c) + $m->C_DEW)
+            if (defined $wxhash->{'dew_point'}) {
+                my $humidity = 100 * ( ( (112 - (0.1 * $temp_c) +
+                    &temp($wxhash->{'dew_point'}->{'value'},
+                          $wxhash->{'dew_point'}->{'unit'},
+                          UNITS_METRIC | NO_UNITS))
                              / (112 + (0.9 * $temp_c)) ) ** 8 );
                 push(@reply_with, sprintf('%d', $humidity) . '% humidity');
 
@@ -427,31 +445,33 @@ sub got_metar {
             $reply .= ' there are ';
         }
 
-        if($wind_mph) {
-            my $tmp = &speed($wind_mph, 'MPH', $flags);
-            if ($m->WIND_DIR_ENG) {
-                $tmp .= ' winds from the ' . $m->WIND_DIR_ENG;
+        if(defined $wxhash->{'wind_speed'}
+                && $wxhash->{'wind_speed'}->{'value'} > 0) {
+            my $tmp = &speed($wxhash->{'wind_speed'}->{'value'},
+                             $wxhash->{'wind_speed'}->{'unit'},
+                             $flags);
+            if (defined $wxhash->{'wind_dir'}) {
+                $tmp .= ' winds from the ' . &deg_to_compass($wxhash->{'wind_dir'}->{'value'});
             } else {
                 $tmp .= ' variable winds';
+                # FIXME: Deal with wind_dir_range
             }
-			if ($m->WIND_GUST_MPH) {
-				$tmp .= ' gusting to ' . &speed($m->WIND_GUST_MPH, 'MPH', $flags);
+			if (defined $wxhash->{'wind_gust'}) {
+				$tmp .= ' gusting to '
+				    . &speed($wxhash->{'wind_gust'}->{'value'},
+				             $wxhash->{'wind_gust'}->{'unit'},
+				             $flags);
 			}
             push(@reply_with, $tmp);
         }
 
-        push(@reply_with, @{$m->WEATHER});
-        my @sky = @{$m->SKY};
-# Geo::METAR returns sky conditions that can't be plugged into sentences 
-# nicely, let's clean them up.
-        for(my $x=0;$x<=$#sky;$x++) {
-            $sky[$x] = lc($sky[$x]);
-            $sky[$x] =~ s/solid overcast/overcast/;
-            $sky[$x] =~ s/sky clear/clear skies/;
-            $sky[$x] =~ s/(broken|few|scattered) at/$1 clouds at/;
-        }
+        push(@reply_with, @{$wxhash->{'sky_conditions'}});
 
-        push(@reply_with, @sky);
+        foreach my $cur_cloud (@{$wxhash->{'cloud_conditions'}}) {
+            push(@reply_with, $cur_cloud->{'cover'} . ' clouds at '
+                              . $cur_cloud->{'height'}->{'value'}
+                              . ' ' . $cur_cloud->{'height'}->{'unit'});
+        }
 
         if($remarks) {
             # remarks are often not very easy to parse, but we can try.
@@ -810,6 +830,220 @@ sub get_alerts {
     # We're done here - got_alerts will handle requesting the forecast
 }
 
+
+sub parse_metar {
+    my $raw_input = $_[0];
+    
+    my %timedate;
+    if($raw_input =~ m/\n/) {
+        # probably came from NOAA and has a nicer date stamp on the first line
+        # Let's use it.
+        my $date;
+        ($date, $raw_input) = split(/\n/, $raw_input, 2);
+        ($timedate{'year'}, $timedate{'month'}, $timedate{'day'}, $timedate{'hour'}, $timedate{'minute'}) = $date =~
+            m|(\d{4})/(\d{2})/(\d{2}) (\d{2}):(\d{2})|;
+            
+        foreach(($timedate{'year'}, $timedate{'month'}, $timedate{'day'}, $timedate{'hour'}, $timedate{'minute'})) {
+            $_ = int $_;
+        }
+        $timedate{'timezone'} = 'UTC';
+        $timedate{'unixtime'} = timegm(0, $timedate{'minute'}, $timedate{'hour'}, $timedate{'day'}, $timedate{'month'} - 1, $timedate{'year'});
+    }
+    my @metar = split(/ /, $raw_input);
+    
+    my %weather_data;
+    my @cloud_conds;
+    my @sky_conds;
+    my @unknown_blocks;
+    my @unknown_remarks;
+    
+    while(my $cur_block = shift @metar) {
+        if($cur_block =~ m/^(METAR|TAF|SPECI)$/) {                  # TYPE
+            # METAR type. We don't usually see this, but it's here
+            # for completeness.
+            $weather_data{'report_type'} = $1;
+            
+            
+        } elsif($cur_block =~ m/^([A-Z]{4})$/
+                && !defined $weather_data{'station_id'}) {          # ID
+            # Station ID
+            $weather_data{'station_id'} = $1;
+            
+            
+        } elsif($cur_block =~ m/^(\d{2})(\d{2})(\d{2})Z$/) {        # DAY/TIME
+            $timedate{'day'} = int $1;
+            $timedate{'hour'} = int $2;
+            $timedate{'minute'} = int $3;
+            $timedate{'timezone'} = 'UTC';
+            
+            
+        } elsif($cur_block =~ m/^(\d{3}|VRB|GRID\d{3})(\d{2})(?:G(\d{2}))?KT$/) { # WIND
+            # dddss[Ggg]KT
+            # ddd dir in degrees
+            # ss speed in knots
+            # gg gust speed in knots
+            # -- OR --
+            # GRIDxxxss[Ggg]KT
+            # xxx some direction specification I've only seen used at the
+            #   south pole
+            
+            my ($dir, $speed, $gust) = ($1, $2, $3);
+            
+            if($dir =~ m/^VRB$/) {
+                $weather_data{'wind_dir'}->{'variable'} = 1;
+            } elsif($1 =~ m/^GRID/) {
+                # hard code the south pole's odd wind speed direction
+                if($weather_data{'station_id'} =~ m/^NZSP$/) {
+                    $weather_data{'wind_dir'} = &make_value_unit(0, 'deg');
+                }
+            } else {
+                $weather_data{'wind_dir'} = &make_value_unit(int $dir, 'deg');
+            }
+            $weather_data{'wind_speed'} = &make_value_unit(int $speed, 'kt');
+                if(defined $gust) {
+                $weather_data{'wind_gust'} = &make_value_unit(int $gust, 'kt');
+            }
+            
+            
+        } elsif($cur_block =~ m/^(\d{3})V(\d{3})$/) {               # WIND VAR
+            # variable direction range for wind speeds over 6 kt
+            $weather_data{'wind_dir_range'} = [&make_value_unit(int $1, 'deg'), &make_value_unit(int $2, 'kt')];
+            
+            
+        } elsif($cur_block =~ m/^(\d{1,5})SM$/) {                   # VISIBILITY
+            $weather_data{'visibility'} = &make_value_unit(int $1, 'mi');
+            
+            
+        } elsif($cur_block =~ m|^(?:(M)?(\d{2}))/(?:(M)?(\d{2}))?$|) {# TEMP
+            if(defined $2) {
+                my $temp = int $2;
+                $temp *= -1 if defined $1;
+                $weather_data{'temperature'} = &make_value_unit($temp, 'C');
+            }
+            
+            if(defined $4) {
+                my $temp = int $4;
+                $temp *= -1 if defined $3;
+                $weather_data{'dew_point'} = &make_value_unit($temp, 'C');
+            }
+            
+            
+        } elsif($cur_block =~ m/^A(\d{4})$/) {                      # PRESSURE
+            $weather_data{'pressure'} = &make_value_unit((int $1) / 100, 'inHg');
+            
+            
+        } elsif($cur_block =~ m{^                                   # WX COND
+                (-|\+|VC)?                      # Intensity
+                (MI|PR|BC|DR|BL|SH|TS|FR)?      # Descriptor
+                (DZ|RA|SN|SG|IC|PL|GR|GS|UP)?   # Precipitation
+                (BR|FG|FU|VA|DU|SA|HZ|PY)?      # Obscuration
+                (PO|SQ|FC|SS)?                  # Other
+                $}x) {
+            my ($intensity, $descriptor, $precip, $obscuration, $other)
+                = ($1,$2,$3,$4,$5);
+            my @cond;
+            
+            if(defined $intensity) {
+                if($intensity =~ m/^-$/) {
+                    push(@cond, 'light');
+                } elsif($intensity =~ m/^\+$/) {
+                    push(@cond, 'heavy');
+                }
+            }
+            
+            if(defined $descriptor && $descriptor !~ m/^SH$/) {
+                push(@cond, $cond_names{$descriptor});
+            }
+            
+            if(defined $precip) {
+                push(@cond, $cond_names{$precip});
+            }
+            if(defined $obscuration) {
+                push(@cond, $cond_names{$obscuration});
+            }
+            if(defined $other) {
+                push(@cond, $cond_names{$other});
+            }
+            
+            if(defined $descriptor && $descriptor =~ m/^SH$/) {
+                push(@cond, $cond_names{'SH'});
+            }
+            
+            push(@sky_conds, join(' ', @cond));
+            
+            
+        } elsif($cur_block =~ m/^(FEW|SCT|BKN|OVC)(\d{3})(CB|TCU)?$/) { # SKY
+            my ($cover, $height, $type) = ($1, $2, $3);
+            
+            $cover =~ s/FEW/few/;
+            $cover =~ s/SCT/scattered/;
+            $cover =~ s/BKN/broken/;
+            $cover =~ s/OVC/overcast/;
+            
+            $height *= 100;
+            
+            my %hash;
+            $hash{'cover'} = $cover;
+            $hash{'height'} = &make_value_unit($height, 'ft');
+            if(defined $type) {
+                $hash{'type'} = $type;
+            }
+            
+            push(@cloud_conds, \%hash);
+            
+            
+        } elsif($cur_block =~ m/^RMK$/) {       # BEGIN REMARKS
+            last;
+        } else {
+            push(@unknown_blocks, $cur_block);
+        }
+    }
+    
+    while(my $cur_block = shift @metar) { # parse remarks
+        if($cur_block =~ m/^T(\d)(\d{3})(?:(\d)(\d{3}))$/) {    # TEMP
+            my $temp = $2;
+            $temp *= -1 if $1 == 1;
+            $weather_data{'temperature'} = &make_value_unit($temp / 10, 'C');
+            
+            if(defined $4) {
+                $temp = $4;
+                $temp *= -1 if $3 == 1;
+                $weather_data{'dew_point'} = &make_value_unit($temp / 10, 'C');
+            }
+            
+            
+        } elsif($cur_block =~ m/^P(\d{4})$/) {                  # PRECIP
+            $weather_data{'precip_in_last_hr'} = &make_value_unit($1/100, 'in');
+            
+            
+        } else {
+            push(@unknown_remarks, $cur_block);
+        }
+    }
+    
+    if(%timedate) {
+        $weather_data{'report_time'} = \%timedate;
+    }
+    if(@sky_conds) {
+        $weather_data{'sky_conditions'} = \@sky_conds;
+    }
+    if(@cloud_conds) {
+        $weather_data{'cloud_conditions'} = \@cloud_conds;
+    }
+    if(@unknown_remarks) {
+        $weather_data{'unknown_remarks'} = \@unknown_remarks;
+    }    
+    if(@unknown_blocks) {
+        $weather_data{'unknown_blocks'} = \@unknown_blocks;
+    }
+    return \%weather_data;
+}
+
+sub make_value_unit {
+    my ($value, $unit) = @_;
+    return { 'value' => $value, 'unit' => $unit };
+}
+
 sub find_closest_station {
     my ($zipcode) = @_;
     
@@ -993,6 +1227,46 @@ sub distance {
     
     return (int $dist_mi) . ($flags & NO_UNITS ? '' : ' mi')
     . ' (' . (int $dist_km) . ($flags & NO_UNITS ? '' : ' km') . ')';
+}
+
+sub deg_to_compass {
+    my $deg = $_[0];
+    
+    if($deg < 11.25) {
+        return 'North';
+    } elsif($deg < 33.75) {
+        return 'NNE';
+    } elsif($deg < 56.25) {
+        return 'Northeast';
+    } elsif($deg < 78.75) {
+        return 'ENE';
+    } elsif($deg < 101.25) {
+        return 'East';
+    } elsif($deg < 123.75) {
+        return 'ESE';
+    } elsif($deg < 146.25) {
+        return 'Southeast';
+    } elsif($deg < 168.75) {
+        return 'SSE';
+    } elsif($deg < 191.25) {
+        return 'South';
+    } elsif($deg < 213.75) {
+        return 'SSW';
+    } elsif($deg < 236.25) {
+        return 'Southwest';
+    } elsif($deg < 258.75) {
+        return 'WSW';
+    } elsif($deg < 281.25) {
+        return 'West';
+    } elsif($deg < 303.75) {
+        return 'WNW';
+    } elsif($deg < 326.25) {
+        return 'Northwest';
+    } elsif($deg < 348.75) {
+        return 'NNW';
+    } else {
+        return 'North';
+    }
 }
 
 # Register Plugins

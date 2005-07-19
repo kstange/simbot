@@ -28,9 +28,6 @@ features in SimBot:
 	DBD::SQLite:
 		For sqlite-logger.pl, weather.pl, rss.pl
 
-	Geo::METAR:
-		For weather.pl
-
 	XML::Simple:
 		For weather.pl
 
@@ -63,7 +60,7 @@ most recent version of each module, type:
 
 For example:
 
-	install POE::Component::IRC Encode Geo::METAR LWP
+	install POE::Component::IRC Encode LWP
 
 CPAN will do what it needs to install the necessary package and you'll be
 on your way.  If you are unsure how to answer the questions it asks, it is

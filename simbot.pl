@@ -526,7 +526,12 @@ sub numberize {
 # TIMEAGO: Returns a string of how long ago something happened
 sub timeago {
     my ($seconds, $minutes, $hours, $days, $weeks, $years);
-    $seconds = time - $_[0];
+    my $now = time;
+    
+    $seconds = $now - $_[0];
+    if($_[0] < $now) {
+        warn "Trying to use timeago on a time in the future! Now is ${now}, Then is $_[0]";
+    }
     if($seconds >= 60) {
         $minutes = int $seconds / 60;
         $seconds %= 60;

@@ -24,7 +24,6 @@ Targets for Beyond 1.0
 ======================
 - Use POE better, blocking less and using more events.
 - RSS plugin desperately needs to handle all links/guids changing.
-- Weather plugin needs to stop using Geo::METAR.
 - Make sentence generation bonus __BEGIN/__END as sentence gets longer to reduce the chance of (but not obliterate) excessively long sentences.
 - Redefine Plugin API using POE or related Perl 6 functionality.
 - Allow the user to specify a custom data directory.
