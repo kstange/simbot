@@ -285,12 +285,21 @@ sub do_wx {
         }
         
         $station = uc($station);
-        my $url =
-            'http://weather.noaa.gov/pub/data/observations/metar/stations/'
-            . $station . '.TXT';
-        my $request = HTTP::Request->new(GET=>$url);
+        #my $url =
+        #    'http://weather.noaa.gov/pub/data/observations/metar/stations/'
+        #    . $station . '.TXT';
+        #my $request = HTTP::Request->new(GET=>$url);
         $kernel->post('wxua' => 'request', 'got_metar',
-                                $request, "$nick!$station!$flags");
+            (POST 'http://adds.aviationweather.noaa.gov/metars/index.php',
+             Content_Type => 'form-data',
+             Content    => [
+                station_ids => $station,
+                std_trans => 'standard',
+                chk_metars => 'on',
+                hoursStr => 'most recent only',
+                submitmet => 'Submit',
+            ],
+           ), "$nick!$station!$flags");
     }
     
     if($flags & DO_FORECAST && defined $lat) {
@@ -319,9 +328,16 @@ sub got_metar {
         }
         return;
     }
-    my ($datestamp, $raw_metar) = split(/\n/, $response->content);
+#    my ($datestamp, $raw_metar) = split(/\n/, $response->content);
+    my $raw_metar;
+    unless(($raw_metar) = $response->content =~ m|<FONT FACE="Monospace,Courier">(.*?)</FONT>|s) {
+        &SimBot::debug(1, "NOAA made no sense. They said:\n" . $response->content . "\n");
+        &SimBot::send_message(&SimBot::option('network', 'channel'), "$nick: I couldn't make sense of what NOAA told me.");
+        return;
+    }
+    $raw_metar =~ s/\s+/ /ig;
     
-    &SimBot::debug(4, "weather: METAR is " . $raw_metar . "\n");
+    &SimBot::debug(3, "weather: METAR is " . $raw_metar . "\n");
 
     my $station_name_query = $dbh->prepare_cached(
         'SELECT name, state, country FROM stations'
@@ -347,7 +363,8 @@ sub got_metar {
         return;
     }
     
-    my $wxhash = &parse_metar("${datestamp}\n${raw_metar}");
+    #my $wxhash = &parse_metar("${datestamp}\n${raw_metar}");
+    my $wxhash = &parse_metar($raw_metar);
     
     my $remarks;
     ($raw_metar, undef, $remarks)
