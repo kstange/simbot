@@ -2,54 +2,67 @@
 SimBot Installation
 ================================================
 
-SimBot itself requires no compilation of software.  The perl script comes
-ready to run with only minor changes to the config.ini file.
+SimBot is a collection of Perl script.  It does not need to be compiled, but
+it does require configuration and the installation of certain dependencies.
 
-You should copy the config.default.ini file to config.ini and customize the
-copy.  Keep the file in the same directory where you have the simbot.pl
-script installed.  The installation directory is completely up to you and
-is mostly irrelevant.
+Configuration is simple.  Copy the "config.default.ini" file to "config.ini"
+and customize the copy.  Many of the options in this file are already at
+sane defaults, but you will likely want to customize at least the first
+section to identify your bot uniquely.  Keep the file in the same directory
+where you have the simbot.pl script installed.  The installation directory
+is completely up to you.
 
-You need the POE::Component::IRC and Encode Perl modules installed before
-SimBot will function correctly.  If you have Perl 5.8.0 or higher installed
-you should already have a working Encode.  If you do not, you will need to
-install it.  You may also install these additional modules for extra
-features in SimBot:
+It is strongly recommended that you install Perl version 5.8.0 or higher
+when using SimBot.  Versions below 5.8.0 will not be officially supported,
+but should still work.  Compatibility fixes will be accepted if users
+choose to submit them.  If you do not have Perl 5.8.0, please be sure to
+install the Encode perl module as well as other dependencies.
 
-	POE::Component::Client::HTTP:
-		For weather.pl, rss.pl
+You need the POE::Component::IRC Perl module installed before SimBot will
+function at all.  You should also install the following modules if you
+intend to use any of the stock plugins provided with SimBot:
 
-	LWP: (libwwwperl)
-		For google.pl, tinyurl.pl
+[ LWP ] (libwww-perl) version 5.802 or higher:
 
-	HTML::Entities:
-		For google.pl, rss.pl
+	If you wish to use any stock plugins, you should install LWP.  It
+	is a dependency of several other modules and provides the framework
+	for accessing web-based content.  v5.802 or later is required to
+	handle gzipped content properly in several plugins and utility scripts.
 
-	DBD::SQLite:
-		For sqlite-logger.pl, weather.pl, rss.pl
+[ POE::Component::Client::HTTP ]
 
-	XML::Simple:
-		For weather.pl
+	* Required by: weather, rss
 
-	XML::RSS:
-		For rss.pl
+[ HTML::Entities ]
 
-	Net::Dict:
-		For dict.pl
+	* Required by: google, rss
 
-	Text::Aspell:
-		For aspell.pl
-		
-	SOAP::Lite:
-		For currency.pl
-		
-	DateTime:
-		For time.pl
+[ DBD::SQLite ]
 
-This all, of course, requires that you have Perl installed.
+	* Required by: sqlite-logger, weather, rss
+
+[ XML::Simple ]
+
+	* Required by: weather
+
+[ XML::RSS ]
+
+	* Required by: rss
+
+[ Net::Dict ]
+
+	* Required by: dict
+
+[ Text::Aspell]
+
+	* Required by: aspell
+
+[ DateTime ]
+
+	* Required by: time
 
 All of these modules are available in the CPAN repository, so you can
-install them in most Perl installations by running:
+install them in most Perl environments by running:
 
 	perl -MCPAN -e shell;
 
@@ -60,7 +73,7 @@ most recent version of each module, type:
 
 For example:
 
-	install POE::Component::IRC Encode LWP
+	install POE::Component::IRC LWP
 
 CPAN will do what it needs to install the necessary package and you'll be
 on your way.  If you are unsure how to answer the questions it asks, it is
