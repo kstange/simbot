@@ -465,7 +465,9 @@ sub got_metar {
             push(@reply_with, $tmp);
         }
 
-        push(@reply_with, @{$wxhash->{'sky_conditions'}});
+        if(defined $wxhash->{'sky_conditions'}) {
+            push(@reply_with, @{$wxhash->{'sky_conditions'}});
+        }
 
         foreach my $cur_cloud (@{$wxhash->{'cloud_conditions'}}) {
             push(@reply_with, $cur_cloud->{'cover'} . ' clouds at '
