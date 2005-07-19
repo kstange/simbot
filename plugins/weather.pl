@@ -330,6 +330,12 @@ sub got_metar {
     }
 #    my ($datestamp, $raw_metar) = split(/\n/, $response->content);
     my $raw_metar;
+    if($response->content =~ m|no data available|) {
+        &SimBot::send_message(&SimBot::option('network', 'channel'),
+            "$nick: Sorry, there is no report available for \"$station\". "
+            . FIND_STATION_AT);
+        return;
+    }
     unless(($raw_metar) = $response->content =~ m|<FONT FACE="Monospace,Courier">(.*?)</FONT>|s) {
         &SimBot::debug(1, "NOAA made no sense. They said:\n" . $response->content . "\n");
         &SimBot::send_message(&SimBot::option('network', 'channel'), "$nick: I couldn't make sense of what NOAA told me.");
