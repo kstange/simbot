@@ -343,7 +343,7 @@ sub got_metar {
     }
     $raw_metar =~ s/\s+/ /ig;
     
-    &SimBot::debug(3, "weather: METAR is " . $raw_metar . "\n");
+    &SimBot::debug(4, "weather: METAR is " . $raw_metar . "\n");
 
     my $station_name_query = $dbh->prepare_cached(
         'SELECT name, state, country FROM stations'
@@ -395,7 +395,8 @@ sub got_metar {
     } else {
         $reply .= sprintf('at %d:%02d',
             $wxhash->{'report_time'}->{'hour'},
-            $wxhash->{'report_time'}->{'minute'});
+            $wxhash->{'report_time'}->{'minute'})
+            . ' ' . $wxhash->{'report_time'}->{'timezone'};
     }
     $reply .= " at $station_name";
     my @reply_with;
