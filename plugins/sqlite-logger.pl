@@ -23,7 +23,7 @@
 #   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 # TODO:
-#   * see comment at about line 452
+#   * see comment at about line 600
 #
 
 
@@ -376,7 +376,7 @@ sub do_recap {
     
     my $nick_id = &get_nickchan_id($nick);
     
-    my $start_query = $dbh->prepare(
+    my $start_query = $dbh->prepare_cached(
         'SELECT id FROM chatlog'
         . ' WHERE channel_id = ?'
         . ' AND source_nick_id = ?'
@@ -387,7 +387,7 @@ sub do_recap {
         . ' LIMIT 1'
     );
     
-    my $end_query = $dbh->prepare(
+    my $end_query = $dbh->prepare_cached(
         'SELECT id FROM chatlog'
         . ' WHERE channel_id = ?'
         . ' AND source_nick_id = ?'
@@ -396,7 +396,7 @@ sub do_recap {
         . ' LIMIT 1'
     );
     
-    my $log_query = $dbh->prepare(
+    my $log_query = $dbh->prepare_cached(
         'SELECT time, source_nick_id, event,'
         . ' target_nick_id, content'
         . ' FROM chatlog'
@@ -490,7 +490,7 @@ sub access_log {
             # no nick specified, so how 'bout some generic stats?
             my $tmp_query;
             
-            $tmp_query = $dbh->prepare(
+            $tmp_query = $dbh->prepare_cached(
                 'SELECT time FROM chatlog'
                 . ' WHERE channel_id = ?'
                 . ' ORDER BY time'
@@ -499,7 +499,7 @@ sub access_log {
             my $start_date = localtime(($tmp_query->fetchrow_array())[0]);
             $tmp_query->finish;
             
-            $tmp_query = $dbh->prepare(
+            $tmp_query = $dbh->prepare_cached(
                 'SELECT count() FROM chatlog'
                 . ' WHERE channel_id = ?'
             );
