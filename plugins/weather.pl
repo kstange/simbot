@@ -368,7 +368,7 @@ sub got_metar {
     
     my $reply = 'As reported ';
     if(defined $wxhash->{'report_time'}->{'unixtime'}) {
-        $reply .= &SimBot::timeago($wxhash->{'report_time'}->{'unixtime'});
+        $reply .= &SimBot::timeago($wxhash->{'report_time'}->{'unixtime'}, 1);
     } else {
         $reply .= sprintf('at %d:%02d',
             $wxhash->{'report_time'}->{'hour'},

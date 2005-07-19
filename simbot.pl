@@ -524,12 +524,20 @@ sub numberize {
 }
 
 # TIMEAGO: Returns a string of how long ago something happened
+# timeago(time, specificity)
+# specificity:
+#   0 shows as needed   (1 hour 15 minutes 36 seconds)
+#   1 hides seconds     (1 hour 15 minutes)
+#     except if there are only seconds
 sub timeago {
     my ($seconds, $minutes, $hours, $days, $weeks, $years);
     my $now = time;
     
     $seconds = $now - $_[0];
-    if($_[0] < $now) {
+    my $hidemode = $_[1];
+    
+    if(!defined $hidemode) { $hidemode = 0; }
+    if($_[0] > $now) {
         warn "Trying to use timeago on a time in the future! Now is ${now}, Then is $_[0]";
     }
     if($seconds >= 60) {
@@ -554,7 +562,8 @@ sub timeago {
     push(@reply, "$days day" . (($days == 1) ? '' : 's'))          if $days;
     push(@reply, "$hours hour" . (($hours == 1) ? '' : 's'))       if $hours;
     push(@reply, "$minutes minute" . (($minutes == 1) ? '' : 's')) if $minutes;
-    push(@reply, "$seconds second" . (($seconds == 1) ? '' : 's')) if $seconds;
+    push(@reply, "$seconds second" . (($seconds == 1) ? '' : 's'))
+        if $seconds && $hidemode != 1;
     if(@reply) {
 		my $string = join(', ', @reply) . ' ago';
 		$string =~ s/(.*),/$1 and/;
