@@ -493,12 +493,31 @@ sub got_metar {
             push(@reply_with, @{$wxhash->{'sky_conditions'}});
         }
 
-        foreach my $cur_cloud (@{$wxhash->{'cloud_conditions'}}) {
-            push(@reply_with, $cur_cloud->{'cover'} . ' clouds at '
-                              . $cur_cloud->{'height'}->{'value'}
-                              . ' ' . $cur_cloud->{'height'}->{'unit'});
-        }
 
+        # Captains may care about every single layer of cloud cover, but
+        # we don't. Let's find the worst.
+        my $worst_clouds = 'fair skies';
+        foreach my $cur_cloud (@{$wxhash->{'cloud_conditions'}}) {
+            my $cover = $cur_cloud->{'cover'};
+            if(   ($worst_clouds =~ m/fair skies|few/)
+               || ($worst_clouds =~ m/scattered/ && $cover =~ m/broken|overcast/)
+               || ($worst_clouds =~ m/broken/ && $cover =~ m/overcast/) ) {
+                
+                $worst_clouds = $cover;
+            }
+            if($worst_clouds =~ m/overcast/) {
+                # we've found the worst cover, no need to keep looking
+                last;
+            }
+        }
+        
+        if($worst_clouds =~ m/fair skies/ || !defined $wxhash->{'sky_conditions'}) {
+            if($worst_clouds =~ m/scattered|broken/) {
+                $worst_clouds .= ' clouds';
+            }
+            push(@reply_with, $worst_clouds);
+        }
+        
         if($remarks) {
             # remarks are often not very easy to parse, but we can try.
 
@@ -1258,6 +1277,11 @@ sub distance {
 sub deg_to_compass {
     my $deg = $_[0];
     
+    if($deg < 0 || $deg > 365) {
+        my @caller = caller(1);
+        warn "absurd angle given to deg_to_compass, called from $caller[3] line $caller[2]";
+        return $deg;
+    }
     if($deg < 11.25) {
         return 'North';
     } elsif($deg < 33.75) {
