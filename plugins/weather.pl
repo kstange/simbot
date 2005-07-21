@@ -1162,17 +1162,17 @@ sub temp {
     }
         
     if($flags & UNITS_METRIC) {
-        return (int $temp_c)
+        return &round($temp_c)
             . ($flags & NO_UNITS ? '' : '°C');
     }
     
     if($flags & UNITS_IMPERIAL) {
-        return (int $temp_f)
+        return &round($temp_f)
             . ($flags & NO_UNITS ? '' : '°F');
     }
     
-    return (int $temp_f) . ($flags & NO_UNITS ? '' : '°F')
-    . ' (' . (int $temp_c) . ($flags & NO_UNITS ? '' : '°C') . ')';
+    return &round($temp_f) . ($flags & NO_UNITS ? '' : '°F')
+    . ' (' . &round($temp_c) . ($flags & NO_UNITS ? '' : '°C') . ')';
 }
 
 sub speed {
@@ -1191,7 +1191,7 @@ sub speed {
     if(    ($unit =~ m(km/h)i && $flags & UNITS_METRIC)
         || ($unit =~ m(MPH)i  && $flags & UNITS_IMPERIAL))
     {
-        return (int $speed) . ($flags & NO_UNITS ? '' : ' ' . $unit);
+        return &round($speed) . ($flags & NO_UNITS ? '' : ' ' . $unit);
     }
     
     my ($speed_kmh, $speed_mph);
@@ -1207,13 +1207,13 @@ sub speed {
     }
     
     if($flags & UNITS_METRIC) {
-        return (int $speed_kmh) . ($flags & NO_UNITS ? '' : ' km/h');
+        return &round($speed_kmh) . ($flags & NO_UNITS ? '' : ' km/h');
     }
     
     if($flags & UNITS_IMPERIAL) {
-        return (int $speed_mph) . ($flags & NO_UNITS ? '' : ' MPH');
+        return &round($speed_mph) . ($flags & NO_UNITS ? '' : ' MPH');
     }
-    return (int $speed_mph) . ($flags & NO_UNITS ? '' : ' MPH'). ' (' . (int $speed_kmh) . ($flags & NO_UNITS ? '' : ' km/h') . ')';
+    return &round($speed_mph) . ($flags & NO_UNITS ? '' : ' MPH'). ' (' . &round($speed_kmh) . ($flags & NO_UNITS ? '' : ' km/h') . ')';
 }
 
 sub distance {
@@ -1229,7 +1229,7 @@ sub distance {
             || ($unit =~ m/mi/i && $flags & UNITS_IMPERIAL))
     {
         # Distance is already in the desired units.
-        return (int $dist) . ($flags & NO_UNITS ? '' : ' ' . $unit);
+        return &round($dist) . ($flags & NO_UNITS ? '' : ' ' . $unit);
     }
     
     my ($dist_mi, $dist_km);
@@ -1242,17 +1242,17 @@ sub distance {
     }
         
     if($flags & UNITS_METRIC) {
-        return (int $dist_km)
+        return &round($dist_km)
             . ($flags & NO_UNITS ? '' : ' km');
     }
     
     if($flags & UNITS_IMPERIAL) {
-        return (int $dist_mi)
+        return &round($dist_mi)
             . ($flags & NO_UNITS ? '' : ' mi');
     }
     
-    return (int $dist_mi) . ($flags & NO_UNITS ? '' : ' mi')
-    . ' (' . (int $dist_km) . ($flags & NO_UNITS ? '' : ' km') . ')';
+    return &round($dist_mi) . ($flags & NO_UNITS ? '' : ' mi')
+    . ' (' . &round($dist_km) . ($flags & NO_UNITS ? '' : ' km') . ')';
 }
 
 sub deg_to_compass {
@@ -1293,6 +1293,10 @@ sub deg_to_compass {
     } else {
         return 'North';
     }
+}
+
+sub round {
+    return int($_[0] + .5 * ($_[0] <=> 0));
 }
 
 # Register Plugins
