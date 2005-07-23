@@ -511,7 +511,7 @@ sub got_metar {
             }
         }
         
-        if($worst_clouds =~ m/fair skies/ || !defined $wxhash->{'sky_conditions'}) {
+        if($worst_clouds !~ m/fair skies/ || !defined $wxhash->{'sky_conditions'}) {
             if($worst_clouds =~ m/scattered|broken/) {
                 $worst_clouds .= ' clouds';
             }
