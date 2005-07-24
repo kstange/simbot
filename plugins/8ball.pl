@@ -54,6 +54,7 @@ use constant BLANK_SAYINGS => (
 use constant INTROS => (
     q(pulls out a Magic 8 Ball and concentrates deeply on $nick's question:),
     q(drops the magic 8 ball on the floor, catches it as it rolls away, and shows the answer to $nick's question:),
+    q(vigorously shakes the 8-ball, to find the answer to $nick's question:),
 );
 
 use constant BLANK_INTROS => (
