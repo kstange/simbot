@@ -512,7 +512,7 @@ sub got_metar {
         }
         
         if($worst_clouds !~ m/fair skies/ || !defined $wxhash->{'sky_conditions'}) {
-            if($worst_clouds !~ m/overcast/) {
+            if($worst_clouds !~ m/overcast|fair/) {
                 $worst_clouds .= ' clouds';
             }
             push(@reply_with, $worst_clouds);
