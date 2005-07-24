@@ -1,3 +1,7 @@
+Version 1.0 alpha: (23 Jul 2005)
+	* plugins/8ball.pl:
+	  - SimBot has acquired a Magic Eight Ball. Ask it a question!
+
 Version 1.0 alpha: (18 Jul 2005)
 	* plugins/weather.pl:
 	  - Added our own METAR parser. With luck, this will be more sane.
