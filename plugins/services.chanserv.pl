@@ -103,7 +103,7 @@ sub check_response {
 			$logged_in = 0;
 			&services_login;
         } elsif ($text =~ m/Your nickname is not yet authenticated/i) {
-            &SimBot::debug(1, "Services reports: $text);
+            &SimBot::debug(1, "Services reports: $text");
 		}
     }
 
