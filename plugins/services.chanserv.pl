@@ -90,10 +90,10 @@ sub check_response {
 			if ($shut_up) {
 				&request_voice($kernel, undef, $chan);
 			}
-		} elsif ($text =~ /You have already identified/) {
+		} elsif ($text =~ /You have already identified/i) {
 			&SimBot::debug(2, "Services reports already logged in.\n");
 			$logged_in = 1;
-		} elsif ($text =~ /Access denied./) {
+		} elsif ($text =~ /Access denied/i) {
 			&SimBot::debug(2, "Services reports not yet logged in.\n");
 			$logged_in = 0;
 			&services_login($kernel);
@@ -106,7 +106,7 @@ sub check_response {
 			my $chan = $1;
 			&SimBot::debug(3, "Services reports successful unban command.\n");
 			$kernel->post(bot => join => $chan);
-		} elsif ($text =~ /Password identification is required/) {
+		} elsif ($text =~ /Password identification is required/i) {
 			&SimBot::debug(2, "Services reports not yet logged in.\n");
 			$logged_in = 0;
 			&services_login($kernel);
