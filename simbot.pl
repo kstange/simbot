@@ -326,6 +326,7 @@ POE::Component::IRC->new('bot');
 POE::Session->new
 	( _start           => \&initialize,
 	  irc_001          => \&irc_connected,    # connected
+	  irc_005          => \&server_supports,  # RPL_ISUPPORT
 	  irc_433          => \&pick_new_nick,    # nickname in use
 	  irc_socketerr    => \&socket_error,     # internet wants to yell at us
 	  irc_error        => \&server_error,     # server wants to yell at us
@@ -1989,6 +1990,56 @@ sub server_banned {
         $terminating=100;
     }
 
+}
+
+# SERVER_SUPPORTS: called when the server tells us some information about
+# itself. Right now, we use it to figure out what network we are on
+# and enable any network specific modes.
+# In the future, this could be used to make any channel management features
+# more efficient by configuring the number of modes that can be set at once,
+# how many bans the server allows, if the server supports invite and ban
+# exceptions, etc
+# Also, could be used to push ignores serverside with the SILENCE command
+sub server_supports {
+    my ($message) = $_[ARG1] =~ m/^(.*):.*?$/;
+    &debug(4, "Server supports: ${message}\n");
+    
+    foreach my $cur_block (split(/ /, $message)) {
+        &debug(3, "$cur_block ");
+        if(my ($ircd) = $cur_block =~ m/^IRCD=(\S+)/) {
+            if($ircd =~ m/dancer/) {
+                &debug(3, "We're on a Dancer IRCD server, setting no-forward user mode\n");
+                
+                # +Q tells the server not to try to forward us to another
+                # channel.
+                # FIXME: Channel forwarding should work, or at least be handled
+                # nicely. Right now many plugins assume that the channel we are
+                # in is the channel defined in the config file, which may
+                # not be true.
+                $kernel->post(bot => mode => $chosen_nick => '+Q');
+            }
+            
+        # } elsif(my ($maxwatch) = $cur_block =~ m/^WATCH=(\d+)/) {
+            # hmm... the server supports watch lists
+            # let's use them instead of polling with ison
+            
+            
+            
+        # } elsif(my ($maxmodes) = $cur_block =~ m/^MODES=(\d+)/) {
+            # This tells us how many mode changes can be done at once.
+            # mode flags count as 1, arguments count as 1
+            # (so +b foo counts as 2, while +i counts as 1)
+            
+        # } elsif(my ($modeflags) = $cur_block =~ m/^STATUSMSG=(\S+)/) {
+            # This tells us what mode flags (+%@ etc) we can stick in front
+            # of a channel name to message that channels voiced/halfops/ops
+            # + means we can use +#channel to message the channel's voiced, 
+            # halfops, and ops. % is halfops and ops, @ is ops.
+            
+            # we should use this for any wallchops type command
+            # if the server tells us it can
+        }
+    }
 }
 
 # SOCKET_ERROR: Spit out the error, then reconnect to IRC.
