@@ -1,3 +1,15 @@
+Version 1.0 alpha: (25 Jul 2005)
+	* simbot.pl:
+	  - Added message value returned to callbacks attached to the nojoin
+	    (banned/invite-only) event.
+	* plugins/services.chanserv.pl:
+	  - Rewrote the chanserv support to automatically attempt to register
+	    with nickserv, and to automatically try to link nicknames with
+	    the nickname represented by the services "user."  Additional error
+	    handling has been added as well.
+	* plugins/services.dalnet.pl:
+	  - Dropped in favor of handling all chanserv operations in one plugin.
+
 Version 1.0 alpha: (23 Jul 2005)
 	* plugins/8ball.pl:
 	  - SimBot has acquired a Magic Eight Ball. Ask it a question!
@@ -5,21 +17,21 @@ Version 1.0 alpha: (23 Jul 2005)
 Version 1.0 alpha: (18 Jul 2005)
 	* plugins/weather.pl:
 	  - Added our own METAR parser. With luck, this will be more sane.
-	  - If we can figure out a valid time for the report, we tell the user how
-	    old the report is instead of the UTC time.
+	  - If we can figure out a valid time for the report, we tell the user
+	    how old the report is instead of the UTC time.
 
 Version 1.0 alpha: (08 May 2005)
 	* plugins/time.pl:
 	  - New plugin!
 	  - Shows the current time in a number of time zones.
-	  - %time <zones> shows the local time and the requested zones, 
+	  - %time <zones> shows the local time and the requested zones,
 	    otherwise shows local and those defined in config.ini.
 	    Failing that, local and UTC.
 
 Version 1.0 alpha: (07 May 2005)
 	* plugins/weather.pl:
-	  - Some unit conversion support. Add 'm' or 'metric' to show metric units,
-	    'us' or 'imp' or 'imperial' for imperial units.
+	  - Some unit conversion support. Add 'm' or 'metric' to show metric
+	    units, 'us' or 'imp' or 'imperial' for imperial units.
 	  - Support for UK post codes
 	* tools/create_postalcode_db.pl:
 	  - Replaces tools/create_zip_db.pl

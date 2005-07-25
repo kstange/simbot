@@ -16,7 +16,7 @@ Targets for 1.0 Beta
 Targets for 1.0 Final
 ======================
 
-- Test dalnet and chanserv style services plugins.  Preferrably, merge these two services plugins, unless it's absolutely impossible.
+- Test chanserv style services plugin on other than freenode.
 - Polish (as in make better, not Poland) the documentation.
 - Standardize and clean up the debug output.
 - Test the hell out of every feature.

@@ -181,7 +181,7 @@ our %event_channel_join        = (); # eventname = JOINED ()
 our %event_channel_part        = (); # eventname = PARTED (message)
 our %event_channel_quit        = (); # eventname = QUIT (message)
 our %event_channel_mejoin      = (); # eventname = JOINED ()
-our %event_channel_nojoin      = (); # eventname = NOTJOINED ()
+our %event_channel_nojoin      = (); # eventname = NOTJOINED (message)
 our %event_channel_novoice     = (); # eventname = CANTSAY ()
 our %event_channel_invite      = (); # eventname = INVITED ()
 
@@ -1759,7 +1759,7 @@ sub channel_kick {
     my ($chan, $nick, $reason) = @_[ ARG1, ARG2, ARG3 ];
 	&debug(3, "$nick was kicked from $chan by $kicker. ($reason)\n");
 
-    if ($nick eq $chosen_nick && $chan eq option('network', 'channel')) {
+    if ($nick eq $chosen_nick && lc($chan) eq lc(option('network', 'channel'))) {
 		&debug(2, "Kicked from $chan... Attempting to rejoin!\n");
 		$kernel->post(bot => join => $chan);
     }
@@ -1788,7 +1788,7 @@ sub channel_nojoin {
     my ($chan, $msg) = split(/ :/, $_[ ARG1 ]);
 	&debug(2, "Unable to join $chan. ($msg)\n");
     foreach(keys(%event_channel_nojoin)) {
-		&plugin_callback($_, $event_channel_nojoin{$_}, ($chosen_nick, $chan, 'NOTJOINED'));
+		&plugin_callback($_, $event_channel_nojoin{$_}, ($chosen_nick, $chan, 'NOTJOINED', $msg));
     }
 }
 

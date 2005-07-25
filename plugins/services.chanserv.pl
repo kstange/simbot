@@ -1,8 +1,7 @@
 # SimBot NickServ/ChanServ style Services Plugin
 #
 # Copyright (C) 2004, Vincent Gevers <http://allowee.net/>
-#
-# $id:$
+# Copyright (C) 2005, Kevin Stange   <kevin@simguy.net>
 #
 # This program is free software; you can redistribute it and/or modify
 # under the terms of the GNU General Public License as published by
@@ -18,7 +17,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
-# NOTE: This plugin has only been tested on a few networks that use ChanServ Services
+# NOTE: This plugin has only been heavily tested on a Freenode.  Additional
+#       testing and feedback from other networks are needed and welcome.
 
 package SimBot::plugin::services::chanserv;
 
@@ -35,88 +35,124 @@ our $shut_up         = 0;
 # SERVICES_LOGIN: Here, we log into nickserv if we have a services username and
 # password, since logging in would be tricky, at best, without them.
 sub services_login {
-    my ($kernel, undef, $nick) = @_;
-        my $user = &SimBot::option('services', 'user');
-        my $pass = &SimBot::option('services', 'pass');
-        
-     if (defined $nick) {
-                &SimBot::debug(3, "Setting masked user mode...\n");
-                $kernel->post(bot => mode => $nick, "+x");
-    }        
+    my ($kernel) = @_;
+	my $user = &SimBot::option('services', 'user');
+	my $pass = &SimBot::option('services', 'pass');
 
-    if ($pass && $user) {
-                &SimBot::debug(3, "Logging into Services as $user...\n");
-                &SimBot::send_message("nickserv", "identify $pass");
+    if ($pass) {
+		&SimBot::debug(3, "Logging into services...\n");
+		&SimBot::send_message("nickserv", "identify $pass");
     }
 }
 
-# CHECK_RESPONSE: When we try to log in or run a command, NickServ will tell us
+# CHECK_RESPONSE: When we try to log in or run a command, services will tell us
 # something.  Here, we handle different possible cases.
 sub check_response {
     my ($kernel, $nick, undef, $text) = @_;
-    my $user = &SimBot::option('global', 'nickname');
-        
-    if ($nick eq "NickServ") {
-                if ($text =~ /Password accepted - you are now recognized/) {
-                        &SimBot::debug(3, "Services reports successful login.\n");
-                        $logged_in = 1;
-                        $services_online = 1;
-                        if ($locked_out) {
-                                &request_invite($kernel, undef, &SimBot::option('network', 'channel'));
-                        }
-                        if ($shut_up) {
-                                &request_voice($kernel, undef, &SimBot::option('network', 'channel'));
-                        }
-                } elsif ($text =~ /Password incorrect./) {
-                        &SimBot::debug(2, "Services reports login failure.\n");
-                        $logged_in = 0;
-                        $services_online = 1;
-                } elsif ($text =~ /You have already identified/) {
-                        &SimBot::debug(2, "Services reports already logged in.\n");
-                        $logged_in = 1;
-                        $services_online = 1;
-                } elsif ($text =~ /Access denied./) {
-                        &SimBot::debug(2, "Services reports not yet logged in.\n");
-                        $logged_in = 0;
-                        $services_online = 1;
-                        &services_login($kernel);
-                } elsif ($text =~ /Your nick isn\'t registered/) {
-                        &SimBot::debug(2, "Services reports nickname $user as not registered.\n");
-                        $logged_in = 0;
-                        $services_online = 1;                
-                } else {
-                        &SimBot::debug(4, "Services message: $text\n");
-                }
+	my $user = &SimBot::option('services', 'user');
+	my $pass = &SimBot::option('services', 'pass');
+	my $me   = $SimBot::chosen_nick;
+	my $chan = &SimBot::option('network', 'channel');
+    if (lc($nick) eq lc("NickServ")) {
+		$services_online = 1;
+
+		if ($text =~ /is( not|n\'t) registered/i) {
+			# Try to register!!
+			&SimBot::debug(2, "Nickname $me is not registered; Trying to register it now...\n");
+			&SimBot::send_message("nickserv", "register $pass");
+		} elsif ($text =~ /Your nickname is now registered/i) {
+			&SimBot::debug(3, "Nickname $me registered successfully.\n");
+			$logged_in = 1;
+			# Special case.  If username is set, link this nickname to main.
+			if (defined $user && lc($me) ne lc($user)) {
+				&SimBot::debug(3, "Attempting to link nickname registration to $user...\n");
+				&SimBot::send_message("nickserv", "link $user $pass");
+			}
+			if ($locked_out) {
+				&request_unban($kernel, undef, $chan);
+			}
+			if ($shut_up) {
+				&request_voice($kernel, undef, $chan);
+			}
+		} elsif ($text =~ /Your nickname is now linked/i) {
+			&SimBot::debug(3, "Nickname linked to $user successfully.\n");
+		} elsif ($text =~ /Password incorrect/i) {
+			if ($logged_in == 0) {
+                &SimBot::debug(1, "Services reports login failure.\n");
+			} else {
+				&SimBot::debug(1, "Services command failed: Incorrect password.\n");
+			}
+# Assuming this to not be necessary... for now....
+#		} elsif ($text =~ /This nickname is owned by someone else/i && $logged_in == 0) {
+#			&services_login($kernel);
+		} elsif ($text =~ /you are now recognized/i) {
+			&SimBot::debug(3, "Services reports successful login.\n");
+			$logged_in = 1;
+			if ($locked_out) {
+				&request_unban($kernel, undef, $chan);
+			}
+			if ($shut_up) {
+				&request_voice($kernel, undef, $chan);
+			}
+		} elsif ($text =~ /You have already identified/) {
+			&SimBot::debug(2, "Services reports already logged in.\n");
+			$logged_in = 1;
+		} elsif ($text =~ /Access denied./) {
+			&SimBot::debug(2, "Services reports not yet logged in.\n");
+			$logged_in = 0;
+			&services_login($kernel);
+		} else {
+			&SimBot::debug(4, "Services message: $text\n");
+		}
     }
+
+    if (lc($nick) eq lc("ChanServ")) {
+		$services_online = 1;
+		if ($text =~ /bans matching .* cleared on (\#.*)/i) {
+			my $chan = $1;
+			$locked_out = 0;
+			&SimBot::debug(3, "Services reports successful unban command.\n");
+			$kernel->post(bot => join => $chan);
+		} elsif ($text =~ /Password identification is required/) {
+			&SimBot::debug(2, "Services reports not yet logged in.\n");
+			$logged_in = 0;
+			&services_login($kernel);
+		}
+	}
 }
 
-# REQUEST_INVITE: If the bot is out of the channel, request an invitation
+# REQUEST_UNBAN: If the bot is out of the channel, request an unban
 # from ChanServ.
-sub request_invite {
-    my ($kernel, undef, $channel) = @_;
+sub request_unban {
+    my ($kernel, undef, $channel, undef, $msg) = @_;
     if (&SimBot::option('services', 'pass')) {
-                $locked_out = 1;
-                if($services_online && $logged_in) {
-                        &SimBot::debug(2, "Could not join.  Asking for invitation to $channel...\n");
-                        &SimBot::send_message("ChanServ", "invite $channel");
-                } elsif ($services_online) {
-                        &services_login($kernel);
-                }
-        }
+		$locked_out = 1;
+		if($services_online && $logged_in) {
+			if ($msg =~ /banned/i) {
+				&SimBot::debug(2, "Could not join.  Asking services for unban from $channel...\n");
+				&SimBot::send_message("ChanServ", "unban $channel");
+			} else { # Try Invite
+				&SimBot::debug(2, "Could not join.  Asking services for invite to $channel...\n");
+				&SimBot::send_message("ChanServ", "invite $channel");
+			}
+		} elsif ($services_online) {
+			&services_login($kernel);
+		}
+	}
 }
 
 # REQUEST_VOICE: If the bot was not able to speak, request a voice from ChanServ.
 sub request_voice {
     my ($kernel, undef, $channel) = @_;
     if (&SimBot::option('services', 'pass')) {
-                $shut_up = 1;
-                if($services_online && $logged_in) {
-                        &SimBot::debug(2, "Could not speak.  Asking for voice on $channel...\n");
-                        &SimBot::send_message("ChanServ", "voice $channel");
-                        $shut_up = 0;
-                } elsif ($services_online) {
-                        &services_login($kernel);
-                }
+		$shut_up = 1;
+		if($services_online && $logged_in) {
+			&SimBot::debug(2, "Could not speak.  Asking for voice on $channel...\n");
+			&SimBot::send_message("ChanServ", "voice $channel");
+			$shut_up = 0;
+		} elsif ($services_online) {
+			&services_login($kernel);
+		}
     }
 }
 
@@ -127,18 +163,19 @@ sub process_join {
     $locked_out = 0;
 }
 
-# PROCESS_NOTIFY: Check to see if nickserv is online, and if not previously online,
-# log in.  Also log in if we're waiting for nickserv and detect that services are available.
+# PROCESS_NOTIFY: Check to see if nickserv is online, and if not previously
+# online, log in.  Also log in if we're waiting for nickserv and detect that
+# services are available.
 sub process_notify {
     my ($kernel, undef, undef, @nicks) = @_;
     my $found = 0;
     foreach(@nicks) {
-                if($_ eq "NickServ") {
-                        $found = 1;
-                }
+		if($_ eq "NickServ") {
+			$found = 1;
+		}
     }
     if ((!$services_online || $locked_out || $shut_up) && $found) {
-                &services_login($kernel);
+		&services_login($kernel);
     }
     $services_online = $found;
 }
@@ -146,8 +183,8 @@ sub process_notify {
 # KICK_USER: Kicks a user through ChanServ.
 sub kick_user {
     my (undef, $channel, $user, $message) = @_;
-        &SimBot::debug(3, "Asking Channel Service to kick $user from $channel ($message)...\n");
-        &SimBot::send_message("ChanServ", "kick $channel $user $message");
+	&SimBot::debug(3, "Asking Channel Service to kick $user from $channel ($message)...\n");
+	&SimBot::send_message("ChanServ", "kick $channel $user $message");
 }
 
 # BAN_USER: Kickbans a user through ChanServ.
@@ -161,27 +198,27 @@ sub ban_user {
 }
 
 # UNBAN_USER: Unbans a user through ChanServ.
-sub unban_user {
-    my (undef, $channel, $user, $message) = @_;
-        &SimBot::debug(3, "Asking Channel Service to unban $user (" .
-                                   &SimBot::hostmask($user) .
-                                   ") from $channel...\n");
-        &SimBot::send_message("ChanServ", "unban $channel " . &SimBot::hostmask($user));
-}
+#sub unban_user {
+#    my (undef, $channel, $user, $message) = @_;
+#        &SimBot::debug(3, "Asking Channel Service to unban $user (" .
+#					   &SimBot::hostmask($user) .
+#					   ") from $channel...\n");
+#	&SimBot::send_message("ChanServ", "unban $channel " . &SimBot::hostmask($user));
+#}
 
 # MASK_USERHOST: Checks to see if a special network-related hostmasking is
 # in place and ensures it is generalized properly.
 
 # this won't work, I guess..
 # but how can this be fixed,this is a common used plugin
-sub mask_userhost {
-    my ($user, $host) = split(/@/, $_[1]);
-        if ($host =~ /\.users\.undernet\.org$/) {
-                return "*\@$host";
-        } else {
-                return undef;
-        }
-}
+#sub mask_userhost {
+#    my ($user, $host) = split(/@/, $_[1]);
+#        if ($host =~ /\.users\.undernet\.org$/) {
+#                return "*\@$host";
+#        } else {
+#                return undef;
+#        }
+#}
 
 
 # Register Plugin
@@ -189,16 +226,15 @@ sub mask_userhost {
 						 event_server_connect  => \&services_login,
 						 event_server_ison     => \&process_notify,
 						 event_private_notice  => \&check_response,
-						 event_channel_nojoin  => \&request_invite,
+						 event_channel_nojoin  => \&request_unban,
 						 event_channel_mejoin  => \&process_join,
 						 event_channel_novoice => \&request_voice,
 
-						 query_userhost_mask   => \&mask_userhost,
+# TODO						 query_userhost_mask   => \&mask_userhost,
 
-						 list_nicks_ison       => "ChanServ",
+						 list_nicks_ison       => "NickServ",
 						 );
 
 # Override Default Command Operations
 $SimBot::commands{kick}  = \&kick_user;
 $SimBot::commands{ban}   = \&ban_user;
-$SimBot::commands{unban} = \&unban_user;
