@@ -31,7 +31,7 @@ use strict;
 
 # Start with the assumption Services are online, we are not locked out, and
 # we are not logged in, and we are not shut up.
-our $services_online = 1;
+our $services_online = 0;
 our $logged_in       = 0;
 our $locked_out      = 0;
 our $shut_up         = 0;
@@ -39,7 +39,6 @@ our $shut_up         = 0;
 # SERVICES_LOGIN: Here, we log into nickserv if we have a services username and
 # password, since logging in would be tricky, at best, without them.
 sub services_login {
-    my ($kernel) = @_;
 	my $pass = &SimBot::option('services', 'pass');
 
     if ($pass) {
@@ -85,6 +84,8 @@ sub check_response {
 			} else {
 				&SimBot::debug(1, "Services command failed: Incorrect password.\n");
 			}
+		} elsif ($text =~ /This nickname is owned by someone else/i && $logged_in == 0) {
+			&services_login;
 		} elsif ($text =~ /you are now recognized/i) {
 			&SimBot::debug(3, "Services reports successful login.\n");
 			$logged_in = 1;
@@ -100,8 +101,8 @@ sub check_response {
 		} elsif ($text =~ /Access denied/i) {
 			&SimBot::debug(2, "Services reports not yet logged in.\n");
 			$logged_in = 0;
-			&services_login($kernel);
-        } elsif ($text =~ m/Your nickname is not yet authenticated./) {
+			&services_login;
+        } elsif ($text =~ m/Your nickname is not yet authenticated/i) {
             &SimBot::debug(1, "Services reports: $text);
 		}
     }
@@ -115,7 +116,7 @@ sub check_response {
 		} elsif ($text =~ /Password identification is required/i) {
 			&SimBot::debug(2, "Services reports not yet logged in.\n");
 			$logged_in = 0;
-			&services_login($kernel);
+			&services_login;
 		}
 	}
 }
@@ -135,7 +136,7 @@ sub request_unban {
 				&SimBot::send_message("ChanServ", "invite $channel");
 			}
 		} elsif ($services_online) {
-			&services_login($kernel);
+			&services_login;
 		}
 	}
 }
@@ -150,7 +151,7 @@ sub request_voice {
 			&SimBot::send_message("ChanServ", "voice $channel");
 			$shut_up = 0;
 		} elsif ($services_online) {
-			&services_login($kernel);
+			&services_login;
 		}
     }
 }
@@ -174,7 +175,7 @@ sub process_notify {
 		}
     }
     if ((!$services_online || $locked_out || $shut_up) && $found) {
-		&services_login($kernel);
+		&services_login;
     }
     $services_online = $found;
 }
@@ -207,29 +208,13 @@ sub ban_user {
 #	&SimBot::send_message("ChanServ", "unban $channel " . &SimBot::hostmask($user));
 #}
 
-# XXX: This needs to be very smart or go away.
-
-# MASK_USERHOST: Checks to see if a special network-related hostmasking is
-# in place and ensures it is generalized properly.
-#sub mask_userhost {
-#    my ($user, $host) = split(/@/, $_[1]);
-#        if ($host =~ /\.users\.undernet\.org$/) {
-#                return "*\@$host";
-#        } else {
-#                return undef;
-#        }
-#}
-
 # Register Plugin
 &SimBot::plugin_register(plugin_id   => "services::chanserv",
-						 event_server_connect  => \&services_login,
 						 event_server_ison     => \&process_notify,
 						 event_private_notice  => \&check_response,
 						 event_channel_nojoin  => \&request_unban,
 						 event_channel_mejoin  => \&process_join,
 						 event_channel_novoice => \&request_voice,
-
-# TODO						 query_userhost_mask   => \&mask_userhost,
 
 						 list_nicks_ison       => "NickServ",
 						 );
