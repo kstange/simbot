@@ -36,7 +36,6 @@ our $shut_up         = 0;
 # password, since logging in would be tricky, at best, without them.
 sub services_login {
     my ($kernel) = @_;
-	my $user = &SimBot::option('services', 'user');
 	my $pass = &SimBot::option('services', 'pass');
 
     if ($pass) {
@@ -82,9 +81,6 @@ sub check_response {
 			} else {
 				&SimBot::debug(1, "Services command failed: Incorrect password.\n");
 			}
-# Assuming this to not be necessary... for now....
-#		} elsif ($text =~ /This nickname is owned by someone else/i && $logged_in == 0) {
-#			&services_login($kernel);
 		} elsif ($text =~ /you are now recognized/i) {
 			&SimBot::debug(3, "Services reports successful login.\n");
 			$logged_in = 1;
@@ -101,8 +97,6 @@ sub check_response {
 			&SimBot::debug(2, "Services reports not yet logged in.\n");
 			$logged_in = 0;
 			&services_login($kernel);
-		} else {
-			&SimBot::debug(4, "Services message: $text\n");
 		}
     }
 
@@ -110,7 +104,6 @@ sub check_response {
 		$services_online = 1;
 		if ($text =~ /bans matching .* cleared on (\#.*)/i) {
 			my $chan = $1;
-			$locked_out = 0;
 			&SimBot::debug(3, "Services reports successful unban command.\n");
 			$kernel->post(bot => join => $chan);
 		} elsif ($text =~ /Password identification is required/) {
@@ -197,6 +190,8 @@ sub ban_user {
         &SimBot::send_message("ChanServ", "ban $channel " . &SimBot::hostmask($user) . "$message");
 }
 
+# XXX: Freenode, at least, you can't unban specific users, it appears.
+
 # UNBAN_USER: Unbans a user through ChanServ.
 #sub unban_user {
 #    my (undef, $channel, $user, $message) = @_;
@@ -206,11 +201,10 @@ sub ban_user {
 #	&SimBot::send_message("ChanServ", "unban $channel " . &SimBot::hostmask($user));
 #}
 
+# XXX: This needs to be very smart or go away.
+
 # MASK_USERHOST: Checks to see if a special network-related hostmasking is
 # in place and ensures it is generalized properly.
-
-# this won't work, I guess..
-# but how can this be fixed,this is a common used plugin
 #sub mask_userhost {
 #    my ($user, $host) = split(/@/, $_[1]);
 #        if ($host =~ /\.users\.undernet\.org$/) {
@@ -219,7 +213,6 @@ sub ban_user {
 #                return undef;
 #        }
 #}
-
 
 # Register Plugin
 &SimBot::plugin_register(plugin_id   => "services::chanserv",
