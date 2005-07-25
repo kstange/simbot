@@ -33,7 +33,7 @@ package SimBot::plugin::aspell;
 # for more information on the different modes.
 use constant SUGGESTION_MODE    => 'fast';
 
-use constant CORRECT_SPELLING_BONUS => 50;
+use constant CORRECT_SPELLING_BONUS => 0.01;
 
 use warnings;
 use strict;
@@ -97,10 +97,11 @@ sub get_spelling {
 # SCORE_WORD: gives a score modifier to a word
 sub score_word {
     if(CORRECT_SPELLING_BONUS) {
-        my $word = $_[1];
+        my $word  = $_[1];
+		my $score = $_[2];
         if($SPELLER->check($word)) {
-            &SimBot::debug(4, "$word:+" . CORRECT_SPELLING_BONUS . '(aspell) ');
-            return CORRECT_SPELLING_BONUS;
+            &SimBot::debug(4, "$word:+" . int(CORRECT_SPELLING_BONUS * $score) . '(aspell) ', SimBot::DEBUG_NO_PREFIX);
+            return int(CORRECT_SPELLING_BONUS * $score);
         }
     }
     return 0;

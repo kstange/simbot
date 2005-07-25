@@ -8,7 +8,6 @@ Targets for 1.0 Beta
 - Implement automatic database backups.
 - Implement learning ignore by hostmask/nickname.
 - Implement autokick plugin.
-- Make interesting word base score adaptive by db size, because over time a constant is not enough, and lots of words become uninteresting.
 - Improve data storage format by converting to DBD-SQLite.
 - Convert all private messaging to private notices, to comply better with RFC 2812 section 3.3.2.
 - Verify backwards compatibility with LWP < 5.802.  We should never offer to accept gzipped content if we can't decode it.

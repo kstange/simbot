@@ -728,15 +728,15 @@ sub update_nick_context {
 }
 
 # SCORE_WORD: Gives a score modifier to a word
-# for seen, we give a 40 point bonus to words that are the
+# for seen, we give bonus to words that are the
 # nicknames of people we have seen.
 sub score_word {
     my $word = $_[1];
     if (get_nickchan_id($word)) {
-	   &SimBot::debug(4, "${word}:+1000(sqlite-logger) ");
+	   &SimBot::debug(4, "${word}:+1000(sqlite-logger) ", SimBot::DEBUG_NO_PREFIX);
 	   return 1000;
     }
-    &SimBot::debug(5, "${word}:+0(sqlite-logger) ");
+    &SimBot::debug(5, "${word}:+0(sqlite-logger) ", SimBot::DEBUG_NO_PREFIX);
     return 0;
 }
 

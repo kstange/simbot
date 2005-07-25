@@ -2,6 +2,13 @@ Version 1.0 alpha: (25 Jul 2005)
 	* simbot.pl:
 	  - Added message value returned to callbacks attached to the nojoin
 	    (banned/invite-only) event.
+	  - The starting score for finding interesting words is more adaptive
+	    so oft used interesting words should be able to keep a positive
+	    score better.  The query_word_score callbacks now receive the
+	    start score.
+	  - The debug function now accepts constants in addition to numbers
+	    for the different levels.  DEBUG_NO_PREFIX allows callers to avoid
+	    having the PREFIX text attached to the beginning of their line.
 	* plugins/services.chanserv.pl:
 	  - Rewrote the chanserv support to automatically attempt to register
 	    with nickserv, and to automatically try to link nicknames with
