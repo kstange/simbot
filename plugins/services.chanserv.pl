@@ -84,7 +84,8 @@ sub check_response {
 			} else {
 				&SimBot::debug(1, "Services command failed: Incorrect password.\n");
 			}
-		} elsif ($text =~ /This nickname is owned by someone else/i && $logged_in == 0) {
+		} elsif ($text =~ /This nickname is owned by someone else/i) {
+			$logged_in = 0;
 			&services_login;
 		} elsif ($text =~ /you are now recognized/i) {
 			&SimBot::debug(3, "Services reports successful login.\n");
