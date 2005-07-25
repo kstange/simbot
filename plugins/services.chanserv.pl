@@ -18,7 +18,11 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 # NOTE: This plugin has only been heavily tested on a Freenode.  Additional
-#       testing and feedback from other networks are needed and welcome.
+#       testing on other networks would be greatly appreciated.
+#
+# TODO: ChanServ/NickServ works basically the same everywhere, but the message
+#       strings tend to vary.  Form these into lists to avoid messy matching
+#       in the logic below.
 
 package SimBot::plugin::services::chanserv;
 
