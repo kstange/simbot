@@ -48,6 +48,17 @@ sub services_login {
     }
 }
 
+sub registration_check {
+    my ($kernel, undef, undef, $newnick) = @_;
+	my $want = &SimBot::option('global', 'nickname');
+	my $me   = $SimBot::chosen_nick;
+
+	if ($me eq $newnick && $me eq $want) {
+		&SimBot::debug(3, "Checking nickname availability...\n");
+		$kernel->post(bot => sl => "nickserv info");
+	}
+}
+
 # CHECK_RESPONSE: When we try to log in or run a command, services will tell us
 # something.  Here, we handle different possible cases.
 sub check_response {
@@ -182,9 +193,10 @@ sub process_notify {
 		if ($me eq $want) {
 			# Just check registration.  Nickserv will let us know whether
 			# we need to log in.
-			# XXX: This should be delayed.
-			$kernel->post(bot => sl => "nickserv info");
+			# XXX: This should probably be delayed.
+			&registration_check($kernel, undef, undef, $me);
 		} else {
+			&SimBot::debug(3, "Desired nickname is in use; trying ghost...\n");
 			$kernel->post(bot => sl => "nickserv ghost $want $pass");
 		}
 	}
@@ -226,6 +238,7 @@ sub ban_user {
 						 event_channel_nojoin  => \&request_unban,
 						 event_channel_mejoin  => \&process_join,
 						 event_channel_novoice => \&request_voice,
+						 event_server_nick     => \&registration_check,
 
 						 list_nicks_ison       => "NickServ",
 						 );
