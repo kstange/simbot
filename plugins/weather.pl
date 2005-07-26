@@ -916,11 +916,26 @@ sub parse_metar {
             
             
         } elsif($cur_block =~ m/^(\d{2})(\d{2})(\d{2})Z$/) {        # DAY/TIME
-            $timedate{'day'} = int $1;
+            my $day = int $1;
+            $timedate{'day'} = $day;
             $timedate{'hour'} = int $2;
             $timedate{'minute'} = int $3;
             $timedate{'timezone'} = 'UTC';
             
+            if(!defined $timedate{'unixtime'}) {
+                my ($gmday, $month, $year) = (gmtime())[3, 4, 5];
+                if($day > $gmday) {
+                    # the day is after today UTC, so therefore it is probably
+                    # last month.
+                    $month -= 1;
+                    if($month < 0) {
+                        # Month is 0 based (0 = Jan, 11 = Dec)
+                        $month = 11;
+                        $year -= 1;
+                    }
+                }
+                $timedate{'unixtime'} = timegm(0, $timedate{'minute'}, $timedate{'hour'}, $day, $month, $year);
+            }
             
         } elsif($cur_block =~ m/^(\d{3}|VRB|GRID\d{3})(\d{2})(?:G(\d{2}))?KT$/) { # WIND
             # dddss[Ggg]KT
