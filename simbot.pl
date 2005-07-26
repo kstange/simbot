@@ -2019,7 +2019,6 @@ sub server_supports {
     &debug(DEBUG_INFO, "Server supports: ${message}\n");
     
     foreach my $cur_block (split(/ /, $message)) {
-        &debug(DEBUG_STD, "$cur_block ");
         if(my ($ircd) = $cur_block =~ m/^IRCD=(\S+)/) {
             if($ircd =~ m/dancer/) {
                 &debug(DEBUG_STD, "We're on a Dancer IRCD server, setting no-forward user mode\n");
