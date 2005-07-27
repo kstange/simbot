@@ -22,12 +22,15 @@ use strict;
 
 use POE;
 use POE::Component::Server::HTTP;
+use HTTP::Status;
 
 use constant WEB_PORT => 8090;
+use constant ADMIN_USER => 'admin';
+use constant ADMIN_PASS => 'hahaha';
 
-our $aliases;
+use vars qw( $kernel $session );
 
-$aliases = POE::Component::Server::HTTP->new(
+$session = POE::Component::Server::HTTP->new(
     Alias => 'simbot_plugin_httpd',
     Port => WEB_PORT,
     ContentHandler => {
@@ -42,13 +45,12 @@ sub index_handler {
     # build and display a index of what is available
     my ($request, $response) = @_;    
     
-    &SimBot::debug(3, 'httpd: handling request for ' . $request->uri . "\n");
+    my ($req_root) = $request->uri =~ m|^http://.*?/([^/\?]*)|;
     
-    my $requested_page = $request->uri;
-    $requested_page =~ s|^http://(.*?)/|/|;
+    &SimBot::debug(3, 'httpd: handling request for ' . $request->uri . ", req root $req_root\n");
     
-    if(defined $SimBot::hash_plugin_httpd_pages{$requested_page}) {
-        my $handler = $SimBot::hash_plugin_httpd_pages{$requested_page}->{'handler'};
+    if(defined $SimBot::hash_plugin_httpd_pages{$req_root}) {
+        my $handler = $SimBot::hash_plugin_httpd_pages{$req_root}->{'handler'};
         &$handler($request, $response);
         return;
     }
@@ -82,16 +84,55 @@ EOT
     
 }
 
+sub admin_page {
+    my ($request, $response) = @_;
+    
+    if(!defined $request->authorization_basic) {
+        $response->www_authenticate('Basic realm="simbot admin"');
+        $response->code(RC_UNAUTHORIZED);
+        return;
+    }
+    my ($user, $pass) = $request->authorization_basic;
+    if($user ne ADMIN_USER
+        || $pass ne ADMIN_PASS) {
+        
+        $response->www_authenticate = 
+            'Basic realm="simbot admin"';
+        $response->code(RC_UNAUTHORIZED);
+        return;
+    }
+    my $msg = &page_header('SimBot Admin');
+    
+    
+    if($request->uri =~ m|\?restart$|) {
+        &SimBot::debug(3, "Restart requested by web admin\n");
+        if(!defined $kernel) {
+            warn "Trying to restart simbot without a kernel";
+        }
+        &SimBot::restart($kernel);
+        return;
+    } elsif(my $say = $request->uri =~ m|\?say=(\S+)$|) {
+        $say =~ s/\+/ /;
+        &SimBot::debug(3, "Speech requested by web admin\n");
+        # FIXME: send message
+    }
+    $msg .= '<ul><li><a href="/admin?restart">Restart Simbot</a></li>';
+    $msg .= '<li><form method="get" action=""><label for="say">Say: </label><input name="say"/></form></li>';
+    $msg .= '<li><form method="get" action=""><label for="action">Action: </label><input name="action"/></form></li>';
+    $response->content($msg);
+}
+
 sub messup_httpd {
-    $SimBot::hash_plugin_httpd_pages{'/test'} = {
-        'title' => 'Goes nowhere, does nothing!',
-        'handler' => sub {},
+    $kernel = $_[0];
+    $SimBot::hash_plugin_httpd_pages{'admin'} = {
+        'title' => 'SimBot Administration',
+        'handler' => \&admin_page,
     }
     #&add_page('/test', 'Goes nowhere, does nothing!', sub {});
 }
 
 sub cleanup_httpd {
-    POE::Kernel->call($aliases->{httpd}, 'shutdown');
+    $session->call('shutdown');
 }
 
 &SimBot::plugin_register(
