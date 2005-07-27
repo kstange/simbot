@@ -25,9 +25,9 @@ use POE::Component::Server::HTTP;
 
 use constant WEB_PORT => 8090;
 
-our %pages;
+our $aliases;
 
-POE::Component::Server::HTTP->new(
+$aliases = POE::Component::Server::HTTP->new(
     Alias => 'simbot_plugin_httpd',
     Port => WEB_PORT,
     ContentHandler => {
@@ -47,16 +47,16 @@ sub index_handler {
     my $requested_page = $request->uri;
     $requested_page =~ s|^http://(.*?)/|/|;
     
-    if(defined $pages{$requested_page}) {
-        my $handler = $pages{$requested_page}->{'handler'};
+    if(defined $SimBot::hash_plugin_httpd_pages{$requested_page}) {
+        my $handler = $SimBot::hash_plugin_httpd_pages{$requested_page}->{'handler'};
         &$handler($request, $response);
         return;
     }
     
     my $msg = &page_header('SimBot');
     $msg .= "<ul>\n";
-    foreach my $url (keys %pages) {
-        my $title = $pages{$url}->{'title'};
+    foreach my $url (keys %SimBot::hash_plugin_httpd_pages) {
+        my $title = $SimBot::hash_plugin_httpd_pages{$url}->{'title'};
         
         $msg .= qq(<li><a href="$url">$title</a>\n);
     }
@@ -82,24 +82,20 @@ EOT
     
 }
 
-sub add_page {
-    my ($url, $title, $handler) = @_;
-    
-    &SimBot::debug(3, "httpd: adding page $url\n");
-    
-    $pages{$url} = {
-        'title' => $title,
-        'handler' => $handler,
-    };
-    
-    
+sub messup_httpd {
+    $SimBot::hash_plugin_httpd_pages{'/test'} = {
+        'title' => 'Goes nowhere, does nothing!',
+        'handler' => sub {},
+    }
+    #&add_page('/test', 'Goes nowhere, does nothing!', sub {});
 }
 
-sub messup_httpd {
-    &add_page('/test', 'Goes nowhere, does nothing!', sub {});
+sub cleanup_httpd {
+    POE::Kernel->call($aliases->{httpd}, 'shutdown');
 }
 
 &SimBot::plugin_register(
     plugin_id => 'httpd',
     event_plugin_load => \&messup_httpd,
+    event_plugin_unload => \&cleanup_httpd,
 );

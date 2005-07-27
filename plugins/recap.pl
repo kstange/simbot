@@ -111,6 +111,14 @@ sub nick_change {
 	record_recap($kernel, $nick, undef, "NICK", undef, $newnick);
 }
 
+sub recap_page {
+    my ($request, $response) = @_;
+    
+#    $response->code(RC_OK);
+    $response->push_header('Content-Type', 'text/plain');
+    $response->content(join("\n", @backlog));
+}
+
 # Register Plugin
 &SimBot::plugin_register(plugin_id   => "recap",
 						 plugin_params => "[<lines>]",
@@ -132,3 +140,8 @@ sub nick_change {
 						 event_channel_part        => \&record_recap,
 						 event_server_nick         => \&nick_change,
 						 );
+						 
+$SimBot::hash_plugin_httpd_pages{'/recap'} = {
+    'title' => "Current Chatter",
+    'handler' => \&recap_page,
+}
