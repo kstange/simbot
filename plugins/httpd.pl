@@ -32,7 +32,7 @@ our $aliases;
 #our $kernel;
 use vars qw( $kernel );
 
-$session = POE::Component::Server::HTTP->new(
+$aliases = POE::Component::Server::HTTP->new(
     Alias => 'simbot_plugin_httpd',
     Port => WEB_PORT,
     ContentHandler => {
@@ -54,6 +54,17 @@ sub index_handler {
     if(defined $SimBot::hash_plugin_httpd_pages{$req_root}) {
         my $handler = $SimBot::hash_plugin_httpd_pages{$req_root}->{'handler'};
         &$handler($request, $response);
+        
+        if(!defined $response->content
+            || length $response->content == 0) {
+            # Hey! Our plugin didn't do anything useful.
+            $response->code(RC_INTERNAL_SERVER_ERROR);
+            $response->content("something's broken");
+            # FIXME: We need error pages...
+        } elsif(!defined $response->code) {
+            $response->code(RC_OK); # assume everything's OK
+        }
+        
         return;
     }
     
@@ -113,14 +124,23 @@ sub admin_page {
         }
         &SimBot::restart($kernel);
         return;
-    } elsif(my $say = $request->uri =~ m|\?say=(\S+)$|) {
-        $say =~ s/\+/ /;
+    } elsif(my ($say) = $request->uri =~ m|\?say=(\S+)$|) {
+        $say =~ s/\+/ /g;
+        $say =~ s/%([a-fA-F0-9][a-fA-F0-9])/pack("C", hex($1))/eg;
         &SimBot::debug(3, "Speech requested by web admin\n");
-        # FIXME: send message
+        &SimBot::send_message(&SimBot::option('network', 'channel'),
+            $say);
+    } elsif(my ($say) = $request->uri =~ m|\?action=(\S+)$|) {
+        $say =~ s/\+/ /g;
+        $say =~ s/%([a-fA-F0-9][a-fA-F0-9])/pack("C", hex($1))/eg;
+        &SimBot::debug(3, "Action requested by web admin\n");
+        &SimBot::send_action(&SimBot::option('network', 'channel'),
+            $say);
     }
     $msg .= '<ul><li><a href="/admin?restart">Restart Simbot</a></li>';
     $msg .= '<li><form method="get" action=""><label for="say">Say: </label><input name="say"/></form></li>';
     $msg .= '<li><form method="get" action=""><label for="action">Action: </label><input name="action"/></form></li>';
+    $response->code(RC_OK);
     $response->content($msg);
 }
 
@@ -129,8 +149,12 @@ sub messup_httpd {
     $SimBot::hash_plugin_httpd_pages{'admin'} = {
         'title' => 'SimBot Administration',
         'handler' => \&admin_page,
-    }
-    #&add_page('/test', 'Goes nowhere, does nothing!', sub {});
+    };
+    
+    $SimBot::hash_plugin_httpd_pages{'fiveohoh'} = {
+        'title' => 'Internal Server Error Generation Department',
+        'handler' => sub {},
+    };
 }
 
 sub cleanup_httpd {
