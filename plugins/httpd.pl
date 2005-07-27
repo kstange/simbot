@@ -24,17 +24,15 @@ use POE;
 use POE::Component::Server::HTTP;
 use HTTP::Status;
 
-use constant WEB_PORT => 8090;
-use constant ADMIN_USER => 'admin';
-use constant ADMIN_PASS => 'hahaha';
-
 our $aliases;
 #our $kernel;
 use vars qw( $kernel );
 
 $aliases = POE::Component::Server::HTTP->new(
     Alias => 'simbot_plugin_httpd',
-    Port => WEB_PORT,
+    Port => (defined &SimBot::option('plugin.httpd', 'port')
+                ? &SimBot::option('plugin.httpd', 'port')
+                : 8000),
     ContentHandler => {
         '/' => \&index_handler,
     },
@@ -100,14 +98,18 @@ EOT
 sub admin_page {
     my ($request, $response) = @_;
     
+    if(!defined &SimBot::option('plugin.httpd', 'admin_pass')) {
+        die "In admin_page with no password!";
+    }
+    
     if(!defined $request->authorization_basic) {
         $response->www_authenticate('Basic realm="simbot admin"');
         $response->code(RC_UNAUTHORIZED);
         return;
     }
     my ($user, $pass) = $request->authorization_basic;
-    if($user ne ADMIN_USER
-        || $pass ne ADMIN_PASS) {
+    if($user ne &SimBot::option('plugin.httpd', 'admin_user')
+        || $pass ne &SimBot::option('plugin.httpd', 'admin_pass')) {
         
         $response->www_authenticate = 
             'Basic realm="simbot admin"';
@@ -146,10 +148,17 @@ sub admin_page {
 
 sub messup_httpd {
     $kernel = $_[0];
-    $SimBot::hash_plugin_httpd_pages{'admin'} = {
-        'title' => 'SimBot Administration',
-        'handler' => \&admin_page,
-    };
+    
+    if(defined &SimBot::option('plugin.httpd', 'admin_user')
+        && length &SimBot::option('plugin.httpd', 'admin_user') > 4
+        && defined &SimBot::option('plugin.httpd', 'admin_pass')
+        && length &SimBot::option('plugin.httpd', 'admin_pass') > 4)
+    {    
+        $SimBot::hash_plugin_httpd_pages{'admin'} = {
+            'title' => 'SimBot Administration',
+            'handler' => \&admin_page,
+        };
+    }
     
     $SimBot::hash_plugin_httpd_pages{'fiveohoh'} = {
         'title' => 'Internal Server Error Generation Department',
