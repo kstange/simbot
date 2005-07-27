@@ -28,7 +28,9 @@ use constant WEB_PORT => 8090;
 use constant ADMIN_USER => 'admin';
 use constant ADMIN_PASS => 'hahaha';
 
-use vars qw( $kernel $session );
+our $aliases;
+#our $kernel;
+use vars qw( $kernel );
 
 $session = POE::Component::Server::HTTP->new(
     Alias => 'simbot_plugin_httpd',
@@ -132,7 +134,7 @@ sub messup_httpd {
 }
 
 sub cleanup_httpd {
-    $session->call('shutdown');
+    $kernel->call($aliases->{httpd}, 'shutdown');
 }
 
 &SimBot::plugin_register(
