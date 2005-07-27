@@ -30,7 +30,6 @@ Targets for Beyond 1.0
 
 Wish List
 ======================
-- Integrated web server using POE::Component::Server::HTTP.
 - Implement authentication for bot administration.
 - Eventually recognize the possibility of joining 2 or more channels.
 - Allow for media other than IRC (connection plugins).

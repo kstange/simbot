@@ -53,13 +53,17 @@ intend to use any of the stock plugins provided with SimBot:
 
 	* Required by: dict
 
-[ Text::Aspell]
+[ Text::Aspell ]
 
 	* Required by: aspell
 
 [ DateTime ]
 
 	* Required by: time
+
+[ POE::Component::Server::HTTP ]
+
+	* Required by: httpd
 
 All of these modules are available in the CPAN repository, so you can
 install them in most Perl environments by running:
