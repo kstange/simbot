@@ -21,31 +21,54 @@ use warnings;
 use strict;
 
 use POE;
-use POE::Component::Server::HTTP;
+use POE::Component::Server::TCP;
+use POE::Filter::HTTPD;
+#use POE::Component::Server::HTTP;
 use HTTP::Status;
 
 our $aliases;
 #our $kernel;
 use vars qw( $kernel );
 
-$aliases = POE::Component::Server::HTTP->new(
-#    Alias => 'simbot_plugin_httpd',
-    Port => (defined &SimBot::option('plugin.httpd', 'port')
-                ? &SimBot::option('plugin.httpd', 'port')
-                : 8000),
-    ContentHandler => {
-        '/' => \&index_handler,
-    },
-    Headers => {
-        Server => 'SimBot',
-    },
+#$aliases = POE::Component::Server::HTTP->new(
+##    Alias => 'simbot_plugin_httpd',
+#    Port => (defined &SimBot::option('plugin.httpd', 'port')
+#                ? &SimBot::option('plugin.httpd', 'port')
+#                : 8000),
+#    ContentHandler => {
+#        '/' => \&index_handler,
+#    },
+#    Headers => {
+#        Server => 'SimBot',
+#    },
+#);
+
+POE::Component::Server::TCP->new(
+    Alias => 'web_server',
+    Port  => (defined &SimBot::option('plugin.httpd', 'port')
+              ? &SimBot::option('plugin.httpd', 'port')
+              : 8000),
+    ClientFilter => 'POE::Filter::HTTPD',
+    
+    ClientInput => \&index_handler,
 );
 
 sub index_handler {
-    # build and display a index of what is available
-    my ($request, $response) = @_;    
+    my ($kernel, $heap, $request) = @_[KERNEL, HEAP, ARG0];
+#    my ($request, $response) = @_;
+
+    if($request->isa("HTTP::Response")) {
+        # We couldn't parse the client's request... shouldn't happen...
+        # POE::Filter::HTTPD generated a response for us, isn't that kind?
+        # Let's send it on its way...
+        $heap->{client}->put($request);
+        return;
+    }
     
-    my ($req_root) = $request->uri =~ m|^http://.*?/([^/\?]*)|;
+    my $response = HTTP::Response->new(200);
+    
+    #my ($req_root) = $request->uri =~ m|^http://.*?/([^/\?]*)|;
+    my ($req_root) = $request->uri =~ m|^/([^\?]*)|;
     
     &SimBot::debug(3, 'httpd: handling request for ' . $request->uri . ", req root $req_root\n");
     
@@ -66,7 +89,9 @@ sub index_handler {
             $response->code(RC_OK); # assume everything's OK
         }
         
-        return RC_OK;
+        $heap->{client}->put($response);
+        $kernel->yield('shutdown');
+        return;
     }
     
     my $msg = &page_header('SimBot');
@@ -81,7 +106,9 @@ sub index_handler {
     $response->code(RC_OK);
     $response->push_header("Content-Type", "text/html");
     $response->content($msg);
-    return RC_OK;
+    
+    $heap->{client}->put($response);
+    $kernel->yield('shutdown');
 }
 
 sub page_header {
@@ -171,8 +198,7 @@ sub messup_httpd {
 
 sub cleanup_httpd {
     &SimBot::debug(3, "httpd: Shutting down...");
-    POE::Kernel->call($aliases->{httpd}, 'shutdown');
-    POE::Kernel->call($aliases->{tcp}, "shutdown");
+    POE::Kernel->call('web_server', 'shutdown');
     &SimBot::debug(3, " ok\n");
 }
 

@@ -61,7 +61,7 @@ intend to use any of the stock plugins provided with SimBot:
 
 	* Required by: time
 
-[ POE::Component::Server::HTTP ]
+[ POE::Filter::HTTPD ]
 
 	* Required by: httpd
 
