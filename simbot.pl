@@ -1982,6 +1982,8 @@ sub initialize {
 	$kernel->sig( USR1 => 'restart' );
 	$kernel->sig( USR2 => 'rehash' );
 
+    $kernel->alias_set('simbot'); # so plugins can talk back to us
+
 	$kernel->post(bot => register => "all");
 
 	&irc_connect;
@@ -2046,7 +2048,6 @@ sub irc_disconnected {
 
         # Everyone out of the pool!
         foreach(keys(%event_plugin_unload)) {
-            &SimBot::debug(DEBUG_STD, "Unloading $_\n");
             &plugin_callback($_, $event_plugin_unload{$_});
         }
 
