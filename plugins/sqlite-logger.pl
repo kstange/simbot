@@ -32,6 +32,9 @@ package SimBot::plugin::sqlite::logger;
 use warnings;
 use strict;
 
+use Time::Local;
+use HTML::Entities;
+
 use vars qw( $dbh $insert_query $get_nickchan_id_query $get_nickchan_name_query $add_nickchan_id_query );
 
 use DBI;
@@ -694,6 +697,101 @@ sub row_hashref_to_text {
     return $msg;
 }
 
+sub row_hashref_to_html {
+    my ($row) = @_;
+    
+    my (undef, undef, undef, $cur_day, $cur_month, $cur_yr) = localtime; 
+    $cur_month += 1; # localtime gives us 0..11, we want 1..12
+    $cur_yr += 1900; # localtime gives us number of years since 1900
+    
+    my $msg = '<div class="row ' . lc($row->{'event'}) . '">';
+    
+    
+    # timestamp
+    my ($yr, $month, $day, $hr,$min) = $row->{'time'} =~ m/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})/;
+    
+    $msg .= q(<span class="ts">);
+    
+    if($cur_day != $day || $cur_month != $month || $cur_yr != $yr) {
+        $msg .= (MONTHS)[$month-1] . " $day ";
+    }
+    $msg .= "$hr:$min";
+    
+    $msg .= q(</span>);
+    
+    # event
+#    $msg .= q(<span class=") . lc($row->{'event'}) . q(">);
+    $msg .= q(<span class="msg">);
+    
+    if($row->{'event'} eq 'SAY') {
+        $msg .= '&lt;' . &f_nick($row->{'source_nick_id'})
+        . '&gt; ' . f_content($row->{'content'});
+    } elsif($row->{'event'} eq 'NOTICE') {
+        $msg .= '-' . &f_nick($row->{'source_nick_id'})
+        . '- ' . f_content($row->{'content'});
+    } elsif($row->{'event'} eq 'ACTION') {
+        $msg .= '* ' . &f_nick($row->{'source_nick_id'})
+            . ' ' . f_content($row->{'content'});
+    } elsif($row->{'event'} eq 'JOINED') {
+        $msg .= '* ' . &f_nick($row->{'source_nick_id'}) 
+            . ' joined.';
+    } elsif($row->{'event'} eq 'PARTED') {
+        $msg .= '* ' . &f_nick($row->{'source_nick_id'})
+            . ' left (' . f_content($row->{'content'}) . ')';
+    } elsif($row->{'event'} eq 'QUIT') {
+        $msg .= '* ' . &f_nick($row->{'source_nick_id'})
+            . ' quit (' . f_content($row->{'content'}) . ')';
+    } elsif($row->{'event'} eq 'TOPIC') {
+        $msg .= '* ' . &f_nick($row->{'source_nick_id'})
+            . ' changed the topic to: ' . f_content($row->{'content'});
+    } elsif($row->{'event'} eq 'MODE') {
+        $msg .= '* ' . &f_nick($row->{'source_nick_id'})
+            . ' set ' . f_content($row->{'content'});
+    } elsif($row->{'event'} eq 'KICKED') {
+        $msg .= '* ' . &f_nick($row->{'target_nick_id'})
+            . ' was kicked by ' . &f_nick($row->{'source_nick_id'})
+            . ' (' . f_content($row->{'content'}) . ')';
+    } elsif($row->{'event'} eq 'NICK') {
+        $msg .= '* ' . &f_nick($row->{'source_nick_id'})
+            . ' is now known as ' . &f_nick($row->{'target_nick_id'});
+            
+    } else {    # Oh, great, we forgot one.
+        $msg .= 'UNKNOWN EVENT ' . $row->{'event'} . ':';
+        if(defined $row->{'source_nick_id'})
+            { $msg .= ' source:' . &f_nick($row->{'source_nick_id'}); }
+        if(defined $row->{'target_nick_id'})
+            { $msg .= ' target:' . &f_nick($row->{'target_nick_id'}); }
+        if(defined f_content($row->{'content'}))
+            { $msg .= ' content:' . f_content($row->{'content'}); }
+    }
+    $msg .= q(</span></div>);
+    return $msg;
+}
+
+
+### FORMATTING FUNCTIONS ###
+sub f_nick {
+    return '<span class="nick">'
+        . &get_nickchan_name($_[0])
+        . '</span>';
+}
+
+# f_content is used to format the content part of chat.
+# this does things like linkify URLs, escape characters that
+# need escaping, munge email addresses, and things like that.
+sub f_content {
+    my $content = encode_entities($_[0]);
+    
+    # mask email
+    
+    
+    # linkify
+    $content = &linkify($content);
+    
+    return $content;
+}
+
+
 sub get_nick_context {
     my ($nick_id) = @_;
     
@@ -764,6 +862,182 @@ sub seen_nlp_match {
 	}
 }
 
+sub web_request {
+    my ($request, $response) = @_;
+    
+    my $query = &create_query_hash($request->uri);
+    
+    if(defined $query->{'recap'}) {
+        &web_recap($query, $response);
+    } else {
+        &web_log($query, $response);
+    }
+}
+
+sub web_recap {
+    my ($query, $response) = @_;
+    
+    
+}
+
+sub web_log {
+    my ($query, $response) = @_;
+    my (undef, undef, undef, $start_day, $start_month, $start_year)
+        = localtime;
+    
+    $start_month += 1;
+    $start_year += 1900;
+    
+    my ($start_hour, $start_min, $end_hour, $end_min);
+    $start_hour = $start_min = 0;
+    $end_hour = 23;
+    $end_min = 59;
+    
+    my $channel_id = (defined $query->{'channel_id'}
+                      ? $query->{'channel_id'}
+                      : &get_nickchan_id(&SimBot::option('network', 'channel')));
+    
+    if(defined $query->{'smo'})
+        { $start_month = $query->{'smo'}; }
+    if(defined $query->{'sdy'})
+        { $start_day = $query->{'sdy'}; }
+    if(defined $query->{'syr'})
+        { $start_year = $query->{'syr'}; }
+    if(defined $query->{'shr'})
+        { $start_hour = $query->{'shr'}; }
+    if(defined $query->{'smn'})
+        { $start_min = $query->{'smn'}; }
+    
+    # If the end day, month, year aren't set, assume the same as the
+    # start
+    my ($end_day, $end_month, $end_year)
+        = ($start_day, $start_month, $start_year);
+        
+    if(defined $query->{'emo'})
+        { $end_month = $query->{'emo'}; }
+    if(defined $query->{'edy'})
+        { $end_day = $query->{'edy'}; }
+    if(defined $query->{'eyr'})
+        { $end_year = $query->{'eyr'}; }
+    if(defined $query->{'ehr'})
+        { $end_hour = $query->{'ehr'}; }
+    if(defined $query->{'emn'})
+        { $end_min = $query->{'emn'}; }
+        
+    my $start_time = timelocal(0,$start_min,$start_hour,$start_day, $start_month-1, $start_year);
+    my $end_time = timelocal(59,$end_min,$end_hour,$end_day, $end_month-1, $end_year);
+    
+    my $message = 
+        '<div id="header">IRC log for '
+        . &get_nickchan_name($channel_id)
+        . ' from ' . scalar localtime($start_time)
+        . ' to ' . scalar localtime($end_time)
+        . '. Generated ' . scalar localtime()
+        . "</div>\n";
+        
+    my $log_query = $dbh->prepare_cached(
+        'SELECT time, source_nick_id, event, target_nick_id, content'
+        . ' FROM chatlog'
+        . ' WHERE channel_id = ?'
+        . ' AND time >= ?'
+        . ' AND time <= ?'
+    );
+    
+    $log_query->execute($channel_id, $start_time, $end_time);
+    
+    my $row;
+    while($row = $log_query->fetchrow_hashref) {
+        $message .= &row_hashref_to_html($row) . "\n";
+    }
+    $response->content($message);
+    $response->push_header("Content-Type", "text/html");
+}
+
+sub create_query_hash {
+    my ($query) = $_[0] =~ m/\?(\S+)$/;
+    my %hash;
+    if(!defined $query) { return \%hash; }
+    
+    foreach my $cur_query (split(/&/, $query)) {
+        my ($key, $value) = $cur_query =~ m/^(\S+)(?:=(\S+))$/;
+        
+        if(!defined $value) { $value = 1; }
+        
+        $hash{$key} = $value;
+    }
+    
+    return \%hash;
+}
+
+sub linkify {
+    my @words = split(/\s+/, $_[0]);
+    my $curWord;
+        
+    foreach $curWord (@words) {
+        my $url = $curWord;
+        
+        # remove things that commonly surround URLs
+        $url =~ s{^\(}{};
+        $url =~ s{\)$}{};
+        $url =~ s{^<}{};
+        $url =~ s{>$}{};
+        
+        # map some common host names to protocols
+        $url =~ s{^(www|web)\.} {http://$1\.};
+        $url =~ s{^ftp\.}       {ftp://ftp\.};
+        
+        if($url =~ m{^(\S+)@(\S+)\.(\S+)$}) {
+            # probably an email address
+            my ($user, $host) = ($1, "${2}.${3}");
+            my ($nuser, $nhost);
+            for(my $i; $i < length $user; $i++) {
+                $nuser .= '&#' . ord(substr($user, $i, 1));
+            }
+            for(my $i; $i < length $host; $i++) {
+                $nhost .= '&#' . ord(substr($host, $i, 1));
+            }
+            
+            $curWord = <<EOT;
+<script type="text/javascript">
+var s='&#64;';
+var w='to:';
+var u='ma';
+var l='$nuser';
+var d='il';
+var p='$nhost';
+document.write('<a href="');
+document.write(u+d);
+document.write(w+l);
+document.write(s+p);
+document.write('">');
+document.write(l);
+document.write(s+p);
+document.write('</a>');
+</script><noscript>[email removed]</noscript>
+EOT
+
+            next;
+        }
+        
+        if($url =~ m{^((http|ftp|news|nntp|irc|aim)s?:[\w.?/=\-\&]+)}) {
+            $curWord = qq(<a href="$1">$curWord</a>);
+            next;
+        }
+        
+        if(my ($host, $path) = $url =~ m{(.+?)/(.*)}) {
+            # does the first segment have a TLD?
+            if($host =~ m{\.(com|org|net|edu|gov|mil|int
+                            |biz|pro|info|aero|coop|name
+                            |museum|\w\w)$}ix) {
+                # Yup. Let's assume it's a web site...
+                $host = 'http://' . $host;
+            }
+            $curWord = qq(<a href="${host}/${path}">$curWord</a>);
+        }
+    }
+    return join(' ', @words);
+}
+
 &SimBot::plugin_register(
     plugin_id               => 'log',
     event_plugin_call       => \&access_log,
@@ -798,4 +1072,7 @@ sub seen_nlp_match {
     hash_plugin_nlp_questions => ['have-you', 'did-you', 'when-is', ],
 );
     
-
+$SimBot::hash_plugin_httpd_pages{'log'} = {
+    'title' => 'Log Viewer',
+    'handler' => \&web_request,
+}
