@@ -29,7 +29,7 @@ our $aliases;
 use vars qw( $kernel );
 
 $aliases = POE::Component::Server::HTTP->new(
-    Alias => 'simbot_plugin_httpd',
+#    Alias => 'simbot_plugin_httpd',
     Port => (defined &SimBot::option('plugin.httpd', 'port')
                 ? &SimBot::option('plugin.httpd', 'port')
                 : 8000),
@@ -53,8 +53,11 @@ sub index_handler {
         my $handler = $SimBot::hash_plugin_httpd_pages{$req_root}->{'handler'};
         &$handler($request, $response);
         
-        if(!defined $response->content
-            || length $response->content == 0) {
+        if(defined $response->code && $response->code == RC_UNAUTHORIZED) {
+            $response->content('Bad login/pass or your browser does not know how to log in.');
+        } elsif(!defined $response->content
+            || length $response->content == 0)
+        {
             # Hey! Our plugin didn't do anything useful.
             $response->code(RC_INTERNAL_SERVER_ERROR);
             $response->content("something's broken");
@@ -63,7 +66,7 @@ sub index_handler {
             $response->code(RC_OK); # assume everything's OK
         }
         
-        return;
+        return RC_OK;
     }
     
     my $msg = &page_header('SimBot');
@@ -78,6 +81,7 @@ sub index_handler {
     $response->code(RC_OK);
     $response->push_header("Content-Type", "text/html");
     $response->content($msg);
+    return RC_OK;
 }
 
 sub page_header {
@@ -123,7 +127,9 @@ sub admin_page {
         if(!defined $kernel) {
             warn "Trying to restart simbot without a kernel";
         }
-        $kernel->post('simbot', 'restart', "web admin");
+        POE::Kernel->post('simbot', 'restart', "web admin");
+        $response->code(RC_OK);
+        $response->content('OK, restarting');
         return;
     } elsif(my ($say) = $request->uri =~ m|\?say=(\S+)$|) {
         $say =~ s/\+/ /g;
@@ -145,9 +151,7 @@ sub admin_page {
     $response->content($msg);
 }
 
-sub messup_httpd {
-    $kernel = $_[0];
-    
+sub messup_httpd {    
     if(defined &SimBot::option('plugin.httpd', 'admin_user')
         && length &SimBot::option('plugin.httpd', 'admin_user') > 4
         && defined &SimBot::option('plugin.httpd', 'admin_pass')
@@ -166,8 +170,10 @@ sub messup_httpd {
 }
 
 sub cleanup_httpd {
-    $kernel->call($aliases->{httpd}, 'shutdown');
-    undef $aliases;
+    &SimBot::debug(3, "httpd: Shutting down...");
+    POE::Kernel->call($aliases->{httpd}, 'shutdown');
+    POE::Kernel->call($aliases->{tcp}, "shutdown");
+    &SimBot::debug(3, " ok\n");
 }
 
 &SimBot::plugin_register(
