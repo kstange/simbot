@@ -120,11 +120,10 @@ sub admin_page {
     
     
     if($request->uri =~ m|\?restart$|) {
-        &SimBot::debug(3, "Restart requested by web admin\n");
         if(!defined $kernel) {
             warn "Trying to restart simbot without a kernel";
         }
-        &SimBot::restart($kernel);
+        $kernel->post('simbot', 'restart', "web admin");
         return;
     } elsif(my ($say) = $request->uri =~ m|\?say=(\S+)$|) {
         $say =~ s/\+/ /g;
@@ -168,6 +167,7 @@ sub messup_httpd {
 
 sub cleanup_httpd {
     $kernel->call($aliases->{httpd}, 'shutdown');
+    undef $aliases;
 }
 
 &SimBot::plugin_register(
