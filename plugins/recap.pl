@@ -141,7 +141,7 @@ sub recap_page {
 						 event_server_nick         => \&nick_change,
 						 );
 
-$SimBot::hash_plugin_httpd_pages{'/recap'} = {
+$SimBot::hash_plugin_httpd_pages{'recap'} = {
     'title' => "Current Chatter",
     'handler' => \&recap_page,
 }
