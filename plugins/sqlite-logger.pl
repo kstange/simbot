@@ -700,24 +700,27 @@ sub row_hashref_to_text {
 sub row_hashref_to_html {
     my ($row) = @_;
     
+    my $msg = '<div class="row ' . lc($row->{'event'}) . '">';
+    
+    
+    # timestamp    
     my (undef, undef, undef, $cur_day, $cur_month, $cur_yr) = localtime; 
     $cur_month += 1; # localtime gives us 0..11, we want 1..12
     $cur_yr += 1900; # localtime gives us number of years since 1900
     
-    my $msg = '<div class="row ' . lc($row->{'event'}) . '">';
+    my (undef, $min, $hr, $day, $month, $yr) = localtime($row->{'time'});
+    $month += 1;
+    $yr += 1900;
     
-    
-    # timestamp
-    my ($yr, $month, $day, $hr,$min) = $row->{'time'} =~ m/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})/;
-    
-    $msg .= q(<span class="ts">);
+    $msg .= '<span class="ts">';
     
     if($cur_day != $day || $cur_month != $month || $cur_yr != $yr) {
         $msg .= (MONTHS)[$month-1] . " $day ";
     }
-    $msg .= "$hr:$min";
     
-    $msg .= q(</span>);
+    if($cur_yr != $yr) { $msg .= "$yr "; }
+    
+    $msg .= $hr . ':' . sprintf('%02d',$min) . '</span> ';
     
     # event
 #    $msg .= q(<span class=") . lc($row->{'event'}) . q(">);
