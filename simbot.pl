@@ -107,6 +107,11 @@ our %numbers_digits = (one => 1, two => 2,   three => 3, four => 4, five => 5,
 					   six => 6, seven => 7, eight => 8, nine => 9,
 					   );
 
+
+our @named_colors = ("white", "black", "navy", "green", "red", "maroon",
+					 "purple", "orange", "yellow", "lightgreen", "teal",
+					 "cyan", "blue", "magenta", "gray", "silver");
+
 # ****************************************
 # ************ Start of Script ***********
 # ****************************************
@@ -282,11 +287,6 @@ if(option('chat', 'delete_usage_max') != -1) {
 					 );
 }
 
-# We'll need this perl module to be able to do anything meaningful.
-use POE;
-use POE::Component::IRC;
-our $kernel = new POE::Kernel;
-
 # Now that we've initialized the callback tables, let's load
 # all the plugins that we can from the plugins directory.
 opendir(DIR, "./plugins");
@@ -326,6 +326,12 @@ our $snooze = (option('chat','snooze') =~ m/on|always/) ? 1 : 0;
 
 # Load the massive table of rules simbot will need.
 &load;
+
+# Now that everything is loaded, let's prepare to connect to IRC.
+# We'll need this perl module to be able to do anything meaningful.
+our $kernel = new POE::Kernel;
+use POE;
+use POE::Component::IRC;
 
 # Create a new IRC connection.
 POE::Component::IRC->new('bot');
@@ -487,6 +493,82 @@ sub parse_style {
 
 
     return $_;
+}
+
+# HTMLIZE: Converts IRC color codes, links into HTML.
+sub htmlize {
+	my @lines = split(/\n/, $_[0]);
+	my $string = "";
+	foreach my $line (@lines) {
+		my $bold = 0;
+		my $reverse = 0;
+		my $underline = 0;
+		my $color = 16;
+		my $bgcolor = 16;
+		my $tag = "";
+		$line =~ s/&/&amp;/;
+		$line =~ s/>/&gt;/;
+		$line =~ s/</&lt;/;
+		$line = "<div>" . $line;
+		while($line =~ m/[\002\003\017\026\037]+/) {
+			my $block = $&;
+			my @codes = split(//, $block);
+			debug (DEBUG_SPAM, "htmlize: codes: " . (@codes) . "\n");
+			foreach my $code (@codes) {
+				if ($code eq "\002") {
+					$bold = 1 - $bold;
+					debug (DEBUG_SPAM, "htmlize: bold: $bold\n");
+				} elsif ($code eq "\037") {
+					$underline = 1 - $underline;
+					debug (DEBUG_SPAM, "htmlize: underline: $underline\n");
+				} elsif ($code eq "\026") {
+					$reverse = 1 - $reverse;
+					debug (DEBUG_SPAM, "htmlize: reverse: $reverse\n");
+				} elsif ($code eq "\003") {
+					$line =~ m/\003(\d{1,2})?(,(\d{1,2}))?/;
+					if ($2) {
+						$color = $1 if $1;
+						$bgcolor = $3;
+						$line =~ s/\003$1$2/\003/;
+					} elsif ($1) {
+						$color = $1;
+						$line =~ s/\003$1/\003/;
+					} else {
+						$color = 16;
+						$bgcolor = 16;
+					}
+					debug (DEBUG_SPAM, "htmlize: c: $color; bgc: $bgcolor\n");
+				} else {
+					$bold = 0;
+					$underline = 0;
+					$reverse = 0;
+					$color = 16;
+					$bgcolor = 16;
+					debug (DEBUG_SPAM, "htmlize: b: $bold; u: $underline; r $reverse; c: $color; bgc: $bgcolor\n");
+				}
+			} #end foreach code
+			debug (DEBUG_SPAM, "htmlize: old tag: $tag\n");
+			if ($tag =~ /<span style=.*>/) {
+				$tag = "</span>";
+			} else {
+				$tag = "";
+			}
+			my $css = ($bold      ? "font-weight: bold; " : "")
+				. ($underline     ? "text-decoration: underline; " : "")
+				. ($reverse       ? "color: white; background: black; "
+				   : ($color != 16   ? "color: $named_colors[$color]; " : "")
+				   . ($bgcolor != 16 ? "background: $named_colors[$bgcolor]; " : "")
+				   );
+			debug (DEBUG_SPAM, "htmlize: css: $css\n");
+			$tag .= "<span style=\"$css\">" if ($css ne "");
+			debug (DEBUG_SPAM, "htmlize: new tag: $tag\n");
+			$line =~ s/$block/$tag/;
+		} # end while blocks
+		$line .= "</span>" if ($tag =~ /<span style=.*>/);
+		$string .= $line . "</div>\n";
+	} # end foreach lines
+	$string =~ s%(http|ftp)://[^\s\n<>]+%<a href="$&">$&</a>%g;
+	return $string;
 }
 
 # NUMBERIZE: Find all the word-based numbers in a string and replace them
@@ -709,7 +791,7 @@ sub load {
 			$chat_words{$rule[1]}{$rule[0]}[0] = $rule[2];
 		}
 		close(RULES);
-		&debug(DEBUG_STD, "Rules loaded successfully!\n");
+		&debug(DEBUG_STD, "Rules loaded successfully!\n", DEBUG_NO_PREFIX);
 		$loaded = 1;
 
 		&debug(DEBUG_STD, "Checking for lost words... ");
@@ -881,9 +963,6 @@ sub plugin_register {
 
 # PLUGIN_CALLBACK: Calls the given plugin function with paramters.
 sub plugin_callback {
-    if(!defined $kernel) {
-        warn 'In plugin_callback before $kernel is defined';
-    }
     my ($plugin, $function, @params) = @_;
 	debug(DEBUG_SPAM, "Running callback to $function in $plugin.\n");
 	return &$function($kernel, @params);
@@ -1710,10 +1789,6 @@ sub private_message {
 sub channel_message {
     my ($nick) = split(/!/, $_[ ARG0 ]);
     my ($channel, $text) = @_[ ARG1, ARG2 ];
-    $text =~ s/\003\d{0,2},?\d{0,2}//g;
-    $text =~ s/[\002\017\026\037]//g;
-
-	&debug(DEBUG_STD, "[@{$channel}:$nick] $text\n");
 
 	my $prefix = option('global', 'command_prefix');
 	my $nickmatch = "(" . $chosen_nick . "|" .
@@ -1724,6 +1799,14 @@ sub channel_message {
 	foreach(keys(%event_channel_message)) {
 		&plugin_callback($_, $event_channel_message{$_}, ($nick, $channel, 'SAY', $text));
 	}
+
+	# We pass the original string to plugins.  Then, we strip out formatting
+	# codes.  Who knows?  Someone might want to log things exactly as they
+	# were.
+    $text =~ s/\003\d{0,2},?\d{0,2}//g;
+    $text =~ s/[\002\017\026\037]//g;
+
+	&debug(DEBUG_STD, "[@{$channel}:$nick] $text\n");
 
     if ($text =~ /^\Q$prefix\E/) {
 		my @command = split(/\s/, $text);
@@ -1899,8 +1982,6 @@ sub initialize {
 	$kernel->sig( USR1 => 'restart' );
 	$kernel->sig( USR2 => 'rehash' );
 
-    $kernel->alias_set('simbot'); # so plugins can talk back to us
-
 	$kernel->post(bot => register => "all");
 
 	&irc_connect;
@@ -1965,8 +2046,12 @@ sub irc_disconnected {
 
         # Everyone out of the pool!
         foreach(keys(%event_plugin_unload)) {
+            &SimBot::debug(DEBUG_STD, "Unloading $_\n");
             &plugin_callback($_, $event_plugin_unload{$_});
         }
+
+        # remove our alias
+        $kernel->alias_remove('simbot');
 
 		# since the event loop should soon have nothing to do
 		# it'll exit. Or something like that.
@@ -2091,9 +2176,6 @@ sub quit_session {
 
     # remove any alarms. This stops any verbose output simbot was giving
     $kernel->alarm_remove_all( );
-    
-    # remove our alias
-    $kernel->alias_remove('simbot');
 
     $kernel->sig_handled();
 }
