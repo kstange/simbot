@@ -76,7 +76,7 @@ sub record_recap {
     if ($doing eq 'SAY') {
 		$line .= "<$nick> $content";
     } elsif ($doing eq 'ACTION') {
-		$line .= "* $nick $content";
+		$line .= "* $content";
     } elsif ($doing eq 'KICKED') {
 		$line .= "$target kicked $nick from $channel" . ($content ? " ($content)" : "");
 		$departs{$nick} = 0;

@@ -1962,7 +1962,8 @@ sub channel_topic {
 sub channel_mode {
     my ($nick) = split(/!/, $_[ ARG0 ]);
     my ($chan, $modes, @args) = @_[ ARG1, ARG2, ARG3 .. $#_ ];
-    if ($nick ne $chan) {
+	# If the mode change was made on the bot, it is not a channel mode.
+    if ($chan ne $chosen_nick) {
 		&debug(DEBUG_STD, "$nick set mode $modes @args in $chan.\n");
 		foreach(keys(%event_channel_mode)) {
 			&plugin_callback($_, $event_channel_mode{$_}, ($nick, $chan, 'MODE', $modes, @args));
@@ -2119,6 +2120,8 @@ sub server_supports {
                 # nicely. Right now many plugins assume that the channel we are
                 # in is the channel defined in the config file, which may
                 # not be true.
+				# The changes necessary to do this will make multi-channel
+				# support easier in the future.
                 $kernel->post(bot => mode => $chosen_nick => '+Q');
             }
             
