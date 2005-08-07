@@ -991,34 +991,7 @@ sub linkify {
         
         if($url =~ m{^(\S+)@(\S+)\.(\S+)$}) {
             # probably an email address
-            my ($user, $host) = ($1, "${2}.${3}");
-            my ($nuser, $nhost);
-            for(my $i; $i < length $user; $i++) {
-                $nuser .= '&#' . ord(substr($user, $i, 1));
-            }
-            for(my $i; $i < length $host; $i++) {
-                $nhost .= '&#' . ord(substr($host, $i, 1));
-            }
-            
-            $curWord = <<EOT;
-<script type="text/javascript">
-var s='&#64;';
-var w='to:';
-var u='ma';
-var l='$nuser';
-var d='il';
-var p='$nhost';
-document.write('<a href="');
-document.write(u+d);
-document.write(w+l);
-document.write(s+p);
-document.write('">');
-document.write(l);
-document.write(s+p);
-document.write('</a>');
-</script><noscript>[email removed]</noscript>
-EOT
-
+            $curWord = &SimBot::html_mask_email($url);
             next;
         }
         
@@ -1035,7 +1008,9 @@ EOT
                 # Yup. Let's assume it's a web site...
                 $host = 'http://' . $host;
             }
-            $curWord = qq(<a href="${host}/${path}">$curWord</a>);
+            if($host =~ m/:/) {
+                $curWord = qq(<a href="${host}/${path}">$curWord</a>);
+            }
         }
     }
     return join(' ', @words);
