@@ -568,7 +568,50 @@ sub htmlize {
 		$string .= $line . "</div>\n";
 	} # end foreach lines
 	$string =~ s%(http|ftp)://[^\s\n<>]+%<a href="$&">$&</a>%g;
+    while($string =~ m/\b(\S+@[a-z\-\.]+\.[a-z]+)/i) {
+	   my $email = $&;
+	   my $masked = &html_mask_email($email);
+	   $string =~ s/$email/$masked/g;
+    }  
 	return $string;
+}
+
+# HTML_MASK_EMAIL: Returns the HTML for a masked email address.
+# Currently, we break the address apart into user and host,
+# turn each character into its HTML escaped ascii code,
+# and return a simple javascript with the address broken up and out of order
+# that, when run, outputs the address properly (and properly linked)
+# This doesn't make harvesting impossible, but it does make it more difficult.
+# Viewers without javascript see [email removed] instead.
+sub html_mask_email {
+    my ($user, $host) = @_[0] =~ m/^(\S+)@(\S+)$/;
+    my ($nuser, $nhost);
+    for(my $i; $i < length $user; $i++) {
+        $nuser .= '&#' . ord(substr($user, $i, 1)) . ';';
+    }
+    for(my $i; $i < length $host; $i++) {
+        $nhost .= '&#' . ord(substr($host, $i, 1)) . ';';
+    }
+
+    return <<EOT;
+<script type="text/javascript">
+var p='$nhost';
+var w='&#116;&#111;&#58;';
+var l='$nuser';
+var u='&#109;&#97;';
+var s='&#64;';
+var d='&#105;&#108';
+document.write('<a href="');
+document.write(u+d);
+document.write(w+l);
+document.write(s+p);
+document.write('">');
+document.write(l);
+document.write(s+p);
+document.write('</a>');
+</script><noscript>[email removed]</noscript>
+EOT
+
 }
 
 # NUMBERIZE: Find all the word-based numbers in a string and replace them
