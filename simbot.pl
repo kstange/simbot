@@ -588,10 +588,10 @@ sub htmlize {
 sub html_mask_email {
     my ($user, $host) = $_[0] =~ m/^(\S+)@(\S+)$/;
     my ($nuser, $nhost);
-    for(my $i; $i < length $user; $i++) {
+    for(my $i = 0; $i < length $user; $i++) {
         $nuser .= '&#' . ord(substr($user, $i, 1)) . ';';
     }
-    for(my $i; $i < length $host; $i++) {
+    for(my $i = 0; $i < length $host; $i++) {
         $nhost .= '&#' . ord(substr($host, $i, 1)) . ';';
     }
 
