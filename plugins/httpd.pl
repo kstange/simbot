@@ -111,7 +111,7 @@ sub get_template {
     } elsif(-r "templates/${template}.default.tmpl") {
         $file_name = "templates/${template}.default.tmpl";
     } else {
-        &SimBot::debug(&SimBot::DEBUG_WARNING, "httpd: No template $template available!");
+        &SimBot::debug(&SimBot::DEBUG_WARN, "httpd: No template $template available!");
         return;
     }
     
