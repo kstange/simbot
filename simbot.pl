@@ -584,7 +584,7 @@ sub htmlize {
 # This doesn't make harvesting impossible, but it does make it more difficult.
 # Viewers without javascript see [email removed] instead.
 sub html_mask_email {
-    my ($user, $host) = @_[0] =~ m/^(\S+)@(\S+)$/;
+    my ($user, $host) = $_[0] =~ m/^(\S+)@(\S+)$/;
     my ($nuser, $nhost);
     for(my $i; $i < length $user; $i++) {
         $nuser .= '&#' . ord(substr($user, $i, 1)) . ';';
