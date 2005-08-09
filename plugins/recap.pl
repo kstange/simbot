@@ -112,11 +112,16 @@ sub nick_change {
 }
 
 sub recap_page {
-    my ($request, $response) = @_;
+    my ($request, $response, $get_template) = @_;
     
 #    $response->code(RC_OK);
     $response->push_header("Content-Type", "text/html");
-    $response->content(&SimBot::htmlize(join("\n", @backlog)));
+    my $template = &$get_template('base');
+    $template->param(
+        title => 'Recent Chatter',
+        content => &SimBot::htmlize(join("\n", @backlog)),
+    );
+    $response->content($template->output());
 }
 
 # Register Plugin
