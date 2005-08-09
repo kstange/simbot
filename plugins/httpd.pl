@@ -115,11 +115,16 @@ sub get_template {
         return;
     }
     
-    return HTML::Template->new( filename => $file_name,
+    my $templ_obj = HTML::Template->new( filename => $file_name,
         die_on_bad_params => 0,
         case_sensitive => 1,
         loop_context_vars => 1,
     );
+    $templ_obj->param(
+        sb_version => &SimBot::PROJECT . ' ' . &SimBot::VERSION,
+        sb_link => &SimBot::HOME_PAGE,
+    );
+    return $templ_obj;
 }
 
 sub admin_page {

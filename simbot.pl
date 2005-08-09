@@ -83,6 +83,8 @@ use constant VERBOSE => 3;
 use constant PROJECT => "SimBot";
 # Software Version
 use constant VERSION => "1.0 alpha";
+# Software Home
+use constant HOME_PAGE => 'http://simbot.sf.net/';
 
 
 our %numbers_groups = (
