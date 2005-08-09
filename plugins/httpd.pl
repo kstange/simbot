@@ -23,25 +23,11 @@ use strict;
 use POE;
 use POE::Component::Server::TCP;
 use POE::Filter::HTTPD;
-#use POE::Component::Server::HTTP;
 use HTTP::Status;
+use HTML::Template::Pro;
 
 our $aliases;
-#our $kernel;
 use vars qw( $kernel );
-
-#$aliases = POE::Component::Server::HTTP->new(
-##    Alias => 'simbot_plugin_httpd',
-#    Port => (defined &SimBot::option('plugin.httpd', 'port')
-#                ? &SimBot::option('plugin.httpd', 'port')
-#                : 8000),
-#    ContentHandler => {
-#        '/' => \&index_handler,
-#    },
-#    Headers => {
-#        Server => 'SimBot',
-#    },
-#);
 
 POE::Component::Server::TCP->new(
     Alias => 'web_server',
@@ -67,14 +53,13 @@ sub index_handler {
     
     my $response = HTTP::Response->new(200);
     
-    #my ($req_root) = $request->uri =~ m|^http://.*?/([^/\?]*)|;
     my ($req_root) = $request->uri =~ m|^/([^\?]*)|;
     
     &SimBot::debug(3, 'httpd: handling request for ' . $request->uri . ", req root $req_root\n");
     
     if(defined $SimBot::hash_plugin_httpd_pages{$req_root}) {
         my $handler = $SimBot::hash_plugin_httpd_pages{$req_root}->{'handler'};
-        &$handler($request, $response);
+        &$handler($request, $response, \&get_template);
         
         if(defined $response->code && $response->code == RC_UNAUTHORIZED) {
             $response->content('Bad login/pass or your browser does not know how to log in.');
@@ -94,7 +79,7 @@ sub index_handler {
         return;
     }
     
-    my $msg = &page_header('SimBot');
+    my $msg;
     $msg .= "<ul>\n";
     foreach my $url (keys %SimBot::hash_plugin_httpd_pages) {
         my $title = $SimBot::hash_plugin_httpd_pages{$url}->{'title'};
@@ -105,25 +90,36 @@ sub index_handler {
     
     $response->code(RC_OK);
     $response->push_header("Content-Type", "text/html");
-    $response->content($msg);
+    
+    my $template = &get_template('base');
+    $template->param(
+        title => 'Index',
+        content => $msg,
+    );
+    $response->content($template->output());
     
     $heap->{client}->put($response);
     $kernel->yield('shutdown');
 }
 
-sub page_header {
-    my ($title) = @_;
+sub get_template {
+    my $template = $_[0];
+    my $file_name;
     
-    return <<EOT;
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
-    "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head>
-<link rel="generator" href="http://simbot.sf.net/" />
-<title>$title</title>
-</head>
-<body>
-EOT
+    if(-r "templates/${template}.local.tmpl") {
+        $file_name = "templates/${template}.local.tmpl";
+    } elsif(-r "templates/${template}.default.tmpl") {
+        $file_name = "templates/${template}.default.tmpl";
+    } else {
+        &SimBot::debug(&SimBot::DEBUG_WARNING, "httpd: No template $template available!");
+        return;
+    }
     
+    return HTML::Template->new( filename => $file_name,
+        die_on_bad_params => 0,
+        case_sensitive => 1,
+        loop_context_vars => 1,
+    );
 }
 
 sub admin_page {
@@ -147,8 +143,8 @@ sub admin_page {
         $response->code(RC_UNAUTHORIZED);
         return;
     }
-    my $msg = &page_header('SimBot Admin');
-    
+    my $msg;
+    my $say;
     
     if($request->uri =~ m|\?restart$|) {
         if(!defined $kernel) {
@@ -158,13 +154,13 @@ sub admin_page {
         $response->code(RC_OK);
         $response->content('OK, restarting');
         return;
-    } elsif(my ($say) = $request->uri =~ m|\?say=(\S+)$|) {
+    } elsif(($say) = $request->uri =~ m|\?say=(\S+)$|) {
         $say =~ s/\+/ /g;
         $say =~ s/%([a-fA-F0-9][a-fA-F0-9])/pack("C", hex($1))/eg;
         &SimBot::debug(3, "Speech requested by web admin\n");
         &SimBot::send_message(&SimBot::option('network', 'channel'),
             $say);
-    } elsif(my ($say) = $request->uri =~ m|\?action=(\S+)$|) {
+    } elsif(($say) = $request->uri =~ m|\?action=(\S+)$|) {
         $say =~ s/\+/ /g;
         $say =~ s/%([a-fA-F0-9][a-fA-F0-9])/pack("C", hex($1))/eg;
         &SimBot::debug(3, "Action requested by web admin\n");
@@ -175,7 +171,13 @@ sub admin_page {
     $msg .= '<li><form method="get" action=""><label for="say">Say: </label><input name="say"/></form></li>';
     $msg .= '<li><form method="get" action=""><label for="action">Action: </label><input name="action"/></form></li>';
     $response->code(RC_OK);
-    $response->content($msg);
+    
+    my $template = &get_template('base');
+    $template->param(
+        title => 'Admin',
+        content => $msg,
+    );
+    $response->content($template->output());
 }
 
 sub messup_httpd {    

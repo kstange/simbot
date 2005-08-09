@@ -1,3 +1,15 @@
+Version 1.0 alpha: (08 Aug 2005)
+	* plugins/httpd.pl:
+	  - I forgot to update the changelog when I created this plugin...
+	    instead of faking dates for everything, here it all is:
+	  - Internal web server for SimBot. Right now, sqlite-logger and recap
+	    use it. It also provides an admin page where you can restart SimBot
+	    and even make it say things.
+	  - Added templates.
+	* templates/base.default.tmpl:
+	  - This is the basic template that defines every page. More templates will
+	    come soon...
+
 Version 1.0 alpha: (25 Jul 2005)
 	* simbot.pl:
 	  - Added message value returned to callbacks attached to the nojoin
