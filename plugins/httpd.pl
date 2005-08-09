@@ -175,6 +175,7 @@ sub admin_page {
     $msg .= '<ul><li><a href="/admin?restart">Restart Simbot</a></li>';
     $msg .= '<li><form method="get" action=""><label for="say">Say: </label><input name="say"/></form></li>';
     $msg .= '<li><form method="get" action=""><label for="action">Action: </label><input name="action"/></form></li>';
+    $msg .= '</ul>';
     $response->code(RC_OK);
     
     my $template = &get_template('base');
@@ -196,11 +197,6 @@ sub messup_httpd {
             'handler' => \&admin_page,
         };
     }
-    
-    $SimBot::hash_plugin_httpd_pages{'fiveohoh'} = {
-        'title' => 'Internal Server Error Generation Department',
-        'handler' => sub {},
-    };
 }
 
 sub cleanup_httpd {
