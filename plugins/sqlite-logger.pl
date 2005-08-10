@@ -946,15 +946,12 @@ sub linkify {
     my @words = split(/\s+/, $_[0]);
     my $curWord;
         
-    foreach $curWord (@words) {
-        my $url = $curWord;
-        
+    foreach $curWord (@words) {        
         # remove things that commonly surround URLs
-        $url =~ s{^\(}{};
-        $url =~ s{\)$}{};
-        $url =~ s{^<}{};
-        $url =~ s{>$}{};
-        
+        my ($word_prefix, $word, $word_suffix) = $curWord
+            =~ m@^(["'\(<\[]?)(\S*?)(["'\)>\]]?)$@; #'
+        my $url = $word;
+
         # map some common host names to protocols
         $url =~ s{^(www|web)\.} {http://$1\.};
         $url =~ s{^ftp\.}       {ftp://ftp\.};
@@ -966,7 +963,7 @@ sub linkify {
         }
         
         if($url =~ m{^((http|ftp|news|nntp|irc|aim)s?:[\w.?/=\-\&\;]+)}) {
-            $curWord = qq(<a href="$1">$curWord</a>);
+            $curWord = qq($word_prefix<a href="$1">$word</a>$word_suffix);
             next;
         }
         
@@ -978,7 +975,7 @@ sub linkify {
                 # Yup. Let's assume it's a web site...
                 $host = 'http://' . $host;
                 
-                $curWord = qq(<a href="${host}/${path}">$curWord</a>);
+                $curWord = qq($word_prefix<a href="${host}/${path}">$word</a>$word_suffix);
             }
         }
     }
