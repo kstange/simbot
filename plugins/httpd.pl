@@ -56,48 +56,66 @@ sub index_handler {
     my ($req_root) = $request->uri =~ m|^/([^\?]*)|;
     
     &SimBot::debug(3, 'httpd: handling request for ' . $request->uri . ", req root $req_root\n");
+    my $code = 500; # An error by default.
     
-    if(defined $SimBot::hash_plugin_httpd_pages{$req_root}) {
+    if($req_root && defined $SimBot::hash_plugin_httpd_pages{$req_root}) {
         my $handler = $SimBot::hash_plugin_httpd_pages{$req_root}->{'handler'};
-        &$handler($request, $response, \&get_template);
+        $code = &$handler($request, $response, \&get_template);
         
-        if(defined $response->code && $response->code == RC_UNAUTHORIZED) {
-            $response->content('Bad login/pass or your browser does not know how to log in.');
-        } elsif(!defined $response->content
-            || length $response->content == 0)
-        {
-            # Hey! Our plugin didn't do anything useful.
-            $response->code(RC_INTERNAL_SERVER_ERROR);
-            $response->content("something's broken");
-            # FIXME: We need error pages...
-        } elsif(!defined $response->code) {
-            $response->code(RC_OK); # assume everything's OK
+    } else {
+        if($req_root) { # a page was requested, but we don't have it.
+            $code = RC_NOT_FOUND;
+        } else {
+            # do the index page
+            my $msg;
+            $msg .= "<ul>\n";
+            foreach my $url (keys %SimBot::hash_plugin_httpd_pages) {
+                my $title = $SimBot::hash_plugin_httpd_pages{$url}->{'title'};
+                
+                $msg .= qq(<li><a href="$url">$title</a>\n);
+            }
+            $msg .= "</ul>\n";
+            
+            $code = RC_OK;
+            $response->push_header("Content-Type", "text/html");
+            
+            my $template = &get_template('base');
+            $template->param(
+                title => 'Index',
+                content => $msg,
+            );
+            $response->content($template->output());
         }
-        
-        $heap->{client}->put($response);
-        $kernel->yield('shutdown');
-        return;
     }
     
-    my $msg;
-    $msg .= "<ul>\n";
-    foreach my $url (keys %SimBot::hash_plugin_httpd_pages) {
-        my $title = $SimBot::hash_plugin_httpd_pages{$url}->{'title'};
-        
-        $msg .= qq(<li><a href="$url">$title</a>\n);
+    if(!defined $code || int $code >= 300 || int $code < 200) {
+        # Plugin gave us no return value, or an error code, or an absurd number
+        # make the error page.
+        if(!defined $code || $code < 200 || $code >= 600) {
+            # no code, or code absurd.
+            $code = RC_INTERNAL_SERVER_ERROR;
+        }
+        my $err_template = &get_template("error.$code");
+        if(!defined $err_template) { $err_template = &get_template('error.500'); }
+        if(!defined $err_template) {
+            $response->code(RC_INTERNAL_SERVER_ERROR);
+            $response->content("An internal error prevented us from completing your request, and no template was available for the error message.");
+        } else {
+            $response->code($code);
+            $err_template->param(
+                request_url => $request->uri,
+            );
+            my $base_template = &get_template('base');
+            $base_template->param(
+                content => $err_template->output(),
+                title => "$code " . status_message($code),
+            );
+            $response->content($base_template->output());
+        }
+
     }
-    $msg .= "</ul>\n";
     
-    $response->code(RC_OK);
-    $response->push_header("Content-Type", "text/html");
-    
-    my $template = &get_template('base');
-    $template->param(
-        title => 'Index',
-        content => $msg,
-    );
-    $response->content($template->output());
-    
+    $response->code($code);
     $heap->{client}->put($response);
     $kernel->yield('shutdown');
 }
@@ -111,7 +129,7 @@ sub get_template {
     } elsif(-r "templates/${template}.default.tmpl") {
         $file_name = "templates/${template}.default.tmpl";
     } else {
-        &SimBot::debug(&SimBot::DEBUG_WARN, "httpd: No template $template available!");
+        &SimBot::debug(&SimBot::DEBUG_WARN, "httpd: No template $template available!\n");
         return;
     }
     
@@ -131,13 +149,14 @@ sub admin_page {
     my ($request, $response) = @_;
     
     if(!defined &SimBot::option('plugin.httpd', 'admin_pass')) {
-        die "In admin_page with no password!";
+        &SimBot::debug(&SimBot::DEBUG_WARN, "httpd: in admin_page with no password defined!\n");
+        return 500; # internal server error
     }
     
     if(!defined $request->authorization_basic) {
         $response->www_authenticate('Basic realm="simbot admin"');
         $response->code(RC_UNAUTHORIZED);
-        return;
+        return RC_UNAUTHORIZED;
     }
     my ($user, $pass) = $request->authorization_basic;
     if($user ne &SimBot::option('plugin.httpd', 'admin_user')
@@ -146,7 +165,7 @@ sub admin_page {
         $response->www_authenticate = 
             'Basic realm="simbot admin"';
         $response->code(RC_UNAUTHORIZED);
-        return;
+        return RC_UNAUTHORIZED;
     }
     my $msg;
     my $say;
@@ -184,6 +203,7 @@ sub admin_page {
         content => $msg,
     );
     $response->content($template->output());
+    return RC_OK;
 }
 
 sub messup_httpd {    

@@ -122,6 +122,7 @@ sub recap_page {
         content => &SimBot::htmlize(join("\n", @backlog)),
     );
     $response->content($template->output());
+    return 200;
 }
 
 # Register Plugin

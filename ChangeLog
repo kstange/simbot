@@ -1,3 +1,13 @@
+Version 1.0 alpha: (09 Aug 2005)
+	* templates/irclog.default.tmpl:
+	  - Template used for making the HTML version of the IRC log. Don't like
+	    the traditional "<JohnDoe> Hi!"? Change it here.
+	* plugins/httpd.pl:
+	  - Error pages. Plugins must return a HTTP status code on the page
+	    callback. If they don't, we'll assume 500 (Internal Server Error).
+	    For codes 300-500, we'll look for a error.NNN template. If we can't
+	    find one, we'll use error.500. Failing that, we use a hard coded page.
+
 Version 1.0 alpha: (08 Aug 2005)
 	* plugins/httpd.pl:
 	  - I forgot to update the changelog when I created this plugin...

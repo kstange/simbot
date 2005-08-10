@@ -1,0 +1,35 @@
+<!-- SimBot Default IRC Log template
+     Copy to irclog.local.tmpl before editing -->
+     
+<h4>IRC log for <TMPL_VAR NAME=channel> from <TMPL_VAR NAME=start_time> to
+<TMPL_VAR NAME=end_time>.</h4>
+
+<TMPL_LOOP NAME=ircloop>
+    <div class="row <TMPL_VAR NAME=event>">
+        <span class="ts"><TMPL_VAR NAME=timestamp></span>
+        <span class="msg"><TMPL_IF EXPR="event eq 'SAY'">
+                &lt;<TMPL_VAR NAME=source_nick>&gt; <TMPL_VAR NAME=content>
+            <TMPL_ELSE><TMPL_IF EXPR="event eq 'NOTICE'">
+                -<TMPL_VAR NAME=source_nick>- <TMPL_VAR NAME=content>
+            <TMPL_ELSE><TMPL_IF EXPR="event eq 'ACTION'">
+                • <TMPL_VAR NAME=source_nick> <TMPL_VAR NAME=content>
+            <TMPL_ELSE><TMPL_IF EXPR="event eq 'JOINED'">
+                ⊕ <TMPL_VAR NAME=source_nick> joined.
+            <TMPL_ELSE><TMPL_IF EXPR="event eq 'PARTED'">
+                ⊖ <TMPL_VAR NAME=source_nick> left.
+            <TMPL_ELSE><TMPL_IF EXPR="event eq 'QUIT'">
+                ⊘ <TMPL_VAR NAME=source_nick> quit IRC.
+            <TMPL_ELSE><TMPL_IF EXPR="event eq 'TOPIC'">
+                ✴ <TMPL_VAR NAME=source_nick> set the topic to: <TMPL_VAR NAME=content>
+            <TMPL_ELSE><TMPL_IF EXPR="event eq 'MODE'">
+                ❖ <TMPL_VAR NAME=source_nick> set mode <TMPL_VAR NAME=content>
+            <TMPL_ELSE><TMPL_IF EXPR="event eq 'KICKED'">
+                ✖ <TMPL_VAR NAME=target_nick> was kicked by <TMPL_VAR NAME=source_nick> (<TMPL_VAR NAME=content>)
+            <TMPL_ELSE><TMPL_IF EXPR="event eq 'NICK'">
+                ⊜ <TMPL_VAR NAME=source_nick> is now known as <TMPL_VAR NAME=target_nick>
+            </TMPL_IF></TMPL_IF></TMPL_IF></TMPL_IF></TMPL_IF></TMPL_IF>
+            </TMPL_IF></TMPL_IF></TMPL_IF></TMPL_IF></span>
+    </div>
+</TMPL_LOOP>
+
+<!-- End irclog -->

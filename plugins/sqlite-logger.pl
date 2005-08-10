@@ -697,13 +697,12 @@ sub row_hashref_to_text {
     return $msg;
 }
 
-sub row_hashref_to_html {
+# This turns the row hashref into a hashref with a human readable timestamp
+# and user nicks instead of IDs.
+sub row_hashref_to_template_hashref {
     my ($row) = @_;
     
-    my $msg = '<div class="row ' . lc($row->{'event'}) . '">';
-    
-    
-    # timestamp    
+    # TIMESTAMP
     my (undef, undef, undef, $cur_day, $cur_month, $cur_yr) = localtime; 
     $cur_month += 1; # localtime gives us 0..11, we want 1..12
     $cur_yr += 1900; # localtime gives us number of years since 1900
@@ -712,81 +711,42 @@ sub row_hashref_to_html {
     $month += 1;
     $yr += 1900;
     
-    $msg .= '<span class="ts">';
-    
+    $row->{'timestamp'} = '';
     if($cur_day != $day || $cur_month != $month || $cur_yr != $yr) {
-        $msg .= (MONTHS)[$month-1] . " $day ";
+        $row->{'timestamp'} .= (MONTHS)[$month-1] . " $day ";
     }
     
-    if($cur_yr != $yr) { $msg .= "$yr "; }
+    if($cur_yr != $yr) { $row->{'timestamp'} .= "$yr "; }
     
-    $msg .= $hr . ':' . sprintf('%02d',$min) . '</span> ';
+    $row->{'timestamp'} .= $hr . ':' . sprintf('%02d',$min);
     
-    # event
-#    $msg .= q(<span class=") . lc($row->{'event'}) . q(">);
-    $msg .= q(<span class="msg">);
     
-    if($row->{'event'} eq 'SAY') {
-        $msg .= '&lt;' . &f_nick($row->{'source_nick_id'})
-        . '&gt; ' . f_content($row->{'content'});
-    } elsif($row->{'event'} eq 'NOTICE') {
-        $msg .= '-' . &f_nick($row->{'source_nick_id'})
-        . '- ' . f_content($row->{'content'});
-    } elsif($row->{'event'} eq 'ACTION') {
-        $msg .= '* ' . &f_nick($row->{'source_nick_id'})
-            . ' ' . f_content($row->{'content'});
-    } elsif($row->{'event'} eq 'JOINED') {
-        $msg .= '* ' . &f_nick($row->{'source_nick_id'}) 
-            . ' joined.';
-    } elsif($row->{'event'} eq 'PARTED') {
-        $msg .= '* ' . &f_nick($row->{'source_nick_id'})
-            . ' left (' . f_content($row->{'content'}) . ')';
-    } elsif($row->{'event'} eq 'QUIT') {
-        $msg .= '* ' . &f_nick($row->{'source_nick_id'})
-            . ' quit (' . f_content($row->{'content'}) . ')';
-    } elsif($row->{'event'} eq 'TOPIC') {
-        $msg .= '* ' . &f_nick($row->{'source_nick_id'})
-            . ' changed the topic to: ' . f_content($row->{'content'});
-    } elsif($row->{'event'} eq 'MODE') {
-        $msg .= '* ' . &f_nick($row->{'source_nick_id'})
-            . ' set ' . f_content($row->{'content'});
-    } elsif($row->{'event'} eq 'KICKED') {
-        $msg .= '* ' . &f_nick($row->{'target_nick_id'})
-            . ' was kicked by ' . &f_nick($row->{'source_nick_id'})
-            . ' (' . f_content($row->{'content'}) . ')';
-    } elsif($row->{'event'} eq 'NICK') {
-        $msg .= '* ' . &f_nick($row->{'source_nick_id'})
-            . ' is now known as ' . &f_nick($row->{'target_nick_id'});
-            
-    } else {    # Oh, great, we forgot one.
-        $msg .= 'UNKNOWN EVENT ' . $row->{'event'} . ':';
-        if(defined $row->{'source_nick_id'})
-            { $msg .= ' source:' . &f_nick($row->{'source_nick_id'}); }
-        if(defined $row->{'target_nick_id'})
-            { $msg .= ' target:' . &f_nick($row->{'target_nick_id'}); }
-        if(defined f_content($row->{'content'}))
-            { $msg .= ' content:' . f_content($row->{'content'}); }
+    # NICKS
+    if(defined $row->{'source_nick_id'}) {
+        $row->{'source_nick'} =
+            &get_nickchan_name($row->{'source_nick_id'});
     }
-    $msg .= q(</span></div>);
-    return $msg;
+    if(defined $row->{'target_nick_id'}) {
+        $row->{'target_nick'} =
+            &get_nickchan_name($row->{'target_nick_id'});
+    }
+    
+    # CONTENT
+    if(defined $row->{'content'}) {
+        $row->{'content'} = &f_content($row->{'content'});
+    }
+    
+    return $row;
 }
 
 
 ### FORMATTING FUNCTIONS ###
-sub f_nick {
-    return '<span class="nick">'
-        . &get_nickchan_name($_[0])
-        . '</span>';
-}
 
 # f_content is used to format the content part of chat.
 # this does things like linkify URLs, escape characters that
 # need escaping, munge email addresses, and things like that.
 sub f_content {
     my $content = encode_entities($_[0]);
-    
-    # mask email
-    
     
     # linkify
     $content = &linkify($content);
@@ -866,25 +826,25 @@ sub seen_nlp_match {
 }
 
 sub web_request {
-    my ($request, $response) = @_;
+    my ($request, $response, $get_template) = @_;
     
     my $query = &create_query_hash($request->uri);
     
     if(defined $query->{'recap'}) {
-        &web_recap($query, $response);
+        return &web_recap($query, $response, $get_template);
     } else {
-        &web_log($query, $response);
+        return &web_log($query, $response, $get_template);
     }
 }
 
 sub web_recap {
     my ($query, $response) = @_;
     
-    
+    return 501; # not implemented
 }
 
 sub web_log {
-    my ($query, $response) = @_;
+    my ($query, $response, $get_template) = @_;
     my (undef, undef, undef, $start_day, $start_month, $start_year)
         = localtime;
     
@@ -929,14 +889,6 @@ sub web_log {
         
     my $start_time = timelocal(0,$start_min,$start_hour,$start_day, $start_month-1, $start_year);
     my $end_time = timelocal(59,$end_min,$end_hour,$end_day, $end_month-1, $end_year);
-    
-    my $message = 
-        '<div id="header">IRC log for '
-        . &get_nickchan_name($channel_id)
-        . ' from ' . scalar localtime($start_time)
-        . ' to ' . scalar localtime($end_time)
-        . '. Generated ' . scalar localtime()
-        . "</div>\n";
         
     my $log_query = $dbh->prepare_cached(
         'SELECT time, source_nick_id, event, target_nick_id, content'
@@ -949,11 +901,28 @@ sub web_log {
     $log_query->execute($channel_id, $start_time, $end_time);
     
     my $row;
+    my @loop_data;
     while($row = $log_query->fetchrow_hashref) {
-        $message .= &row_hashref_to_html($row) . "\n";
+        push(@loop_data, &row_hashref_to_template_hashref($row));
     }
-    $response->content($message);
+    
+    my $irclog_template = &$get_template('irclog');
+    $irclog_template->param(
+        ircloop => \@loop_data,
+        channel => &get_nickchan_name($channel_id),
+        start_time => scalar localtime($start_time),
+        end_time => scalar localtime($end_time),
+    );
+    
+    my $base_template = &$get_template('base');
+    $base_template->param(
+        content => $irclog_template->output(),
+        title => 'IRC Log',
+    );
+    
+    $response->content($base_template->output());
     $response->push_header("Content-Type", "text/html");
+    return 200; # OK
 }
 
 sub create_query_hash {
