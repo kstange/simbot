@@ -162,8 +162,7 @@ sub admin_page {
     if($user ne &SimBot::option('plugin.httpd', 'admin_user')
         || $pass ne &SimBot::option('plugin.httpd', 'admin_pass')) {
         
-        $response->www_authenticate = 
-            'Basic realm="simbot admin"';
+        $response->www_authenticate('Basic realm="simbot admin"');
         $response->code(RC_UNAUTHORIZED);
         return RC_UNAUTHORIZED;
     }
