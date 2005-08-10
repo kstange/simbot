@@ -14,11 +14,11 @@
             <TMPL_ELSE><TMPL_IF EXPR="event eq 'ACTION'">
                 • <TMPL_VAR NAME=source_nick> <TMPL_VAR NAME=content>
             <TMPL_ELSE><TMPL_IF EXPR="event eq 'JOINED'">
-                ⊕ <TMPL_VAR NAME=source_nick> joined.
+                → <TMPL_VAR NAME=source_nick> joined.
             <TMPL_ELSE><TMPL_IF EXPR="event eq 'PARTED'">
-                ⊖ <TMPL_VAR NAME=source_nick> left.
+                ← <TMPL_VAR NAME=source_nick> left.
             <TMPL_ELSE><TMPL_IF EXPR="event eq 'QUIT'">
-                ⊘ <TMPL_VAR NAME=source_nick> quit IRC.
+                ← <TMPL_VAR NAME=source_nick> quit IRC.
             <TMPL_ELSE><TMPL_IF EXPR="event eq 'TOPIC'">
                 ✴ <TMPL_VAR NAME=source_nick> set the topic to: <TMPL_VAR NAME=content>
             <TMPL_ELSE><TMPL_IF EXPR="event eq 'MODE'">
