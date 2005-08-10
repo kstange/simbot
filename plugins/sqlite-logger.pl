@@ -746,7 +746,8 @@ sub row_hashref_to_template_hashref {
 # this does things like linkify URLs, escape characters that
 # need escaping, munge email addresses, and things like that.
 sub f_content {
-    my $content = encode_entities($_[0]);
+    my $content = $_[0];
+    $content = encode_entities($content);
     
     # linkify
     $content = &linkify($content);
@@ -964,7 +965,7 @@ sub linkify {
             next;
         }
         
-        if($url =~ m{^((http|ftp|news|nntp|irc|aim)s?:[\w.?/=\-\&]+)}) {
+        if($url =~ m{^((http|ftp|news|nntp|irc|aim)s?:[\w.?/=\-\&\;]+)}) {
             $curWord = qq(<a href="$1">$curWord</a>);
             next;
         }
