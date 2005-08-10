@@ -977,8 +977,7 @@ sub linkify {
                             |museum|\w\w)$}ix) {
                 # Yup. Let's assume it's a web site...
                 $host = 'http://' . $host;
-            }
-            if($host =~ m/:/) {
+                
                 $curWord = qq(<a href="${host}/${path}">$curWord</a>);
             }
         }
