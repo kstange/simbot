@@ -176,7 +176,7 @@ sub admin_page {
         POE::Kernel->post('simbot', 'restart', "web admin");
         $response->code(RC_OK);
         $response->content('OK, restarting');
-        return;
+        return RC_OK;
     } elsif(($say) = $request->uri =~ m|\?say=(\S+)$|) {
         $say =~ s/\+/ /g;
         $say =~ s/%([a-fA-F0-9][a-fA-F0-9])/pack("C", hex($1))/eg;
