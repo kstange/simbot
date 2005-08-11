@@ -505,8 +505,8 @@ sub htmlize {
 		my $bold = 0;
 		my $reverse = 0;
 		my $underline = 0;
-		my $color = 16;
-		my $bgcolor = 16;
+		my $color = -1;
+		my $bgcolor = -1;
 		my $tag = "";
 		$line =~ s/&/&amp;/;
 		$line =~ s/>/&gt;/;
@@ -536,16 +536,16 @@ sub htmlize {
 						$color = $1;
 						$line =~ s/\003$1/\003/;
 					} else {
-						$color = 16;
-						$bgcolor = 16;
+						$color = -1;
+						$bgcolor = -1;
 					}
 					debug (DEBUG_SPAM, "htmlize: c: $color; bgc: $bgcolor\n");
 				} else {
 					$bold = 0;
 					$underline = 0;
 					$reverse = 0;
-					$color = 16;
-					$bgcolor = 16;
+					$color = -1;
+					$bgcolor = -1;
 					debug (DEBUG_SPAM, "htmlize: b: $bold; u: $underline; r $reverse; c: $color; bgc: $bgcolor\n");
 				}
 			} #end foreach code
@@ -558,8 +558,8 @@ sub htmlize {
 			my $css = ($bold      ? "font-weight: bold; " : "")
 				. ($underline     ? "text-decoration: underline; " : "")
 				. ($reverse       ? "color: white; background: black; "
-				   : ($color != 16   ? "color: $named_colors[$color]; " : "")
-				   . ($bgcolor != 16 ? "background: $named_colors[$bgcolor]; " : "")
+				   : ($color != -1   ? "color: $named_colors[$color]; " : "")
+				   . ($bgcolor != -1 ? "background: $named_colors[$bgcolor]; " : "")
 				   );
 			debug (DEBUG_SPAM, "htmlize: css: $css\n");
 			$tag .= "<span style=\"$css\">" if ($css ne "");

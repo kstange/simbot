@@ -949,8 +949,8 @@ sub linkify {
     my $bold = 0;
     my $reverse = 0;
     my $underline = 0;
-    my $color = 16;
-    my $bgcolor = 16;
+    my $color = -1;
+    my $bgcolor = -1;
     my $tag = '';
     
     while(my @codes = $line =~ m/(?:&#(2|3|15|22|31);)+/) {
@@ -972,15 +972,15 @@ sub linkify {
                     $color = $1;
                     $line =~ s/&#3;$1/&#3;/;
                 } else {
-                    $color = 16;
-                    $bgcolor = 16;
+                    $color = -1;
+                    $bgcolor = -1;
                 }
             } else {
                 $bold = 0;
                 $underline = 0;
                 $reverse = 0;
-                $color = 16;
-                $bgcolor = 16;
+                $color = -1;
+                $bgcolor = -1;
             }
         } #end foreach code
         
@@ -994,8 +994,8 @@ sub linkify {
             ($bold          ? 'bold '   : '')
             . ($underline   ? 'uline '  : '')
             . ($reverse     ? 'reverse '
-                : ($color != 16     ? "color$color " : '')
-                . ($bgcolor != 16   ? "bgcolor$color "  : '')
+                : ($color != -1     ? "color$color " : '')
+                . ($bgcolor != -1   ? "bgcolor$color "  : '')
             );
         
         $tag .= "<span class=\"$class\">" if ($class ne "");
