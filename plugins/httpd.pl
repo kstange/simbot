@@ -72,7 +72,7 @@ sub index_handler {
             foreach my $url (keys %SimBot::hash_plugin_httpd_pages) {
                 my $title = $SimBot::hash_plugin_httpd_pages{$url}->{'title'};
                 
-                $msg .= qq(<li><a href="$url">$title</a>\n);
+                $msg .= qq(<li><a href="$url">$title</a></li>\n);
             }
             $msg .= "</ul>\n";
             
