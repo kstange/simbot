@@ -966,7 +966,7 @@ sub linkify {
                 $line =~ m/&#3;(\d{1,2})?(,(\d{1,2}))?/;
                 if ($2) {
                     $color = int $1 if $1;
-                    $bgcolor = $3;
+                    $bgcolor = int $3;
                     $line =~ s/&#3;$1$2/&#3;/;
                 } elsif ($1) {
                     $color = int $1;
