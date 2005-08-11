@@ -33,7 +33,43 @@ span.nick {
 }
 
 .row.kicked { color: #500; }
-.bold { font-weight: bold; }
-.uline { text-decoration: underline; }
-.reverse { color: #FFF; background-color: #000; }
+
+.bold       { font-weight: bold; }
+.uline      { text-decoration: underline; }
+.reverse    { color: #FFF; background-color: #000; }
+
+.color0     { color: #FFF; }
+.color1     { color: #000; }
+.color2     { color: navy; }
+.color3     { color: green; }
+.color4     { color: red; }
+.color5     { color: maroon; }
+.color6     { color: purple; }
+.color7     { color: orange; }
+.color8     { color: yellow; }
+.color9     { color: lightgreen; }
+.color10    { color: teal; }
+.color11    { color: cyan; }
+.color12    { color: blue; }
+.color13    { color: magenta; }
+.color14    { color: gray; }
+.color15    { color: silver; }
+
+.bgcolor0     { background-color: #FFF; }
+.bgcolor1     { background-color: #000; }
+.bgcolor2     { background-color: navy; }
+.bgcolor3     { background-color: green; }
+.bgcolor4     { background-color: red; }
+.bgcolor5     { background-color: maroon; }
+.bgcolor6     { background-color: purple; }
+.bgcolor7     { background-color: orange; }
+.bgcolor8     { background-color: yellow; }
+.bgcolor9     { background-color: lightgreen; }
+.bgcolor10    { background-color: teal; }
+.bgcolor11    { background-color: cyan; }
+.bgcolor12    { background-color: blue; }
+.bgcolor13    { background-color: magenta; }
+.bgcolor14    { background-color: gray; }
+.bgcolor15    { background-color: silver; }
+
 
