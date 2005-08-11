@@ -31,6 +31,7 @@ package SimBot::plugin::sqlite::logger;
 
 use warnings;
 use strict;
+use Data::Dumper;
 
 use Time::Local;
 use HTML::Entities;
@@ -943,9 +944,68 @@ sub create_query_hash {
 }
 
 sub linkify {
-    my @words = split(/\s+/, $_[0]);
-    my $curWord;
+    my $line = $_[0];
+    
+    my $bold = 0;
+    my $reverse = 0;
+    my $underline = 0;
+    my $color = 16;
+    my $bgcolor = 16;
+    my $tag = '';
+    
+    while(my @codes = $line =~ m/(?:&#(2|3|15|22|31);)+/) {
+        my $block = $&;
+        foreach my $code (@codes) {
+            if ($code == 2) {
+                $bold = 1 - $bold;
+            } elsif ($code == 31) {
+                $underline = 1 - $underline;
+            } elsif ($code == 22) {
+                $reverse = 1 - $reverse;
+            } elsif ($code == 3) {
+                $line =~ m/&#3;(\d{1,2})?(,(\d{1,2}))?/;
+                if ($2) {
+                    $color = $1 if $1;
+                    $bgcolor = $3;
+                    $line =~ s/\003$1$2/\003/;
+                } elsif ($1) {
+                    $color = $1;
+                    $line =~ s/\003$1/\003/;
+                } else {
+                    $color = 16;
+                    $bgcolor = 16;
+                }
+            } else {
+                $bold = 0;
+                $underline = 0;
+                $reverse = 0;
+                $color = 16;
+                $bgcolor = 16;
+            }
+        } #end foreach code
         
+        if ($tag =~ /<span/) {
+            $tag = "</span>";
+        } else {
+            $tag = '';
+        }
+        
+        my $class =
+            ($bold          ? 'bold '   : '')
+            . ($underline   ? 'uline '  : '')
+            . ($reverse     ? 'reverse '
+                : ($color != 16     ? "color$color " : '')
+                . ($bgcolor != 16   ? "bgcolor$color "  : '')
+            );
+        
+        $tag .= "<span class=\"$class\">" if ($class ne "");
+        $line =~ s/$block/$tag/;
+    } # end while blocks
+    $line .= "</span>" if ($tag =~ /<span/);
+    
+    my @words = split(/\s+/, $line);
+    my $curWord;
+
     foreach $curWord (@words) {        
         # remove things that commonly surround URLs
         my ($word_prefix, $word, $word_suffix) = $curWord

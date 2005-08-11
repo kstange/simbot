@@ -53,7 +53,7 @@ sub index_handler {
     
     my $response = HTTP::Response->new(200);
     
-    my ($req_root) = $request->uri =~ m|^/([^\?]*)|;
+    my ($req_root) = $request->uri =~ m|^/([^/\?]*)|;
     
     &SimBot::debug(3, 'httpd: handling request for ' . $request->uri . ", req root $req_root\n");
     my $code = 500; # An error by default.
@@ -72,7 +72,9 @@ sub index_handler {
             foreach my $url (keys %SimBot::hash_plugin_httpd_pages) {
                 my $title = $SimBot::hash_plugin_httpd_pages{$url}->{'title'};
                 
-                $msg .= qq(<li><a href="$url">$title</a></li>\n);
+                if(defined $title) {
+                    $msg .= qq(<li><a href="$url">$title</a></li>\n);
+                }
             }
             $msg .= "</ul>\n";
             
@@ -205,6 +207,37 @@ sub admin_page {
     return RC_OK;
 }
 
+sub serve_css {
+    my ($request, $response) = @_;
+    
+    my ($filename) = $request->uri =~ m{/css/([^/]+)$};
+    # should be something like main.css
+    
+    $filename =~ s/\.css$//;
+    # now is something like main
+    
+    if(!defined $filename)                  { return RC_FORBIDDEN; }
+        # (user didn't ask for anything and we're unwilling to give a list)
+    
+    if(-r "templates/css/${filename}.local.css") {
+        $filename = "templates/css/${filename}.local.css";
+    } elsif( -r "templates/css/${filename}.default.css") {
+        $filename = "templates/css/${filename}.default.css";
+    } else {
+        return RC_NOT_FOUND;
+    }
+    
+    {
+        local $/;
+        open(IN, $filename) or return RC_INTERNAL_SERVER_ERROR;
+        my $content = <IN>;
+        $response->push_header("Content-Type", "text/css");
+        $response->content($content);
+        close IN;
+    }
+    return RC_OK;
+}
+
 sub messup_httpd {    
     if(defined &SimBot::option('plugin.httpd', 'admin_user')
         && length &SimBot::option('plugin.httpd', 'admin_user') > 4
@@ -216,6 +249,7 @@ sub messup_httpd {
             'handler' => \&admin_page,
         };
     }
+    $SimBot::hash_plugin_httpd_pages{'css'} = { 'handler' => \&serve_css, };
 }
 
 sub cleanup_httpd {

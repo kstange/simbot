@@ -1,0 +1,39 @@
+/* SimBot default stylesheet
+   Copy to main.local.css before editing */
+
+h1 {
+    text-shadow: 4px 4px 5px #AAA;
+    border-bottom: 1px solid #000;
+    margin-bottom: 0;
+}
+
+#footer {
+    border-top: 1px solid #000;
+    margin-top: 0;
+}
+
+#content { margin: 1em 0; }
+
+
+/* IRC LOG STYLES */
+.ts {
+    color: #777;
+    font-size: 90%;
+    margin-right: .5em;
+}
+
+span.nick {
+    color: #006;
+    font-weight: bold;
+}
+
+.row {
+    padding: .1em 0 .1em 10em;
+    text-indent: -9em;
+}
+
+.row.kicked { color: #500; }
+.bold { font-weight: bold; }
+.uline { text-decoration: underline; }
+.reverse { color: #FFF; background-color: #000; }
+
