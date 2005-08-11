@@ -967,10 +967,10 @@ sub linkify {
                 if ($2) {
                     $color = $1 if $1;
                     $bgcolor = $3;
-                    $line =~ s/\003$1$2/\003/;
+                    $line =~ s/&#3;$1$2/&#3;/;
                 } elsif ($1) {
                     $color = $1;
-                    $line =~ s/\003$1/\003/;
+                    $line =~ s/&#3;$1/&#3;/;
                 } else {
                     $color = 16;
                     $bgcolor = 16;
