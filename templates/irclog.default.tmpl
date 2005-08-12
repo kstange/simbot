@@ -18,7 +18,7 @@
             <TMPL_ELSE><TMPL_IF EXPR="event eq 'PARTED'">
                 ← <span class="nick"><TMPL_VAR NAME=source_nick></span> left.
             <TMPL_ELSE><TMPL_IF EXPR="event eq 'QUIT'">
-                ← <span class="nick"><TMPL_VAR NAME=source_nick></span> quit IRC.
+                ← <span class="nick"><TMPL_VAR NAME=source_nick></span> quit IRC. (<TMPL_VAR NAME=content>)
             <TMPL_ELSE><TMPL_IF EXPR="event eq 'TOPIC'">
                 ✴ <span class="nick"><TMPL_VAR NAME=source_nick></span> set the topic to: <TMPL_VAR NAME=content>
             <TMPL_ELSE><TMPL_IF EXPR="event eq 'MODE'">
