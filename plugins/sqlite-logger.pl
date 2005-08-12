@@ -998,7 +998,7 @@ sub linkify {
                 . ($bgcolor != -1   ? "bgcolor$color "  : '')
             );
         
-        $tag .= "<span class=\"$class\">" if ($class ne "");
+        $tag .= "<span class=\"$class\">" if ($class ne '');
         $line =~ s/$block/$tag/;
     } # end while blocks
     $line .= "</span>" if ($tag =~ /<span/);
@@ -1022,7 +1022,7 @@ sub linkify {
             next;
         }
         
-        if($url =~ m{^((http|ftp|news|nntp|irc|aim)s?:[\w.?/=\-\&\;]+)}) {
+        if($url =~ m{^((http|ftp|news|nntp|irc|aim)s?:[\w.?/=\-\&\~\;]+)}) {
             $curWord = qq($word_prefix<a href="$1">$word</a>$word_suffix);
             next;
         }
