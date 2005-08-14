@@ -53,35 +53,35 @@ use constant BLANK_SAYINGS => (
 # $nick will be replaced by the supplicant's nick
 use constant INTROS => (
     q(pulls out a Magic 8 Ball and concentrates deeply on $nick's question:),
-    q(drops the magic 8 ball on the floor, catches it as it rolls away, and shows the answer to $nick's question:),
+q(drops the magic 8 ball on the floor, catches it as it rolls away, and shows the answer to $nick's question:),
     q(vigorously shakes the 8-ball to find the answer to $nick's question:),
-); #'
-
-use constant BLANK_INTROS => (
-    q(pulls out a Magic 8 Ball and concentrates deeply on nothingness:),
 );
 
+use constant BLANK_INTROS =>
+  ( q(pulls out a Magic 8 Ball and concentrates deeply on nothingness:), );
 
 sub consult_the_8ball {
-    my ($kernel, $nick, $channel, undef, $question) = @_;
-    &SimBot::debug(3, "8ball: Consulting the Magic Eight Ball for $nick\n");
-    
+    my ( $kernel, $nick, $channel, undef, $question ) = @_;
+    &SimBot::debug( 3, "8ball: Consulting the Magic Eight Ball for $nick\n" );
+
     my $message;
-    
-    if(defined $question) {
-        $message = &SimBot::pick((INTROS)) . ' ' . &SimBot::pick((SAYINGS));
+
+    if ( defined $question ) {
+        $message = &SimBot::pick( (INTROS) ) . ' ' . &SimBot::pick( (SAYINGS) );
     } else {
-        $message = &SimBot::pick((BLANK_INTROS)) . ' ' . &SimBot::pick((BLANK_SAYINGS));
+        $message =
+            &SimBot::pick( (BLANK_INTROS) ) . ' ' . &SimBot::pick( (BLANK_SAYINGS) );
     }
     $message =~ s/\$nick/$nick/g;
-    
-    &SimBot::send_action($channel, $message);
-}
+
+    &SimBot::send_action( $channel, $message );
+} ## end sub consult_the_8ball
 
 # Register plugin
-&SimBot::plugin_register(plugin_id => '8ball',
-                        plugin_help => 'Consults the Magic 8 Ball. Be sure to ask a question!',
-                        plugin_params => '<question>',
-                        event_plugin_call => \&consult_the_8ball,
-                        );
-                        
+&SimBot::plugin_register(
+    plugin_id     => '8ball',
+    plugin_help   => 'Consults the Magic 8 Ball. Be sure to ask a question!',
+    plugin_params => '<question>',
+    event_plugin_call => \&consult_the_8ball,
+);
+
