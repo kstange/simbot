@@ -4,3 +4,4 @@ simbot.sh
 .DS_Store
 *.stackdump
 forecast_debug
+.project
