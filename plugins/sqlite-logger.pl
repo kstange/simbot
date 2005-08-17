@@ -36,7 +36,7 @@ use Data::Dumper;
 use Time::Local;
 use HTML::Entities;
 
-use vars qw( $dbh $insert_query $get_nickchan_id_query $get_nickchan_name_query $add_nickchan_id_query );
+use vars qw( $dbh $insert_query $get_nickchan_id_query $get_nickchan_name_query $add_nickchan_id_query $update_nick_hour_count_query $insert_nick_hour_count_query);
 
 use DBI;
 
@@ -91,6 +91,16 @@ CREATE TABLE names (
     name STRING,
     context STRING);
 EOT
+
+        $dbh->do(<<EOT);
+CREATE TABLE nick_hour_counts (
+    nick_id INTEGER,
+    channel_id INTEGER,
+    hour INTEGER,
+    count INTEGER
+);
+EOT
+
         $dbh->commit;
     }
     
@@ -117,6 +127,18 @@ EOT
     $add_nickchan_id_query = $dbh->prepare(
         'INSERT INTO names (name) VALUES (?)'
     );
+    
+    $update_nick_hour_count_query = $dbh->prepare(
+        'UPDATE nick_hour_counts'
+        . ' SET count = count + 1'
+        . ' WHERE nick_id = ?'
+        . ' AND channel_id = ?'
+        . ' AND hour = ?');
+    
+    $insert_nick_hour_count_query = $dbh->prepare(
+        'INSERT INTO nick_hour_counts'
+        . ' (nick_id, channel_id, hour, count)'
+        . ' VALUES (?, ?, ?, 1)');
 }
 
 sub cleanup_sqlite_logger {
@@ -212,6 +234,12 @@ sub set_seen {
     
     $insert_query->execute(time, $channel_id, $source_nick_id, $target_nick_id, $doing, $content);
     $insert_query->finish;
+    
+    my $hour = (gmtime(time))[2];
+    
+    unless(int $update_nick_hour_count_query->execute($source_nick_id, $channel_id, $hour)) {
+        $insert_nick_hour_count_query->execute($source_nick_id, $channel_id, $hour);
+    }
     $dbh->commit;
 }
 
@@ -927,6 +955,75 @@ sub web_log {
     return 200; # OK
 }
 
+sub web_stats {
+    my ($request, $response, $get_template) = @_;
+    
+    
+    my $query = &create_query_hash($request->uri);
+    
+    if(defined $query->{'nick_id'}) {
+        # doing stats for a nickname
+    } else {
+        # doing channel stats...
+        my $stats_template = &$get_template('channel_stats');
+        
+        my $channel_id = (defined $query->{'channel_id'}
+                      ? $query->{'channel_id'}
+                      : &get_nickchan_id(&SimBot::option('network', 'channel')));
+        
+        my @hour_counts = (0,0,0,0,0,0,0,0,0,0,0,0,
+                           0,0,0,0,0,0,0,0,0,0,0,0);
+        my $max_hour = 0;
+        my %nick_counts;
+        my $nick_stats_query = $dbh->prepare_cached(
+            'SELECT nick_id, hour, count'
+            . ' FROM nick_hour_counts'
+            . ' WHERE channel_id = ?');
+        
+        $nick_stats_query->execute($channel_id);
+        while(my @row = $nick_stats_query->fetchrow_array) {
+            $hour_counts[$row[1]] += $row[2];
+            if($hour_counts[$row[1]] > $max_hour) {
+                $max_hour = $hour_counts[$row[1]];
+            }
+            $nick_counts{$row[0]} += $row[2];
+        }
+        
+        my @nick_list;
+        foreach my $cur_key (keys %nick_counts) {
+            my %hash;
+            $hash{'link'} = "/stats?nick_id=${cur_key}";
+            $hash{'nick'} = &get_nickchan_name($cur_key);
+            $hash{'line_count'} = $nick_counts{$cur_key};
+            push(@nick_list, \%hash);
+        }
+        
+        my @hour_list;
+        for (my $x=0; $x <= 23; $x++) {
+            my %hash;
+            $hash{'hour'} = $x;
+            $hash{'percent'} = ($hour_counts[$x] / $max_hour) * 100;
+            
+            push(@hour_list, \%hash);       
+        }
+        
+        $stats_template->param(nickloop => \@nick_list,
+            hourloop => \@hour_list,
+            channel => &get_nickchan_name($channel_id),
+        );
+        
+        my $base_template = &$get_template('base');
+        $base_template->param(
+            content => $stats_template->output(),
+            title => 'Channel Statistics',
+        );
+        
+        $response->content($base_template->output());
+        $response->push_header('Content-Type', 'text/html');
+        return 200;
+    }
+}
+
 sub create_query_hash {
     my ($query) = $_[0] =~ m/\?(\S+)$/;
     my %hash;
@@ -1079,4 +1176,9 @@ sub linkify {
 $SimBot::hash_plugin_httpd_pages{'log'} = {
     'title' => 'Log Viewer',
     'handler' => \&web_request,
-}
+};
+
+$SimBot::hash_plugin_httpd_pages{'stats'} = {
+    'title' => 'Statistics',
+    'handler' => \&web_stats,
+};
