@@ -2,7 +2,7 @@
 #  SimBot sqlite Logger Plugin
 #
 # DESCRIPTION:
-#   Logs chat SimBot sees to a SQLite log. This could be used to 
+#   Logs chat SimBot sees to a SQLite log. This could be used to
 #   generate channel statistics, a more intelligent seen plugin, and
 #   more.
 #
@@ -12,12 +12,12 @@
 #   This program is free software; you can redistribute and/or modify it
 #   under the terms of version 2 of the GNU General Public License as
 #   published by the Free Software Foundation.
-#   
+#
 #   This program is distributed in the hope that it will be useful,
 #   but WITHOUT ANY WARRANTY; without even the implied warranty of
 #   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #   GNU General Public License for more details.
-#   
+#
 #   You should have received a copy of the GNU General Public License
 #   along with this program; if not, write to the Free Software
 #   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
@@ -25,7 +25,6 @@
 # TODO:
 #   * see comment at about line 600
 #
-
 
 package SimBot::plugin::sqlite::logger;
 
@@ -36,18 +35,22 @@ use Data::Dumper;
 use Time::Local;
 use HTML::Entities;
 
-use vars qw( $dbh $insert_query $get_nickchan_id_query $get_nickchan_name_query $add_nickchan_id_query $update_nick_hour_count_query $insert_nick_hour_count_query);
+use vars
+  qw( $dbh $insert_query $get_nickchan_id_query $get_nickchan_name_query $add_nickchan_id_query $update_nick_hour_count_query $insert_nick_hour_count_query);
 
 use DBI;
 
-use constant MONTHS => ('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug',
-    'Sep','Oct','Nov','Dec');
-    
+use constant MONTHS => (
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+);
+
 use constant MAX_RESULTS => 20;
 
 use constant REQUESTED_TOO_MANY => 'Sorry, but I cannot send you more than '
-    . MAX_RESULTS . ' results.';
-    
+  . MAX_RESULTS
+  . ' results.';
+
 use constant REQUESTED_NONE => "No, I don't think I'll be doing that.";
 
 use constant SEEN_HELP => <<EOT;
@@ -64,16 +67,17 @@ EOT
 sub messup_sqlite_logger {
     $dbh = DBI->connect(
         'dbi:SQLite:dbname=data/irclog',
-        '','', # user, pass aren't useful to SQLite
+        '', '',    # user, pass aren't useful to SQLite
         { RaiseError => 1, AutoCommit => 0 }
-    ) or die;
-    &SimBot::debug(3, 'sqlite: Using SQLite version '
-        . $dbh->{'sqlite_version'} . "\n");
-        
+      )
+      or die;
+    &SimBot::debug( 3,
+        'sqlite: Using SQLite version ' . $dbh->{'sqlite_version'} . "\n" );
+
     # let's create our table. If this fails, we don't care.
     {
-        local $dbh->{RaiseError}; # let's not die in this block
-        local $dbh->{PrintError}; # and let's be quiet
+        local $dbh->{RaiseError};    # let's not die in this block
+        local $dbh->{PrintError};    # and let's be quiet
         $dbh->do(<<EOT);
 CREATE TABLE chatlog (
     id INTEGER PRIMARY KEY,
@@ -103,43 +107,39 @@ EOT
 
         $dbh->commit;
     }
-    
+
     # let's prepare the insert query now, it'll be used a lot so
     # keeping it ready is a good idea
-    $insert_query = $dbh->prepare(
-        'INSERT INTO chatlog '
-        . ' (time, channel_id, source_nick_id, target_nick_id, event, content) '
-        . ' VALUES (?, ?, ?, ?, ?, ?)'
-    );
-    
+    $insert_query =
+      $dbh->prepare( 'INSERT INTO chatlog '
+          . ' (time, channel_id, source_nick_id, target_nick_id, event, content) '
+          . ' VALUES (?, ?, ?, ?, ?, ?)' );
+
     # and the query to fetch a nick ID
-    $get_nickchan_id_query = $dbh->prepare(
-        'SELECT id FROM names'
-        . ' WHERE lower(name) = lower(?)'
-        . ' LIMIT 1'
-    );
-    
+    $get_nickchan_id_query =
+      $dbh->prepare(
+        'SELECT id FROM names' . ' WHERE lower(name) = lower(?)' . ' LIMIT 1' );
+
     # and the query to fetch a nick name from ID
-    $get_nickchan_name_query = $dbh->prepare(
-        'SELECT name FROM names WHERE id = ? LIMIT 1' );
-    
+    $get_nickchan_name_query =
+      $dbh->prepare('SELECT name FROM names WHERE id = ? LIMIT 1');
+
     # and the query to add one
-    $add_nickchan_id_query = $dbh->prepare(
-        'INSERT INTO names (name) VALUES (?)'
-    );
-    
-    $update_nick_hour_count_query = $dbh->prepare(
-        'UPDATE nick_hour_counts'
-        . ' SET count = count + 1'
-        . ' WHERE nick_id = ?'
-        . ' AND channel_id = ?'
-        . ' AND hour = ?');
-    
-    $insert_nick_hour_count_query = $dbh->prepare(
-        'INSERT INTO nick_hour_counts'
-        . ' (nick_id, channel_id, hour, count)'
-        . ' VALUES (?, ?, ?, 1)');
-}
+    $add_nickchan_id_query =
+      $dbh->prepare('INSERT INTO names (name) VALUES (?)');
+
+    $update_nick_hour_count_query =
+      $dbh->prepare( 'UPDATE nick_hour_counts'
+          . ' SET count = count + 1'
+          . ' WHERE nick_id = ?'
+          . ' AND channel_id = ?'
+          . ' AND hour = ?' );
+
+    $insert_nick_hour_count_query =
+      $dbh->prepare( 'INSERT INTO nick_hour_counts'
+          . ' (nick_id, channel_id, hour, count)'
+          . ' VALUES (?, ?, ?, 1)' );
+} ## end sub messup_sqlite_logger
 
 sub cleanup_sqlite_logger {
     $dbh->disconnect;
@@ -149,19 +149,19 @@ sub cleanup_sqlite_logger {
 # needed.
 # name will be the name of the chnanel or nickname
 sub get_nickchan_id {
-    my ($name, $add_unknown) = @_;
+    my ( $name, $add_unknown ) = @_;
     my $id;
-    
+
     $get_nickchan_id_query->execute($name) or die;
-    if(($id) = $get_nickchan_id_query->fetchrow_array()) {
-    	# The nickname is known.
+    if ( ($id) = $get_nickchan_id_query->fetchrow_array() ) {
+        # The nickname is known.
         $get_nickchan_id_query->finish;
     } else {
-    	# The nickname isn't known. We might need to add it.
+        # The nickname isn't known. We might need to add it.
         $get_nickchan_id_query->finish;
-        if($add_unknown) {
+        if ($add_unknown) {
             $add_nickchan_id_query->execute($name);
-            $id = $dbh->last_insert_id(undef,undef,'names',undef);
+            $id = $dbh->last_insert_id( undef, undef, 'names', undef );
 
             $add_nickchan_id_query->finish;
         } else {
@@ -169,13 +169,13 @@ sub get_nickchan_id {
         }
     }
     return $id;
-}
+} ## end sub get_nickchan_id
 
 # get_nickchan_name reverses get_nickchan_id
 sub get_nickchan_name {
     my ($id) = @_;
     my $name;
-    
+
     $get_nickchan_name_query->execute($id) or die;
     ($name) = $get_nickchan_name_query->fetchrow_array();
     $get_nickchan_name_query->finish;
@@ -183,453 +183,449 @@ sub get_nickchan_name {
 }
 
 sub log_nick_change {
-    my (undef, undef, $nick, $newnick) = @_;
-    my $channel_id = &get_nickchan_id(
-        &SimBot::option('network', 'channel'), 0
-    );
-    
-    my $source_nick_id = &get_nickchan_id($nick, 1);
-    my $target_nick_id = &get_nickchan_id($newnick, 1);
-    
+    my ( undef, undef, $nick, $newnick ) = @_;
+    my $channel_id =
+      &get_nickchan_id( &SimBot::option( 'network', 'channel' ), 0 );
+
+    my $source_nick_id = &get_nickchan_id( $nick,    1 );
+    my $target_nick_id = &get_nickchan_id( $newnick, 1 );
+
     # FIXME: This causes two "uninitialized value" warnings.
     # I don't know why. They appear to be harmless, though, so
     # I give up. I'm surpressing the warnings, someone else can
     # fix 'em.
     {
         no warnings qw( uninitialized );
-        $insert_query->execute(time, $channel_id, $source_nick_id,
-            $target_nick_id, 'NICK', undef);
+        $insert_query->execute( time, $channel_id, $source_nick_id,
+            $target_nick_id, 'NICK', undef );
     }
     $insert_query->finish;
     $dbh->commit;
-}
+} ## end sub log_nick_change
 
 sub set_seen {
     # lots of undefs here, and we mean 'em all. Shut up about it.
     no warnings qw( uninitialized );
-    
-    my($kernel, $nick, $channel, $doing, $content, $target) = @_;
+
+    my ( $kernel, $nick, $channel, $doing, $content, $target ) = @_;
     my $time = time;
 
     # First, we need to identify things
-    my $channel_id = &get_nickchan_id(
-        &SimBot::option('network', 'channel'),
-        1
-    );
-    my $source_nick_id = &get_nickchan_id($nick, 1);
+    my $channel_id =
+      &get_nickchan_id( &SimBot::option( 'network', 'channel' ), 1 );
+    my $source_nick_id = &get_nickchan_id( $nick, 1 );
     my $target_nick_id;
-    
-    if($doing eq 'KICKED') {
+
+    if ( $doing eq 'KICKED' ) {
         # IRC kicks are foo got kicked by bar
         # let's store it so that foo is the target.
         $target_nick_id = $source_nick_id;
-        $source_nick_id = &get_nickchan_id($target, 1);
-    } elsif($doing eq 'MODE') {
+        $source_nick_id = &get_nickchan_id( $target, 1 );
+    } elsif ( $doing eq 'MODE' ) {
         # $target will be the arguments for the mode change options
         # let's add them to the content
         $content .= " $target";
-    } elsif($doing eq 'ACTION') {
-        (undef, $content) = split(/ /, $content, 2);
+    } elsif ( $doing eq 'ACTION' ) {
+        ( undef, $content ) = split( / /, $content, 2 );
     }
-    
-    $insert_query->execute(time, $channel_id, $source_nick_id, $target_nick_id, $doing, $content);
+
+    $insert_query->execute( time, $channel_id, $source_nick_id, $target_nick_id,
+        $doing, $content );
     $insert_query->finish;
-    
-    my $hour = (gmtime(time))[2];
-    
-    unless(int $update_nick_hour_count_query->execute($source_nick_id, $channel_id, $hour)) {
-        $insert_nick_hour_count_query->execute($source_nick_id, $channel_id, $hour);
+
+    my $hour = ( gmtime(time) )[2];
+
+    unless (
+        int $update_nick_hour_count_query->execute(
+            $source_nick_id, $channel_id, $hour
+        )
+      )
+    {
+        $insert_nick_hour_count_query->execute( $source_nick_id, $channel_id,
+            $hour );
     }
     $dbh->commit;
-}
+} ## end sub set_seen
 
 sub do_seen {
-    my ($kernel, $nick, $channel, undef, @args) = @_;
-    
+    my ( $kernel, $nick, $channel, undef, @args ) = @_;
+
     my $nick_id = &get_nickchan_id($nick);
-    
-    my ($seen_nick, $seen_row);
+
+    my ( $seen_nick, $seen_row );
     my @events;
-    my $count=1;
+    my $count = 1;
     my $content;
-    
+
     my $nick_list;
-    
-    if(!defined $args[0]) {
+
+    if ( !defined $args[0] ) {
         # the user did a %seen without any arguments
-        &SimBot::send_message($channel,
-            "$nick: Who are you looking for? ('%seen --help' for more options)");
+        &SimBot::send_message( $channel,
+            "$nick: Who are you looking for? ('%seen --help' for more options)"
+        );
         return;
-    } elsif($args[0] =~ m/--help/i) {
-        &SimBot::send_message($channel, "$nick: OK, messaging you help.");
-        &SimBot::send_pieces_with_notice($nick, undef, SEEN_HELP);
+    } elsif ( $args[0] =~ m/--help/i ) {
+        &SimBot::send_message( $channel, "$nick: OK, messaging you help." );
+        &SimBot::send_pieces_with_notice( $nick, undef, SEEN_HELP );
         return;
-    } elsif($args[0] eq 'before' && $args[1] eq 'that') {
+    } elsif ( $args[0] eq 'before' && $args[1] eq 'that' ) {
         my $context = &get_nick_context($nick_id);
-        
-        if($context =~ m/seen=(\d+)/) {
+
+        if ( $context =~ m/seen=(\d+)/ ) {
             $nick_list = $1;
         } else {
-            &SimBot::send_message($channel,
-                "$nick: I don't seem to remember what 'that' is.");
+            &SimBot::send_message( $channel,
+                "$nick: I don't seem to remember what 'that' is." );
             return;
         }
-        if($context =~ m/seen-row=(\d+)/) {
+        if ( $context =~ m/seen-row=(\d+)/ ) {
             $seen_row = $1;
         } else {
             die 'This shouldn\'t happen!';
         }
-        if($context =~ m/seen-event=(\S+)/) {
-            @events = split(/,/, $1);
+        if ( $context =~ m/seen-event=(\S+)/ ) {
+            @events = split( /,/, $1 );
         }
-        if($context =~ m/seen-content="(.*?)"/) {
+        if ( $context =~ m/seen-content="(.*?)"/ ) {
             $content = $1;
         }
-        
+
     } else {
         $seen_nick = shift(@args);
-        &SimBot::debug(3, "sqlite-logger: Seen request by $nick for $seen_nick\n");
+        &SimBot::debug( 3,
+            "sqlite-logger: Seen request by $nick for $seen_nick\n" );
 
-        if($seen_nick =~ m/^\*$/) {
+        if ( $seen_nick =~ m/^\*$/ ) {
             # user is looking for anybody
             # we'll do nothing
-        } elsif($seen_nick =~ m/\*/) {
+        } elsif ( $seen_nick =~ m/\*/ ) {
             # user is using wildcards
             # FIXME: Later.
-            &SimBot::send_message($channel,
-                "$nick: Sorry, wildcard matching is not implemented yet.");
+            &SimBot::send_message( $channel,
+                "$nick: Sorry, wildcard matching is not implemented yet." );
             return;
-        } elsif(!($nick_list = &get_nickchan_id($seen_nick))) {
+        } elsif ( !( $nick_list = &get_nickchan_id($seen_nick) ) ) {
             # The requested nick does not exist.
-            &SimBot::send_message($channel,
-                "$nick: I do not know of a $seen_nick");
+            &SimBot::send_message( $channel,
+                "$nick: I do not know of a $seen_nick" );
             return;
         }
-    
-        while(my $cur_arg = shift(@args)) {
-            if($cur_arg =~ /(say|join|part|quit|nick|kick|notice|action|topic)/i) {
+
+        while ( my $cur_arg = shift(@args) ) {
+            if ( $cur_arg =~
+                /(say|join|part|quit|nick|kick|notice|action|topic)/i )
+            {
                 my $cur_event = $1;
-                if($cur_event =~ /^(join|part|kick)$/i) 
-                    { $cur_event .= 'ed'; }
-                    
-                push(@events, uc($cur_event));
-            } elsif($cur_arg =~ m/before/) {
+                if ( $cur_event =~ /^(join|part|kick)$/i ) {
+                    $cur_event .= 'ed';
+                }
+
+                push( @events, uc($cur_event) );
+            } elsif ( $cur_arg =~ m/before/ ) {
                 my $time = shift(@args);
-                
-            } elsif($cur_arg =~ m/count/) {
+
+            } elsif ( $cur_arg =~ m/count/ ) {
                 $count = shift(@args);
-            } elsif($cur_arg =~ m/^content$/) {
-                $content = join(' ', @args);
+            } elsif ( $cur_arg =~ m/^content$/ ) {
+                $content = join( ' ', @args );
                 last;
             }
-        }
-    }
-    
-    if(!defined $count) {
-        &SimBot::send_message($channel, "$nick: 'count' must be followed by the number of results you want.");
-        return;
-    } elsif($count <= 0) {
-        &SimBot::send_message($channel, "$nick: " . REQUESTED_NONE);
-        return;
-    } elsif($count > MAX_RESULTS) {
-        &SimBot::send_message($channel, "$nick: " . REQUESTED_TOO_MANY);
-        return;
-    }
+        } ## end while ( my $cur_arg = shift...
+    } ## end else [ if ( !defined $args[0])
 
+    if ( !defined $count ) {
+        &SimBot::send_message( $channel,
+            "$nick: 'count' must be followed by the number of results you want."
+        );
+        return;
+    } elsif ( $count <= 0 ) {
+        &SimBot::send_message( $channel, "$nick: " . REQUESTED_NONE );
+        return;
+    } elsif ( $count > MAX_RESULTS ) {
+        &SimBot::send_message( $channel, "$nick: " . REQUESTED_TOO_MANY );
+        return;
+    }
 
     # Build the query string
     my $seen_query;
-    my $query_str = 
+    my $query_str =
         'SELECT id, time, source_nick_id, event,'
-        . ' target_nick_id, content'
-        . ' FROM chatlog WHERE channel_id = ?';
-    if(defined $nick_list) {
-        $query_str .= ' AND (source_nick_id IN (' . $nick_list . ')'
-        . ' OR target_nick_id IN (' . $nick_list . '))';
+      . ' target_nick_id, content'
+      . ' FROM chatlog WHERE channel_id = ?';
+    if ( defined $nick_list ) {
+        $query_str .=
+            ' AND (source_nick_id IN ('
+          . $nick_list . ')'
+          . ' OR target_nick_id IN ('
+          . $nick_list . '))';
     }
-    if(defined $seen_row) {
-        $query_str .= " AND id < $seen_row"; 
+    if ( defined $seen_row ) {
+        $query_str .= " AND id < $seen_row";
     }
-    if(@events) {
-        $query_str .= 
-            " AND event IN ('" . join("','", @events) . "')";
+    if (@events) {
+        $query_str .= " AND event IN ('" . join( "','", @events ) . "')";
     }
-    if(defined $content) {
-        $query_str .= ' AND content LIKE '
-            . $dbh->quote('%' . $content . '%');
+    if ( defined $content ) {
+        $query_str .=
+          ' AND content LIKE ' . $dbh->quote( '%' . $content . '%' );
     }
-    $query_str .= ' ORDER BY time DESC'
-        . ' LIMIT ' . $count;
-    
-    unless($seen_query = $dbh->prepare($query_str)) {
-        &SimBot::send_message($channel,
-            "$nick: Sorry, but something went wrong accessing the log.");
+    $query_str .= ' ORDER BY time DESC' . ' LIMIT ' . $count;
+
+    unless ( $seen_query = $dbh->prepare($query_str) ) {
+        &SimBot::send_message( $channel,
+            "$nick: Sorry, but something went wrong accessing the log." );
         return;
     }
-    $seen_query->execute(&get_nickchan_id(&SimBot::option('network', 'channel')));
+    $seen_query->execute(
+        &get_nickchan_id( &SimBot::option( 'network', 'channel' ) ) );
     my $row;
     my $last_id;
     my @responses;
-    while($row = $seen_query->fetchrow_hashref) {
-        unshift(@responses, &row_hashref_to_text($row));
+    while ( $row = $seen_query->fetchrow_hashref ) {
+        unshift( @responses, &row_hashref_to_text($row) );
         $last_id = $row->{'id'};
     }
     $seen_query->finish;
-    
-    if(!@responses) {
+
+    if ( !@responses ) {
         # no responses
-        &SimBot::send_message($channel,
-            "$nick: Nothing matched your query.");
-    } elsif($#responses == 0) {
+        &SimBot::send_message( $channel, "$nick: Nothing matched your query." );
+    } elsif ( $#responses == 0 ) {
         # only one response, give it in the channel.
-        &SimBot::send_message($channel, "$nick: $responses[0]");
+        &SimBot::send_message( $channel, "$nick: $responses[0]" );
     } else {
         # many responses
-        &SimBot::send_message($channel, "$nick: OK, messaging you " . ($#responses + 1) . ' results.');
-        &SimBot::send_pieces_with_notice($nick, undef, join("\n", @responses));
+        &SimBot::send_message( $channel,
+            "$nick: OK, messaging you " . ( $#responses + 1 ) . ' results.' );
+        &SimBot::send_pieces_with_notice( $nick, undef,
+            join( "\n", @responses ) );
     }
-    
+
     # update context so 'before that' works
     {
         no warnings qw( uninitialized );
-        &update_nick_context($nick_id, 'seen-row', $last_id);
-        &update_nick_context($nick_id, 'seen', $nick_list);
-        &update_nick_context($nick_id, 'seen-event',
-            join(',', @events));
-        &update_nick_context($nick_id, 'seen-content', qq("${content}"));
+        &update_nick_context( $nick_id, 'seen-row',     $last_id );
+        &update_nick_context( $nick_id, 'seen',         $nick_list );
+        &update_nick_context( $nick_id, 'seen-event',   join( ',', @events ) );
+        &update_nick_context( $nick_id, 'seen-content', qq("${content}") );
     }
-}
+} ## end sub do_seen
 
 sub do_recap {
-    my ($kernel, $nick, $channel, undef, @args) = @_;
+    my ( $kernel, $nick, $channel, undef, @args ) = @_;
     # let's autorecap!
     # first, we need to find when the person asking for the recap
     # left.
-    
+
     my $nick_id = &get_nickchan_id($nick);
-    
-    my $start_query = $dbh->prepare_cached(
-        'SELECT id FROM chatlog'
-        . ' WHERE channel_id = ?'
-        . ' AND source_nick_id = ?'
-        . ' AND (event = \'PARTED\''
-        . ' OR event = \'QUIT\''
-        . ' OR event = \'KICKED\')'
-        . ' ORDER BY time DESC'
-        . ' LIMIT 1'
-    );
-    
-    my $end_query = $dbh->prepare_cached(
-        'SELECT id FROM chatlog'
-        . ' WHERE channel_id = ?'
-        . ' AND source_nick_id = ?'
-        . ' AND event = \'JOINED\''
-        . ' ORDER BY time DESC'
-        . ' LIMIT 1'
-    );
-    
-    my $log_query = $dbh->prepare_cached(
-        'SELECT time, source_nick_id, event,'
-        . ' target_nick_id, content'
-        . ' FROM chatlog'
-        . ' WHERE channel_id = ?'
-        . ' AND id >= ?'
-        . ' AND id <= ?'
-    );
-    
-    my $channel_id = &get_nickchan_id(
-        &SimBot::option('network', 'channel')
-    );
-    $start_query->execute(
-        $channel_id,
-        $nick_id
-    );
-    
+
+    my $start_query =
+      $dbh->prepare_cached( 'SELECT id FROM chatlog'
+          . ' WHERE channel_id = ?'
+          . ' AND source_nick_id = ?'
+          . ' AND (event = \'PARTED\''
+          . ' OR event = \'QUIT\''
+          . ' OR event = \'KICKED\')'
+          . ' ORDER BY time DESC'
+          . ' LIMIT 1' );
+
+    my $end_query =
+      $dbh->prepare_cached( 'SELECT id FROM chatlog'
+          . ' WHERE channel_id = ?'
+          . ' AND source_nick_id = ?'
+          . ' AND event = \'JOINED\''
+          . ' ORDER BY time DESC'
+          . ' LIMIT 1' );
+
+    my $log_query =
+      $dbh->prepare_cached( 'SELECT time, source_nick_id, event,'
+          . ' target_nick_id, content'
+          . ' FROM chatlog'
+          . ' WHERE channel_id = ?'
+          . ' AND id >= ?'
+          . ' AND id <= ?' );
+
+    my $channel_id =
+      &get_nickchan_id( &SimBot::option( 'network', 'channel' ) );
+    $start_query->execute( $channel_id, $nick_id );
+
     my $start_row;
-    unless(($start_row) = $start_query->fetchrow_array) {
+    unless ( ($start_row) = $start_query->fetchrow_array ) {
         $start_query->finish;
-        &SimBot::send_message($channel,
-            "$nick: Sorry, I didn't see you leave!"
-        );
+        &SimBot::send_message( $channel,
+            "$nick: Sorry, I didn't see you leave!" );
         return;
     }
     $start_query->finish;
-    
-    $end_query->execute(
-        $channel_id,
-        $nick_id
-    );
+
+    $end_query->execute( $channel_id, $nick_id );
     my $end_row;
-    unless(($end_row) = $end_query->fetchrow_array) {
+    unless ( ($end_row) = $end_query->fetchrow_array ) {
         $end_query->finish;
-        &SimBot::send_message($channel,
-            "$nick: Sorry, I didn't see you come back!"
-        );
+        &SimBot::send_message( $channel,
+            "$nick: Sorry, I didn't see you come back!" );
         return;
     }
     $end_query->finish;
-    
+
     # ok, so now we have the range to fetch...
     # let's get it!
-    $log_query->execute($channel_id, $start_row, $end_row);
-    if($log_query->rows == 2) {
+    $log_query->execute( $channel_id, $start_row, $end_row );
+    if ( $log_query->rows == 2 ) {
         $log_query->finish;
         # the log only shows the person leaving and joining
-        &SimBot::send_message($channel,
-            "$nick: Nothing happened while you were gone."
-        );
+        &SimBot::send_message( $channel,
+            "$nick: Nothing happened while you were gone." );
         return;
     }
-    
+
     my @msg;
     my $row;
-    while($row = $log_query->fetchrow_hashref) {
-        push(@msg, &row_hashref_to_text($row));
+    while ( $row = $log_query->fetchrow_hashref ) {
+        push( @msg, &row_hashref_to_text($row) );
     }
     $log_query->finish;
-    if($#msg > MAX_RESULTS) {
-        $msg[-(MAX_RESULTS)] = "[ Recap too long, giving you the last 20 lines ]";
-        @msg = @msg[-(MAX_RESULTS)..-1];
+    if ( $#msg > MAX_RESULTS ) {
+        $msg[ -(MAX_RESULTS) ] =
+          "[ Recap too long, giving you the last 20 lines ]";
+        @msg = @msg[ -(MAX_RESULTS) .. -1 ];
     }
-    &SimBot::send_pieces_with_notice($nick, undef,
-        join("\n", @msg));
-}
+    &SimBot::send_pieces_with_notice( $nick, undef, join( "\n", @msg ) );
+} ## end sub do_recap
 
 sub access_log {
-    my ($kernel, $nick, $channel, $self, $query, @args) = @_;
+    my ( $kernel, $nick, $channel, $self, $query, @args ) = @_;
     my $nick_id;
-    
-    if($query =~ m/^recap$/) {
-        &do_recap($kernel, $nick, $channel, undef, @args);
-    } elsif($query =~ m/^seen/) {
-        &do_seen($kernel, $nick, $channel, undef, @args);
-    } elsif($query =~ m/^last/) {
+
+    if ( $query =~ m/^recap$/ ) {
+        &do_recap( $kernel, $nick, $channel, undef, @args );
+    } elsif ( $query =~ m/^seen/ ) {
+        &do_seen( $kernel, $nick, $channel, undef, @args );
+    } elsif ( $query =~ m/^last/ ) {
         #FIXME: remove this. Eventually.
         my $count;
-        if($args[0] =~ /^\d+$/) {
+        if ( $args[0] =~ /^\d+$/ ) {
             $count = shift(@args);
         }
         my $seen_query = '%seen * ' . $args[0];
-        if(defined $count) { $seen_query .= " count $count"; }
-        &SimBot::send_message($channel, "$nick: %log last has been replaced by %seen. Try: $seen_query");
-    } elsif($query =~ m/^stats/) {
+        if ( defined $count ) { $seen_query .= " count $count"; }
+        &SimBot::send_message( $channel,
+            "$nick: %log last has been replaced by %seen. Try: $seen_query" );
+    } elsif ( $query =~ m/^stats/ ) {
         my $statnick = $args[0];
-        my $chan_id = &get_nickchan_id(&SimBot::option('network','channel'));
-        
+        my $chan_id  =
+          &get_nickchan_id( &SimBot::option( 'network', 'channel' ) );
+
         $nick_id = &get_nickchan_id($nick);
-        
-        if(!defined $statnick) {
+
+        if ( !defined $statnick ) {
             # no nick specified, so how 'bout some generic stats?
             my $tmp_query;
-            
-            $tmp_query = $dbh->prepare_cached(
-                'SELECT time FROM chatlog'
-                . ' WHERE channel_id = ?'
-                . ' ORDER BY time'
-                . ' LIMIT 1');
+
+            $tmp_query =
+              $dbh->prepare_cached( 'SELECT time FROM chatlog'
+                  . ' WHERE channel_id = ?'
+                  . ' ORDER BY time'
+                  . ' LIMIT 1' );
             $tmp_query->execute($chan_id);
-            my $start_date = localtime(($tmp_query->fetchrow_array())[0]);
+            my $start_date = localtime( ( $tmp_query->fetchrow_array() )[0] );
             $tmp_query->finish;
-            
-            $tmp_query = $dbh->prepare_cached(
-                'SELECT count() FROM chatlog'
-                . ' WHERE channel_id = ?'
-            );
+
+            $tmp_query =
+              $dbh->prepare_cached(
+                'SELECT count() FROM chatlog' . ' WHERE channel_id = ?' );
             $tmp_query->execute($chan_id);
-            my $log_size = ($tmp_query->fetchrow_array())[0];
+            my $log_size = ( $tmp_query->fetchrow_array() )[0];
             $tmp_query->finish;
-            
+
             my $response =
                 "$nick: I have been logging since $start_date."
-                . " I have seen $log_size lines.";
-                
-                # I have seen $log_size lines and $nick_count nicks.";
-            
+              . " I have seen $log_size lines.";
+
+            # I have seen $log_size lines and $nick_count nicks.";
+
             # add today's lines and today's nicks.
-            
-            &SimBot::send_message($channel, $response);
+
+            &SimBot::send_message( $channel, $response );
         } else {
             my $statnick_id;
-            unless($statnick_id = &get_nickchan_id($statnick)) {
-                &SimBot::send_message($channel,
-                    "$nick: I do not know of a $statnick");
+            unless ( $statnick_id = &get_nickchan_id($statnick) ) {
+                &SimBot::send_message( $channel,
+                    "$nick: I do not know of a $statnick" );
                 return;
             }
-            
+
             my $response = "$nick:";
             my @reply_has;
-            
-            my $tmp_query = $dbh->prepare_cached(
-                'SELECT time FROM chatlog'
-                . ' WHERE channel_id = ?'
-                . ' AND (source_nick_id = ?'
-                . ' OR target_nick_id = ?)'
-                . ' ORDER BY time'
-                . ' LIMIT 1');
-            $tmp_query->execute($chan_id, $statnick_id, $statnick_id);
-            my $first_date = localtime(($tmp_query->fetchrow_array())[0]);
+
+            my $tmp_query =
+              $dbh->prepare_cached( 'SELECT time FROM chatlog'
+                  . ' WHERE channel_id = ?'
+                  . ' AND (source_nick_id = ?'
+                  . ' OR target_nick_id = ?)'
+                  . ' ORDER BY time'
+                  . ' LIMIT 1' );
+            $tmp_query->execute( $chan_id, $statnick_id, $statnick_id );
+            my $first_date = localtime( ( $tmp_query->fetchrow_array() )[0] );
             $tmp_query->finish;
-            
-            $tmp_query = $dbh->prepare_cached(
-                'SELECT time FROM chatlog'
-                . ' WHERE channel_id = ?'
-                . ' AND (source_nick_id = ?'
-                . ' OR target_nick_id = ?)'
-                . ' ORDER BY time DESC'
-                . ' LIMIT 1');
-            $tmp_query->execute($chan_id, $statnick_id, $statnick_id);
-            my $last_date = localtime(($tmp_query->fetchrow_array())[0]);
+
+            $tmp_query =
+              $dbh->prepare_cached( 'SELECT time FROM chatlog'
+                  . ' WHERE channel_id = ?'
+                  . ' AND (source_nick_id = ?'
+                  . ' OR target_nick_id = ?)'
+                  . ' ORDER BY time DESC'
+                  . ' LIMIT 1' );
+            $tmp_query->execute( $chan_id, $statnick_id, $statnick_id );
+            my $last_date = localtime( ( $tmp_query->fetchrow_array() )[0] );
             $tmp_query->finish;
-            
-            $response .= " I first saw $statnick on $first_date,"
-                . " and most recently on $last_date.";
-            
-            my $target_query = $dbh->prepare_cached(
-                'SELECT count() FROM chatlog'
-                . ' WHERE channel_id = ?'
-                . ' AND target_nick_id = ?'
-                . ' AND event = ?'
-            );
-            my $source_query = $dbh->prepare_cached(
-                'SELECT count() FROM chatlog'
-                . ' WHERE channel_id = ?'
-                . ' AND source_nick_id = ?'
-                . ' AND event = ?'
-            );
-            
+
+            $response .=
+                " I first saw $statnick on $first_date,"
+              . " and most recently on $last_date.";
+
+            my $target_query =
+              $dbh->prepare_cached( 'SELECT count() FROM chatlog'
+                  . ' WHERE channel_id = ?'
+                  . ' AND target_nick_id = ?'
+                  . ' AND event = ?' );
+            my $source_query =
+              $dbh->prepare_cached( 'SELECT count() FROM chatlog'
+                  . ' WHERE channel_id = ?'
+                  . ' AND source_nick_id = ?'
+                  . ' AND event = ?' );
+
             my $value;
-            $source_query->execute($chan_id, $statnick_id, 'SAY');
-            $value = ($source_query->fetchrow_array())[0];
-            push(@reply_has, "spoken $value line"
-                . ($value > 1 ? 's' : ''))
-                if $value > 0;
-            
-            $source_query->execute($chan_id, $statnick_id, 'ACTION');
-            $value = ($source_query->fetchrow_array())[0];
-            push(@reply_has, "emoted $value time"
-                . ($value > 1 ? 's' : ''))
-                if $value > 0;
-            
-            $source_query->execute($chan_id, $statnick_id, 'TOPIC');
-            $value = ($source_query->fetchrow_array())[0];
-            push(@reply_has, "set the topic $value time"
-                . ($value > 1 ? 's' : ''))
-                if $value > 0;
-            
-            $source_query->execute($chan_id, $statnick_id, 'KICKED');
-            $value = ($source_query->fetchrow_array())[0];
-            push(@reply_has, "kicked others $value time"
-                . ($value > 1 ? 's' : ''))
-                if $value > 0;
-            
-            $target_query->execute($chan_id, $statnick_id, 'KICKED');
-            $value = ($target_query->fetchrow_array())[0];
-            push(@reply_has, "been kicked $value time"
-                . ($value > 1 ? 's' : ''))
-                if $value > 0;
-            
-            
-            # join count ("I have seen JohnDoe 52 times, first on 
+            $source_query->execute( $chan_id, $statnick_id, 'SAY' );
+            $value = ( $source_query->fetchrow_array() )[0];
+            push( @reply_has, "spoken $value line" . ( $value > 1 ? 's' : '' ) )
+              if $value > 0;
+
+            $source_query->execute( $chan_id, $statnick_id, 'ACTION' );
+            $value = ( $source_query->fetchrow_array() )[0];
+            push( @reply_has, "emoted $value time" . ( $value > 1 ? 's' : '' ) )
+              if $value > 0;
+
+            $source_query->execute( $chan_id, $statnick_id, 'TOPIC' );
+            $value = ( $source_query->fetchrow_array() )[0];
+            push( @reply_has,
+                "set the topic $value time" . ( $value > 1 ? 's' : '' ) )
+              if $value > 0;
+
+            $source_query->execute( $chan_id, $statnick_id, 'KICKED' );
+            $value = ( $source_query->fetchrow_array() )[0];
+            push( @reply_has,
+                "kicked others $value time" . ( $value > 1 ? 's' : '' ) )
+              if $value > 0;
+
+            $target_query->execute( $chan_id, $statnick_id, 'KICKED' );
+            $value = ( $target_query->fetchrow_array() )[0];
+            push( @reply_has,
+                "been kicked $value time" . ( $value > 1 ? 's' : '' ) )
+              if $value > 0;
+
+            # join count ("I have seen JohnDoe 52 times, first on
             #   Jan 42, 87:43 AM, and most recently on...")
             # kicked count, kicking count
             # "is a nightowl" if some percent of logged days
@@ -640,134 +636,147 @@ sub access_log {
             # "1z l4m3" if uses l4m3r sp33k? (probably too hard to
             #    look up.
 
-	    # most of those seem to be hard to look up... the counts are easy
-	    # nightowl etc might not be too hard, it's just comparing counts
+            # most of those seem to be hard to look up... the counts are easy
+            # nightowl etc might not be too hard, it's just comparing counts
 
-            if(@reply_has) {
-                $response .= " $statnick has "
-                    . join(', ', @reply_has) . '.';
+            if (@reply_has) {
+                $response .= " $statnick has " . join( ', ', @reply_has ) . '.';
             }
-            &SimBot::send_message($channel, $response);
-        }
+            &SimBot::send_message( $channel, $response );
+        } ## end else [ if ( !defined $statnick)
     } else {
-        &SimBot::send_message($channel, "$nick: Sorry, I do not understand that. Try 'recap', 'seen <nick>', 'stats' for channel stats, or 'stats <nick>' for someone's stats.");
+        &SimBot::send_message( $channel,
+"$nick: Sorry, I do not understand that. Try 'recap', 'seen <nick>', 'stats' for channel stats, or 'stats <nick>' for someone's stats."
+        );
     }
-}
+} ## end sub access_log
 
 sub row_hashref_to_text {
     my ($row) = @_;
-    
-    my (undef, undef, undef, $cur_day, $cur_month, $cur_yr) = localtime; 
-    $cur_month += 1; # localtime gives us 0..11, we want 1..12
-    $cur_yr += 1900; # localtime gives us number of years since 1900
-    
-    my (undef, $min, $hr, $day, $month, $yr) = localtime($row->{'time'});
+
+    my ( undef, undef, undef, $cur_day, $cur_month, $cur_yr ) = localtime;
+    $cur_month += 1;       # localtime gives us 0..11, we want 1..12
+    $cur_yr    += 1900;    # localtime gives us number of years since 1900
+
+    my ( undef, $min, $hr, $day, $month, $yr ) = localtime( $row->{'time'} );
     $month += 1;
-    $yr += 1900;
-    
+    $yr    += 1900;
+
     my $msg = '[';
-    
-    if($cur_day != $day || $cur_month != $month || $cur_yr != $yr) {
-        $msg .= (MONTHS)[$month-1] . " $day ";
+
+    if ( $cur_day != $day || $cur_month != $month || $cur_yr != $yr ) {
+        $msg .= (MONTHS)[ $month - 1 ] . " $day ";
     }
-    
-    if($cur_yr != $yr) { $msg .= "$yr "; }
-    
-    $msg .= $hr . ':' . sprintf('%02d',$min) . '] ';
-    
-    if($row->{'event'} eq 'SAY') {
-        $msg .= '<' . &get_nickchan_name($row->{'source_nick_id'})
-        . '> ' . $row->{'content'};
-    } elsif($row->{'event'} eq 'NOTICE') {
-        $msg .= '-' . &get_nickchan_name($row->{'source_nick_id'})
-        . '- ' . $row->{'content'};
-    } elsif($row->{'event'} eq 'ACTION') {
-        $msg .= '* ' . &get_nickchan_name($row->{'source_nick_id'})
-		. ' ' . $row->{'content'};
-    } elsif($row->{'event'} eq 'JOINED') {
-        $msg .= '* ' . &get_nickchan_name($row->{'source_nick_id'}) 
-            . ' joined.';
-    } elsif($row->{'event'} eq 'PARTED') {
-        $msg .= '* ' . &get_nickchan_name($row->{'source_nick_id'})
-            . ' left (' . $row->{'content'} . ')';
-    } elsif($row->{'event'} eq 'QUIT') {
-        $msg .= '* ' . &get_nickchan_name($row->{'source_nick_id'})
-            . ' quit (' . $row->{'content'} . ')';
-    } elsif($row->{'event'} eq 'TOPIC') {
-        if($row->{'content'}) {
-            $msg .= '* ' . &get_nickchan_name($row->{'source_nick_id'})
-                . ' changed the topic to: ' . $row->{'content'};
+
+    if ( $cur_yr != $yr ) { $msg .= "$yr "; }
+
+    $msg .= $hr . ':' . sprintf( '%02d', $min ) . '] ';
+
+    if ( $row->{'event'} eq 'SAY' ) {
+        $msg .= '<'
+          . &get_nickchan_name( $row->{'source_nick_id'} ) . '> '
+          . $row->{'content'};
+    } elsif ( $row->{'event'} eq 'NOTICE' ) {
+        $msg .= '-'
+          . &get_nickchan_name( $row->{'source_nick_id'} ) . '- '
+          . $row->{'content'};
+    } elsif ( $row->{'event'} eq 'ACTION' ) {
+        $msg .= '* '
+          . &get_nickchan_name( $row->{'source_nick_id'} ) . ' '
+          . $row->{'content'};
+    } elsif ( $row->{'event'} eq 'JOINED' ) {
+        $msg .=
+          '* ' . &get_nickchan_name( $row->{'source_nick_id'} ) . ' joined.';
+    } elsif ( $row->{'event'} eq 'PARTED' ) {
+        $msg .= '* '
+          . &get_nickchan_name( $row->{'source_nick_id'} )
+          . ' left ('
+          . $row->{'content'} . ')';
+    } elsif ( $row->{'event'} eq 'QUIT' ) {
+        $msg .= '* '
+          . &get_nickchan_name( $row->{'source_nick_id'} )
+          . ' quit ('
+          . $row->{'content'} . ')';
+    } elsif ( $row->{'event'} eq 'TOPIC' ) {
+        if ( $row->{'content'} ) {
+            $msg .= '* '
+              . &get_nickchan_name( $row->{'source_nick_id'} )
+              . ' changed the topic to: '
+              . $row->{'content'};
         } else {
-            $msg .= '* ' . &get_nickchan_name($row->{'source_nick_id'})
-                . ' cleared the topic.';
+            $msg .= '* '
+              . &get_nickchan_name( $row->{'source_nick_id'} )
+              . ' cleared the topic.';
         }
-    } elsif($row->{'event'} eq 'MODE') {
-        $msg .= '* ' . &get_nickchan_name($row->{'source_nick_id'})
-            . ' set ' . $row->{'content'};
-    } elsif($row->{'event'} eq 'KICKED') {
-        $msg .= '* ' . &get_nickchan_name($row->{'target_nick_id'})
-            . ' was kicked by '
-            . &get_nickchan_name($row->{'source_nick_id'})
-            . ' (' . $row->{'content'} . ')';
-    } elsif($row->{'event'} eq 'NICK') {
-        $msg .= '* ' . &get_nickchan_name($row->{'source_nick_id'})
-            . ' is now known as '
-            . &get_nickchan_name($row->{'target_nick_id'});
-            
+    } elsif ( $row->{'event'} eq 'MODE' ) {
+        $msg .= '* '
+          . &get_nickchan_name( $row->{'source_nick_id'} ) . ' set '
+          . $row->{'content'};
+    } elsif ( $row->{'event'} eq 'KICKED' ) {
+        $msg .= '* '
+          . &get_nickchan_name( $row->{'target_nick_id'} )
+          . ' was kicked by '
+          . &get_nickchan_name( $row->{'source_nick_id'} ) . ' ('
+          . $row->{'content'} . ')';
+    } elsif ( $row->{'event'} eq 'NICK' ) {
+        $msg .= '* '
+          . &get_nickchan_name( $row->{'source_nick_id'} )
+          . ' is now known as '
+          . &get_nickchan_name( $row->{'target_nick_id'} );
+
     } else {    # Oh, great, we forgot one.
         $msg .= 'UNKNOWN EVENT ' . $row->{'event'} . ':';
-        if(defined $row->{'source_nick_id'})
-            { $msg .= ' source:' . &get_nickchan_name($row->{'source_nick_id'}); }
-        if(defined $row->{'target_nick_id'})
-            { $msg .= ' target:' . &get_nickchan_name($row->{'target_nick_id'}); }
-        if(defined $row->{'content'})
-            { $msg .= ' content:' . $row->{'content'}; }
+        if ( defined $row->{'source_nick_id'} ) {
+            $msg .= ' source:' . &get_nickchan_name( $row->{'source_nick_id'} );
+        }
+        if ( defined $row->{'target_nick_id'} ) {
+            $msg .= ' target:' . &get_nickchan_name( $row->{'target_nick_id'} );
+        }
+        if ( defined $row->{'content'} ) {
+            $msg .= ' content:' . $row->{'content'};
+        }
     }
     return $msg;
-}
+} ## end sub row_hashref_to_text
 
 # This turns the row hashref into a hashref with a human readable timestamp
 # and user nicks instead of IDs.
 sub row_hashref_to_template_hashref {
     my ($row) = @_;
-    
-    # TIMESTAMP
-    my (undef, undef, undef, $cur_day, $cur_month, $cur_yr) = localtime; 
-    $cur_month += 1; # localtime gives us 0..11, we want 1..12
-    $cur_yr += 1900; # localtime gives us number of years since 1900
-    
-    my (undef, $min, $hr, $day, $month, $yr) = localtime($row->{'time'});
-    $month += 1;
-    $yr += 1900;
-    
-    $row->{'timestamp'} = '';
-    if($cur_day != $day || $cur_month != $month || $cur_yr != $yr) {
-        $row->{'timestamp'} .= (MONTHS)[$month-1] . " $day ";
-    }
-    
-    if($cur_yr != $yr) { $row->{'timestamp'} .= "$yr "; }
-    
-    $row->{'timestamp'} .= $hr . ':' . sprintf('%02d',$min);
-    
-    
-    # NICKS
-    if(defined $row->{'source_nick_id'}) {
-        $row->{'source_nick'} =
-            &get_nickchan_name($row->{'source_nick_id'});
-    }
-    if(defined $row->{'target_nick_id'}) {
-        $row->{'target_nick'} =
-            &get_nickchan_name($row->{'target_nick_id'});
-    }
-    
-    # CONTENT
-    if(defined $row->{'content'}) {
-        $row->{'content'} = &f_content($row->{'content'});
-    }
-    
-    return $row;
-}
 
+    # TIMESTAMP
+    my ( undef, undef, undef, $cur_day, $cur_month, $cur_yr ) = localtime;
+    $cur_month += 1;       # localtime gives us 0..11, we want 1..12
+    $cur_yr    += 1900;    # localtime gives us number of years since 1900
+
+    my ( undef, $min, $hr, $day, $month, $yr ) = localtime( $row->{'time'} );
+    $month += 1;
+    $yr    += 1900;
+
+    $row->{'timestamp'} = '';
+    if ( $cur_day != $day || $cur_month != $month || $cur_yr != $yr ) {
+        $row->{'timestamp'} .= (MONTHS)[ $month - 1 ] . " $day ";
+    }
+
+    if ( $cur_yr != $yr ) { $row->{'timestamp'} .= "$yr "; }
+
+    $row->{'timestamp'} .= $hr . ':' . sprintf( '%02d', $min );
+
+    # NICKS
+    if ( defined $row->{'source_nick_id'} ) {
+        $row->{'source_nick'} = &get_nickchan_name( $row->{'source_nick_id'} );
+    }
+    if ( defined $row->{'target_nick_id'} ) {
+        $row->{'target_nick'} = &get_nickchan_name( $row->{'target_nick_id'} );
+    }
+
+    # CONTENT
+    if ( defined $row->{'content'} ) {
+        $row->{'content'} = &f_content( $row->{'content'} );
+    }
+
+    return $row;
+} ## end sub row_hashref_to_template_hashref
 
 ### FORMATTING FUNCTIONS ###
 
@@ -777,20 +786,17 @@ sub row_hashref_to_template_hashref {
 sub f_content {
     my $content = $_[0];
     $content = encode_entities($content);
-    
+
     # linkify
     $content = &linkify($content);
-    
+
     return $content;
 }
 
-
 sub get_nick_context {
     my ($nick_id) = @_;
-    
-    my $query = $dbh->prepare_cached(
-        'SELECT context FROM names WHERE id = ?'
-    );
+
+    my $query = $dbh->prepare_cached('SELECT context FROM names WHERE id = ?');
     $query->execute($nick_id);
     my ($context) = $query->fetchrow_array;
     $query->finish;
@@ -798,270 +804,274 @@ sub get_nick_context {
 }
 
 sub update_nick_context {
-    my ($nick_id, $key, $value) = @_;
-    
+    my ( $nick_id, $key, $value ) = @_;
+
     my $context = &get_nick_context($nick_id);
-    
-    if(!defined $value || $value eq  '') {
-        unless($context =~ s/${key}=\S+//) {
+
+    if ( !defined $value || $value eq '' ) {
+        unless ( $context =~ s/${key}=\S+// ) {
             # we're trying to unset the value, but it wasn't set
             # no need to commit to the database
             return;
         }
-    } elsif($context !~ s/${key}=\S+/${key}=${value}/) {
+    } elsif ( $context !~ s/${key}=\S+/${key}=${value}/ ) {
         $context .= " ${key}=${value}";
     }
-    
-    my $query = $dbh->prepare_cached(
-        'UPDATE names SET context = ? WHERE id = ?'
-    );
-    $query->execute($context, $nick_id);
-}
+
+    my $query =
+      $dbh->prepare_cached('UPDATE names SET context = ? WHERE id = ?');
+    $query->execute( $context, $nick_id );
+} ## end sub update_nick_context
 
 # SCORE_WORD: Gives a score modifier to a word
 # for seen, we give bonus to words that are the
 # nicknames of people we have seen.
 sub score_word {
     my $word = $_[1];
-    if (get_nickchan_id($word)) {
-	   &SimBot::debug(4, "${word}:+1000(sqlite-logger) ", SimBot::DEBUG_NO_PREFIX);
-	   return 1000;
+    if ( get_nickchan_id($word) ) {
+        &SimBot::debug( 4, "${word}:+1000(sqlite-logger) ",
+            SimBot::DEBUG_NO_PREFIX );
+        return 1000;
     }
-    &SimBot::debug(5, "${word}:+0(sqlite-logger) ", SimBot::DEBUG_NO_PREFIX);
+    &SimBot::debug( 5, "${word}:+0(sqlite-logger) ", SimBot::DEBUG_NO_PREFIX );
     return 0;
 }
 
 sub seen_nlp_match {
-    my ($kernel, $nick, $channel, $plugin, @params) = @_;
+    my ( $kernel, $nick, $channel, $plugin, @params ) = @_;
 
-	my $person;
+    my $person;
 
-	foreach (@params) {
-		if (m/(\w+) (seen|here)/i) {
-			$person = $1;
-		} elsif (m/(see|seen) (\w+)/i) {
-			$person = $2;
-		}
-	}
+    foreach (@params) {
+        if (m/(\w+) (seen|here)/i) {
+            $person = $1;
+        } elsif (m/(see|seen) (\w+)/i) {
+            $person = $2;
+        }
+    }
 
-	if (defined $person) {
-		$person = $SimBot::chosen_nick if ($person eq "you"
-										   || $person eq "yourself");
-		$person = $nick if ($person eq "me");
-		&do_seen($kernel, $nick, $channel, undef, $person);
-		return 1;
-	} else {
-		return 0;
-	}
-}
+    if ( defined $person ) {
+        $person = $SimBot::chosen_nick
+          if ( $person eq "you"
+            || $person eq "yourself" );
+        $person = $nick if ( $person eq "me" );
+        &do_seen( $kernel, $nick, $channel, undef, $person );
+        return 1;
+    } else {
+        return 0;
+    }
+} ## end sub seen_nlp_match
 
 sub web_request {
-    my ($request, $response, $get_template) = @_;
-    
-    my $query = &create_query_hash($request->uri);
-    
-    if(defined $query->{'recap'}) {
-        return &web_recap($query, $response, $get_template);
+    my ( $request, $response, $get_template ) = @_;
+
+    my $query = &create_query_hash( $request->uri );
+
+    if ( defined $query->{'recap'} ) {
+        return &web_recap( $query, $response, $get_template );
     } else {
-        return &web_log($query, $response, $get_template);
+        return &web_log( $query, $response, $get_template );
     }
 }
 
 sub web_recap {
-    my ($query, $response) = @_;
-    
-    return 501; # not implemented
+    my ( $query, $response ) = @_;
+
+    return 501;    # not implemented
 }
 
 sub web_log {
-    my ($query, $response, $get_template) = @_;
-    my (undef, undef, undef, $start_day, $start_month, $start_year)
-        = localtime;
-    
+    my ( $query, $response, $get_template ) = @_;
+    my ( undef, undef, undef, $start_day, $start_month, $start_year ) =
+      localtime;
+
     $start_month += 1;
-    $start_year += 1900;
-    
-    my ($start_hour, $start_min, $end_hour, $end_min);
+    $start_year  += 1900;
+
+    my ( $start_hour, $start_min, $end_hour, $end_min );
     $start_hour = $start_min = 0;
-    $end_hour = 23;
-    $end_min = 59;
-    
-    my $channel_id = (defined $query->{'channel_id'}
-                      ? $query->{'channel_id'}
-                      : &get_nickchan_id(&SimBot::option('network', 'channel')));
-    
-    if(defined $query->{'smo'})
-        { $start_month = $query->{'smo'}; }
-    if(defined $query->{'sdy'})
-        { $start_day = $query->{'sdy'}; }
-    if(defined $query->{'syr'})
-        { $start_year = $query->{'syr'}; }
-    if(defined $query->{'shr'})
-        { $start_hour = $query->{'shr'}; }
-    if(defined $query->{'smn'})
-        { $start_min = $query->{'smn'}; }
-    
+    $end_hour   = 23;
+    $end_min    = 59;
+
+    my $channel_id = (
+        defined $query->{'channel_id'}
+        ? $query->{'channel_id'}
+        : &get_nickchan_id( &SimBot::option( 'network', 'channel' ) )
+    );
+
+    if ( defined $query->{'smo'} ) { $start_month = $query->{'smo'}; }
+    if ( defined $query->{'sdy'} ) { $start_day   = $query->{'sdy'}; }
+    if ( defined $query->{'syr'} ) { $start_year  = $query->{'syr'}; }
+    if ( defined $query->{'shr'} ) { $start_hour  = $query->{'shr'}; }
+    if ( defined $query->{'smn'} ) { $start_min   = $query->{'smn'}; }
+
     # If the end day, month, year aren't set, assume the same as the
     # start
-    my ($end_day, $end_month, $end_year)
-        = ($start_day, $start_month, $start_year);
-        
-    if(defined $query->{'emo'})
-        { $end_month = $query->{'emo'}; }
-    if(defined $query->{'edy'})
-        { $end_day = $query->{'edy'}; }
-    if(defined $query->{'eyr'})
-        { $end_year = $query->{'eyr'}; }
-    if(defined $query->{'ehr'})
-        { $end_hour = $query->{'ehr'}; }
-    if(defined $query->{'emn'})
-        { $end_min = $query->{'emn'}; }
-        
-    my $start_time = timelocal(0,$start_min,$start_hour,$start_day, $start_month-1, $start_year);
-    my $end_time = timelocal(59,$end_min,$end_hour,$end_day, $end_month-1, $end_year);
-        
-    my $log_query = $dbh->prepare_cached(
-        'SELECT time, source_nick_id, event, target_nick_id, content'
-        . ' FROM chatlog'
-        . ' WHERE channel_id = ?'
-        . ' AND time >= ?'
-        . ' AND time <= ?'
-    );
-    
-    $log_query->execute($channel_id, $start_time, $end_time);
-    
+    my ( $end_day, $end_month, $end_year ) =
+      ( $start_day, $start_month, $start_year );
+
+    if ( defined $query->{'emo'} ) { $end_month = $query->{'emo'}; }
+    if ( defined $query->{'edy'} ) { $end_day   = $query->{'edy'}; }
+    if ( defined $query->{'eyr'} ) { $end_year  = $query->{'eyr'}; }
+    if ( defined $query->{'ehr'} ) { $end_hour  = $query->{'ehr'}; }
+    if ( defined $query->{'emn'} ) { $end_min   = $query->{'emn'}; }
+
+    my $start_time =
+      timelocal( 0, $start_min, $start_hour, $start_day, $start_month - 1,
+        $start_year );
+    my $end_time =
+      timelocal( 59, $end_min, $end_hour, $end_day, $end_month - 1, $end_year );
+
+    my $log_query =
+      $dbh->prepare_cached(
+            'SELECT time, source_nick_id, event, target_nick_id, content'
+          . ' FROM chatlog'
+          . ' WHERE channel_id = ?'
+          . ' AND time >= ?'
+          . ' AND time <= ?' );
+
+    $log_query->execute( $channel_id, $start_time, $end_time );
+
     my $row;
     my @loop_data;
-    while($row = $log_query->fetchrow_hashref) {
-        push(@loop_data, &row_hashref_to_template_hashref($row));
+    while ( $row = $log_query->fetchrow_hashref ) {
+        push( @loop_data, &row_hashref_to_template_hashref($row) );
     }
-    
+
     my $irclog_template = &$get_template('irclog');
     $irclog_template->param(
-        ircloop => \@loop_data,
-        channel => &get_nickchan_name($channel_id),
+        ircloop    => \@loop_data,
+        channel    => &get_nickchan_name($channel_id),
         start_time => scalar localtime($start_time),
-        end_time => scalar localtime($end_time),
+        end_time   => scalar localtime($end_time),
     );
-    
+
     my $base_template = &$get_template('base');
     $base_template->param(
         content => $irclog_template->output(),
-        title => 'IRC Log',
+        title   => 'IRC Log',
     );
-    
-    $response->content($base_template->output());
-    $response->push_header("Content-Type", "text/html");
-    return 200; # OK
-}
+
+    $response->content( $base_template->output() );
+    $response->push_header( "Content-Type", "text/html" );
+    return 200;    # OK
+} ## end sub web_log
 
 sub web_stats {
-    my ($request, $response, $get_template) = @_;
-    
-    
-    my $query = &create_query_hash($request->uri);
-    
-    if(defined $query->{'nick_id'}) {
+    my ( $request, $response, $get_template ) = @_;
+
+    my $query = &create_query_hash( $request->uri );
+
+    if ( defined $query->{'nick_id'} ) {
         # doing stats for a nickname
     } else {
         # doing channel stats...
         my $stats_template = &$get_template('channel_stats');
-        
-        my $channel_id = (defined $query->{'channel_id'}
-                      ? $query->{'channel_id'}
-                      : &get_nickchan_id(&SimBot::option('network', 'channel')));
-        
-        my @hour_counts = (0,0,0,0,0,0,0,0,0,0,0,0,
-                           0,0,0,0,0,0,0,0,0,0,0,0);
-        my $max_hour = 0;
-        my %nick_counts;
-        my $nick_stats_query = $dbh->prepare_cached(
-            'SELECT nick_id, hour, count'
-            . ' FROM nick_hour_counts'
-            . ' WHERE channel_id = ?');
-        
-        $nick_stats_query->execute($channel_id);
-        while(my @row = $nick_stats_query->fetchrow_array) {
-            $hour_counts[$row[1]] += $row[2];
-            if($hour_counts[$row[1]] > $max_hour) {
-                $max_hour = $hour_counts[$row[1]];
-            }
-            $nick_counts{$row[0]} += $row[2];
-        }
-        
-        my @nick_list;
-        foreach my $cur_key (keys %nick_counts) {
-            my %hash;
-            $hash{'link'} = "/stats?nick_id=${cur_key}";
-            $hash{'nick'} = &get_nickchan_name($cur_key);
-            $hash{'line_count'} = $nick_counts{$cur_key};
-            push(@nick_list, \%hash);
-        }
-        @nick_list = sort { lc $a->{'nick'} cmp lc $b->{'nick'} } @nick_list;
-        
+
+        my $channel_id = (
+            defined $query->{'channel_id'}
+            ? $query->{'channel_id'}
+            : &get_nickchan_id( &SimBot::option( 'network', 'channel' ) )
+        );
+
+        # Get the numbers for the graph at the top
+        my $hour_counts_query =
+          $dbh->prepare_cached( 'SELECT hour, sum(count) FROM nick_hour_counts'
+              . ' WHERE channel_id = ? GROUP BY hour ORDER BY sum(count) DESC'
+          );
+
+        $hour_counts_query->execute($channel_id);
+
         my @hour_list;
-        for (my $x=0; $x <= 23; $x++) {
+        my $max_hour;
+
+        while ( my ( $hour, $count ) = $hour_counts_query->fetchrow_array ) {
             my %hash;
-            $hash{'hour'} = $x;
-            $hash{'percent'} = ($hour_counts[$x] / $max_hour) * 100;
-            
-            push(@hour_list, \%hash);       
+
+            # The busiest hour will be the first one we get
+            if ( !defined $max_hour ) { $max_hour = $count; }
+
+            $hash{'hour'}    = $hour;
+            $hash{'percent'} = ( $count / $max_hour ) * 100;
+
+            push( @hour_list, \%hash );
         }
-        
-        $stats_template->param(nickloop => \@nick_list,
+        @hour_list = sort { $a->{'hour'} <=> $b->{'hour'} } @hour_list;
+
+        my $nick_stats_query =
+          $dbh->prepare_cached(
+                'SELECT nick_id, sum(count) FROM nick_hour_counts'
+              . ' WHERE channel_id = ? GROUP BY nick_id' );
+
+        # Get the channel member list
+        $nick_stats_query->execute($channel_id);
+
+        my @nick_list;
+        while ( my ( $nick_id, $count ) = $nick_stats_query->fetchrow_array ) {
+            my %hash;
+            $hash{'link'}   = "/stats?nick_id=${nick_id}",
+              $hash{'nick'} = &get_nickchan_name($nick_id);
+            $hash{'line_count'} = $count;
+            push( @nick_list, \%hash );
+        }
+
+        @nick_list = sort { lc $a->{'nick'} cmp lc $b->{'nick'} } @nick_list;
+
+        $stats_template->param(
+            nickloop => \@nick_list,
             hourloop => \@hour_list,
-            channel => &get_nickchan_name($channel_id),
+            channel  => &get_nickchan_name($channel_id),
             timezone => 'UTC',
         );
-        
+
         my $base_template = &$get_template('base');
         $base_template->param(
             content => $stats_template->output(),
-            title => &get_nickchan_name($channel_id) . ' Statistics',
+            title   => &get_nickchan_name($channel_id) . ' Statistics',
         );
-        
-        $response->content($base_template->output());
-        $response->push_header('Content-Type', 'text/html');
+
+        $response->content( $base_template->output() );
+        $response->push_header( 'Content-Type', 'text/html' );
         return 200;
-    }
-}
+    } ## end else [ if ( defined $query->{...
+} ## end sub web_stats
 
 sub create_query_hash {
     my ($query) = $_[0] =~ m/\?(\S+)$/;
     my %hash;
-    if(!defined $query) { return \%hash; }
-    
-    foreach my $cur_query (split(/&/, $query)) {
-        my ($key, $value) = $cur_query =~ m/^(\S+)(?:=(\S+))$/;
-        
-        if(!defined $value) { $value = 1; }
-        
+    if ( !defined $query ) { return \%hash; }
+
+    foreach my $cur_query ( split( /&/, $query ) ) {
+        my ( $key, $value ) = $cur_query =~ m/^(\S+)(?:=(\S+))$/;
+
+        if ( !defined $value ) { $value = 1; }
+
         $hash{$key} = $value;
     }
-    
+
     return \%hash;
-}
+} ## end sub create_query_hash
 
 sub linkify {
     my $line = $_[0];
-    
-    my $bold = 0;
-    my $reverse = 0;
+
+    my $bold      = 0;
+    my $reverse   = 0;
     my $underline = 0;
-    my $color = -1;
-    my $bgcolor = -1;
-    my $tag = '';
-    
-    while(my @codes = $line =~ m/(?:&#(2|3|15|22|31);)+/) {
+    my $color     = -1;
+    my $bgcolor   = -1;
+    my $tag       = '';
+
+    while ( my @codes = $line =~ m/(?:&#(2|3|15|22|31);)+/ ) {
         my $block = $&;
         foreach my $code (@codes) {
-            if ($code == 2) {
+            if ( $code == 2 ) {
                 $bold = 1 - $bold;
-            } elsif ($code == 31) {
+            } elsif ( $code == 31 ) {
                 $underline = 1 - $underline;
-            } elsif ($code == 22) {
+            } elsif ( $code == 22 ) {
                 $reverse = 1 - $reverse;
-            } elsif ($code == 3) {
+            } elsif ( $code == 3 ) {
                 $line =~ m/&#3;(\d{1,2})?(,(\d{1,2}))?/;
                 if ($2) {
                     $color = int $1 if $1;
@@ -1071,116 +1081,121 @@ sub linkify {
                     $color = int $1;
                     $line =~ s/&#3;$1/&#3;/;
                 } else {
-                    $color = -1;
+                    $color   = -1;
                     $bgcolor = -1;
                 }
             } else {
-                $bold = 0;
+                $bold      = 0;
                 $underline = 0;
-                $reverse = 0;
-                $color = -1;
-                $bgcolor = -1;
+                $reverse   = 0;
+                $color     = -1;
+                $bgcolor   = -1;
             }
-        } #end foreach code
-        
-        if ($tag =~ /<span/) {
+        }    #end foreach code
+
+        if ( $tag =~ /<span/ ) {
             $tag = "</span>";
         } else {
             $tag = '';
         }
-        
-        my $class =
-            ($bold          ? 'bold '   : '')
-            . ($underline   ? 'uline '  : '')
-            . ($reverse     ? 'reverse '
-                : ($color != -1     ? "color$color " : '')
-                . ($bgcolor != -1   ? "bgcolor$color "  : '')
-            );
-        
-        $tag .= "<span class=\"$class\">" if ($class ne '');
+
+        my $class = ( $bold ? 'bold ' : '' ) . ( $underline ? 'uline ' : '' )
+          . (
+            $reverse
+            ? 'reverse '
+            : ( $color != -1 ? "color$color " : '' )
+              . ( $bgcolor != -1 ? "bgcolor$color " : '' )
+          );
+
+        $tag .= "<span class=\"$class\">" if ( $class ne '' );
         $line =~ s/$block/$tag/;
-    } # end while blocks
-    $line .= "</span>" if ($tag =~ /<span/);
-    
-    my @words = split(/\s+/, $line);
+    }    # end while blocks
+    $line .= "</span>" if ( $tag =~ /<span/ );
+
+    my @words = split( /\s+/, $line );
     my $curWord;
 
-    foreach $curWord (@words) {        
+    foreach $curWord (@words) {
         # remove things that commonly surround URLs
-        my ($word_prefix, $word, $word_suffix) = $curWord
-            =~ m@^(["'\(<\[]?)(\S*?)(["'\)>\]]?)$@; #'
+        my ( $word_prefix, $word, $word_suffix ) =
+          $curWord =~ m@^(["'\(<\[]?)(\S*?)(["'\)>\]]?)$@;    #'
         my $url = $word;
 
         # map some common host names to protocols
         $url =~ s{^(www|web)\.} {http://$1\.};
         $url =~ s{^ftp\.}       {ftp://ftp\.};
-        
-        if($url =~ m{^(\S+)@(\S+)\.(\S+)$}) {
+
+        if ( $url =~ m{^(\S+)@(\S+)\.(\S+)$} ) {
             # probably an email address
             $curWord = &SimBot::html_mask_email($url);
             next;
         }
-        
-        if($url =~ m{^((http|ftp|news|nntp|irc|aim)s?:[\w.?/=\-\&\~\;]+)}) {
+
+        if ( $url =~ m{^((http|ftp|news|nntp|irc|aim)s?:[\w.?/=\-\&\~\;]+)} ) {
             $curWord = qq($word_prefix<a href="$1">$word</a>$word_suffix);
             next;
         }
-        
-        if(my ($host, $path) = $url =~ m{(.+?)/(.*)}) {
+
+        if ( my ( $host, $path ) = $url =~ m{(.+?)/(.*)} ) {
             # does the first segment have a TLD?
-            if($host =~ m{\.(com|org|net|edu|gov|mil|int
+            if (
+                $host =~ m{\.(com|org|net|edu|gov|mil|int
                             |biz|pro|info|aero|coop|name
-                            |museum|\w\w)$}ix) {
+                            |museum|\w\w)$}ix
+              )
+            {
                 # Yup. Let's assume it's a web site...
                 $host = 'http://' . $host;
-                
-                $curWord = qq($word_prefix<a href="${host}/${path}">$word</a>$word_suffix);
+
+                $curWord =
+qq($word_prefix<a href="${host}/${path}">$word</a>$word_suffix);
             }
-        }
-    }
-    return join(' ', @words);
-}
+        } ## end if ( my ( $host, $path...
+    } ## end foreach $curWord (@words)
+    return join( ' ', @words );
+} ## end sub linkify
 
 &SimBot::plugin_register(
-    plugin_id               => 'log',
-    event_plugin_call       => \&access_log,
-    event_plugin_load       => \&messup_sqlite_logger,
-    event_plugin_unload     => \&cleanup_sqlite_logger,
-    event_channel_kick      => \&set_seen,
-    event_channel_message       => \&set_seen,
-    event_channel_message_out   => \&set_seen,
-    event_channel_action        => \&set_seen,
-    event_channel_action_out    => \&set_seen,
-    event_channel_notice        => \&set_seen,
-    event_channel_notice_out    => \&set_seen,
-    event_channel_topic     => \&set_seen,
-    event_channel_join      => \&set_seen,
-    event_channel_part      => \&set_seen,
-    event_channel_mejoin    => \&set_seen,
-    event_channel_quit      => \&set_seen,
-    event_channel_mode      => \&set_seen,
-    event_server_nick       => \&log_nick_change,
-    query_word_score        => \&score_word,
+    plugin_id                 => 'log',
+    event_plugin_call         => \&access_log,
+    event_plugin_load         => \&messup_sqlite_logger,
+    event_plugin_unload       => \&cleanup_sqlite_logger,
+    event_channel_kick        => \&set_seen,
+    event_channel_message     => \&set_seen,
+    event_channel_message_out => \&set_seen,
+    event_channel_action      => \&set_seen,
+    event_channel_action_out  => \&set_seen,
+    event_channel_notice      => \&set_seen,
+    event_channel_notice_out  => \&set_seen,
+    event_channel_topic       => \&set_seen,
+    event_channel_join        => \&set_seen,
+    event_channel_part        => \&set_seen,
+    event_channel_mejoin      => \&set_seen,
+    event_channel_quit        => \&set_seen,
+    event_channel_mode        => \&set_seen,
+    event_server_nick         => \&log_nick_change,
+    query_word_score          => \&score_word,
 
 );
 
 &SimBot::plugin_register(
-    plugin_id               => 'seen',
-	plugin_params           => "<nick> [<events>] [count <number>] [content <phrase>]",
-    plugin_help             => SEEN_HELP,
+    plugin_id     => 'seen',
+    plugin_params => "<nick> [<events>] [count <number>] [content <phrase>]",
+    plugin_help   => SEEN_HELP,
     event_plugin_call       => \&do_seen,
     event_plugin_nlp_call   => \&seen_nlp_match,
-    hash_plugin_nlp_verbs   => ['seen', 'see'],
-    hash_plugin_nlp_formats => ['{w} here', 'see {w}', '{w} seen', 'seen {w}'],
-    hash_plugin_nlp_questions => ['have-you', 'did-you', 'when-is', ],
+    hash_plugin_nlp_verbs   => [ 'seen', 'see' ],
+    hash_plugin_nlp_formats =>
+      [ '{w} here', 'see {w}', '{w} seen', 'seen {w}' ],
+    hash_plugin_nlp_questions => [ 'have-you', 'did-you', 'when-is', ],
 );
-    
+
 $SimBot::hash_plugin_httpd_pages{'log'} = {
-    'title' => 'Log Viewer',
+    'title'   => 'Log Viewer',
     'handler' => \&web_request,
 };
 
 $SimBot::hash_plugin_httpd_pages{'stats'} = {
-    'title' => 'Statistics',
+    'title'   => 'Statistics',
     'handler' => \&web_stats,
 };
