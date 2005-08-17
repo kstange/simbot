@@ -70,7 +70,7 @@ my $insert_query = $dbh->prepare(
     . ' VALUES (?, ?, ?, 1)');
 $query->execute();
 
-print "Calculating user's hourly line counts";
+print "Calculating users' hourly line counts";
 my $row_number = 0;
 
 while(my ($time, $channel_id, $nick_id) = $query->fetchrow_array) {
