@@ -990,7 +990,7 @@ sub web_stats {
         }
         
         my @nick_list;
-        foreach my $cur_key (keys %nick_counts) {
+        foreach my $cur_key (sort keys %nick_counts) {
             my %hash;
             $hash{'link'} = "/stats?nick_id=${cur_key}";
             $hash{'nick'} = &get_nickchan_name($cur_key);
@@ -1010,12 +1010,13 @@ sub web_stats {
         $stats_template->param(nickloop => \@nick_list,
             hourloop => \@hour_list,
             channel => &get_nickchan_name($channel_id),
+            timezone => 'UTC',
         );
         
         my $base_template = &$get_template('base');
         $base_template->param(
             content => $stats_template->output(),
-            title => 'Channel Statistics',
+            title => &get_nickchan_name($channel_id) . ' Statistics',
         );
         
         $response->content($base_template->output());

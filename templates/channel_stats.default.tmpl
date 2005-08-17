@@ -1,11 +1,11 @@
 <!-- SimBot Default channel statistics template
      Copy to channel_stats.local.tmpl before editing -->
-<h4>Activity by Hour</h4>
+<h4>Activity by Hour <TMPL_VAR NAME=timezone></h4>
 <table id="hourgraph">
-<tr valign=bottom>
+<tr valign="bottom">
 <TMPL_LOOP NAME=hourloop>
     <td style="height: 10em;">
-    <div class="hour<TMPL_VAR NAME=hour>" style="height: <TMPL_VAR NAME="percent">%; background-color: #DDD; border: thin solid black;">&nbsp;</div>
+    <div class="hour<TMPL_VAR NAME=hour>" style="height: <TMPL_VAR NAME="percent">%; background-color: #DDD; border: thin solid black;">&nbsp;</div></td>
 </TMPL_LOOP>
 </tr>
 <tr>
@@ -18,7 +18,7 @@
 <h4>Channel Members</h4>
 <ul id="nicklist">
 <TMPL_LOOP NAME=nickloop>
-    <li><a href="<TMPL_VAR NAME=link ESCAPE=HTML>"><TMPL_VAR NAME=nick></a> (<TMPL_VAR NAME=line_count>)</a></li>
+    <li><a href="<TMPL_VAR NAME=link ESCAPE=HTML>"><TMPL_VAR NAME=nick></a> (<TMPL_VAR NAME=line_count>)</li>
 </TMPL_LOOP>
 </ul>
 
