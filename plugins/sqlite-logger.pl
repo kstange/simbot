@@ -990,13 +990,14 @@ sub web_stats {
         }
         
         my @nick_list;
-        foreach my $cur_key (sort keys %nick_counts) {
+        foreach my $cur_key (keys %nick_counts) {
             my %hash;
             $hash{'link'} = "/stats?nick_id=${cur_key}";
             $hash{'nick'} = &get_nickchan_name($cur_key);
             $hash{'line_count'} = $nick_counts{$cur_key};
             push(@nick_list, \%hash);
         }
+        @nick_list = sort { lc $a->{'nick'} cmp lc $b->{'nick'} } @nick_list;
         
         my @hour_list;
         for (my $x=0; $x <= 23; $x++) {
