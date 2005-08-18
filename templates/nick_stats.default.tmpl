@@ -5,7 +5,7 @@
 <tr valign="bottom">
 <TMPL_LOOP NAME=hourloop>
     <td style="height: 10em;">
-    <div class="hour<TMPL_VAR NAME=hour>" style="height: <TMPL_VAR NAME="percent">%; background-color: #DDD; border: thin solid black;">&nbsp;</div></td>
+    <div class="hour<TMPL_VAR NAME=hour>" style="height: <TMPL_VAR NAME="percent">%; background-color: #DDD; border: thin solid black; overflow: hidden;">&nbsp;</div></td>
 </TMPL_LOOP>
 </tr>
 <tr>
@@ -26,7 +26,7 @@
 
 <TMPL_IF NAME=action_count>
 <div class="linecount"><TMPL_VAR NAME=nick> has emoted <TMPL_VAR NAME=action_count> times, most recently:<br/>
-• <TMPL_VAR NAME=nick> <TMPL_VAR NAME=action_content>
+â¢ <TMPL_VAR NAME=nick> <TMPL_VAR NAME=action_content>
 </div>
 </TMPL_IF>
 
