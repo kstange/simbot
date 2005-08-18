@@ -235,14 +235,16 @@ sub set_seen {
 
     my $hour = ( gmtime(time) )[2];
 
-    unless (
-        int $update_nick_hour_count_query->execute(
-            $source_nick_id, $channel_id, $hour
-        )
-      )
-    {
-        $insert_nick_hour_count_query->execute( $source_nick_id, $channel_id,
-            $hour );
+    if($doing =~ m/SAY|ACTION/) {
+        unless (
+            int $update_nick_hour_count_query->execute(
+                $source_nick_id, $channel_id, $hour
+            )
+          )
+        {
+            $insert_nick_hour_count_query->execute( $source_nick_id, $channel_id,
+                $hour );
+        }
     }
     $dbh->commit;
 } ## end sub set_seen

@@ -40,7 +40,7 @@ print 'Resetting the nickname stats table...';
     local $dbh->{RaiseError}; # let's not die in this block
     local $dbh->{PrintError}; # and let's be quiet
     
-    $dbh->do('DROP TABLE nickstats');
+    $dbh->do('DROP TABLE nick_hour_counts');
     
     $dbh->do(<<EOT);
 CREATE TABLE nick_hour_counts (
@@ -56,7 +56,7 @@ print " Done.\n";
 
 # Now we loop through every line in the log.
 
-my $query = $dbh->prepare('SELECT time, channel_id, source_nick_id FROM chatlog');
+my $query = $dbh->prepare('SELECT time, channel_id, source_nick_id, event FROM chatlog');
 my $update_query = $dbh->prepare(
     'UPDATE nick_hour_counts'
     . ' SET count = count + 1'
@@ -73,16 +73,19 @@ $query->execute();
 print "Calculating users' hourly line counts";
 my $row_number = 0;
 
-while(my ($time, $channel_id, $nick_id) = $query->fetchrow_array) {
+while(my ($time, $channel_id, $nick_id, $event) = $query->fetchrow_array) {
     my $hour = (gmtime($time))[2];
-    
-    unless(int $update_query->execute($nick_id, $channel_id, $hour)) {
-        $insert_query->execute($nick_id, $channel_id, $hour);
-    }
     
     if(++$row_number % 800 == 0) {
         print '.';
     }
+    
+    if($event =~ m/SAY|ACTION/) {
+        unless(int $update_query->execute($nick_id, $channel_id, $hour)) {
+            $insert_query->execute($nick_id, $channel_id, $hour);
+        }
+    }
+    
 }
 print " Done\nCommitting...";
 
