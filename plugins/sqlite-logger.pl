@@ -964,6 +964,58 @@ sub web_stats {
 
     if ( defined $query->{'nick_id'} ) {
         # doing stats for a nickname
+        
+        my $stats_template = &$get_template('nick_stats');
+        
+        my $channel_id = (
+            defined $query->{'channel_id'}
+            ? $query->{'channel_id'}
+            : &get_nickchan_id( &SimBot::option( 'network', 'channel' ) )
+        );
+          
+          
+        my $nick_id = $query->{'nick_id'};
+        
+        # Get the numbers for the graph at the top
+        my $hour_counts_query =
+          $dbh->prepare_cached( 'SELECT hour, count FROM nick_hour_counts'
+              . ' WHERE channel_id = ? AND nick_id = ? ORDER BY count DESC'
+          );
+        
+        $hour_counts_query->execute($channel_id, $nick_id);
+
+        my @hour_list;
+        my $max_hour;
+
+        while ( my ( $hour, $count ) = $hour_counts_query->fetchrow_array ) {
+            my %hash;
+
+            # The busiest hour will be the first one we get
+            if ( !defined $max_hour ) { $max_hour = $count; }
+
+            $hash{'hour'}    = $hour;
+            $hash{'percent'} = ( $count / $max_hour ) * 100;
+
+            push( @hour_list, \%hash );
+        }
+        @hour_list = sort { $a->{'hour'} <=> $b->{'hour'} } @hour_list;
+        
+        $stats_template->param(
+            hourloop => \@hour_list,
+            nick  => &get_nickchan_name($nick_id),
+            timezone => 'UTC',
+        );
+
+        my $base_template = &$get_template('base');
+        $base_template->param(
+            content => $stats_template->output(),
+            title   => 'Statistics for ' . &get_nickchan_name($nick_id),
+        );
+
+        $response->content( $base_template->output() );
+        $response->push_header( 'Content-Type', 'text/html' );
+        return 200;
+
     } else {
         # doing channel stats...
         my $stats_template = &$get_template('channel_stats');
