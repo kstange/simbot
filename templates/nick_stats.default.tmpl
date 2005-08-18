@@ -2,10 +2,10 @@
      Copy to nick_stats.local.tmpl before editing -->
 <h4>Activity by Hour <TMPL_VAR NAME=timezone></h4>
 <table id="hourgraph">
-<tr valign="bottom">
+<tr valign="bottom" id="hourgraphrow">
 <TMPL_LOOP NAME=hourloop>
-    <td style="height: 10em;">
-    <div class="hour<TMPL_VAR NAME=hour>" style="height: <TMPL_VAR NAME="percent">%; background-color: #DDD; border: thin solid black; overflow: hidden;">&nbsp;</div></td>
+    <td>
+    <div class="hour<TMPL_VAR NAME=hour>" style="height: <TMPL_VAR NAME="percent">%;">&nbsp;</div></td>
 </TMPL_LOOP>
 </tr>
 <tr>

@@ -21,6 +21,9 @@ div.linecount {
     background: #EEE;
 }
 
+tr#hourgraphrow td      { height: 10em; }
+tr#hourgraphrow td div  { background-color: #666; overflow: hidden; }
+
 /* IRC LOG STYLES */
 .ts {
     color: #777;
