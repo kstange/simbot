@@ -15,4 +15,36 @@
 <td>20</td><td>21</td><td>22</td><td>23</td>
 </tr>
 </table>
+
+<h4>Misc Statistics</h4>
+
+<TMPL_IF NAME=say_count>
+    <div class="linecount"><TMPL_VAR NAME=nick> has spoken <TMPL_VAR NAME=say_count> times, most recently saying:<br/>
+    <TMPL_VAR NAME=say_content>
+    </div>
+</TMPL_IF>
+
+<TMPL_IF NAME=action_count>
+<div class="linecount"><TMPL_VAR NAME=nick> has emoted <TMPL_VAR NAME=action_count> times, most recently:<br/>
+• <TMPL_VAR NAME=nick> <TMPL_VAR NAME=action_content>
+</div>
+</TMPL_IF>
+
+<TMPL_IF NAME=topic_count>
+<div class="linecount"><TMPL_VAR NAME=nick> has set the topic <TMPL_VAR NAME=topic_count> times, most recently changing it to:<br/>
+<TMPL_VAR NAME=topic_content>
+</div>
+</TMPL_IF>
+
+<TMPL_IF NAME=kick_others_count>
+<div class="linecount"><TMPL_VAR NAME=nick> has kicked others <TMPL_VAR NAME=kick_others_count> times, most recently kicking <TMPL_VAR NAME=kick_others_target> with the reason <q><TMPL_VAR NAME=kick_others_content></q>
+</div>
+</TMPL_IF>
+
+
+<TMPL_IF NAME=kicked_count>
+<div class="linecount"><TMPL_VAR NAME=nick> has been kicked <TMPL_VAR NAME=kicked_count> times, most recently by <TMPL_VAR NAME=kicked_by> with the reason <q><TMPL_VAR NAME=kicked_content></q>
+</div>
+</TMPL_IF>
+
 <!-- End nick_stats -->

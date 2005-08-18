@@ -1000,6 +1000,128 @@ sub web_stats {
         }
         @hour_list = sort { $a->{'hour'} <=> $b->{'hour'} } @hour_list;
         
+        
+        # Now, figure out some odd stats...
+        my $tmp_query =
+          $dbh->prepare_cached( 'SELECT time FROM chatlog'
+              . ' WHERE channel_id = ?'
+              . ' AND (source_nick_id = ?'
+              . ' OR target_nick_id = ?)'
+              . ' ORDER BY time'
+              . ' LIMIT 1' );
+        $tmp_query->execute( $channel_id, $nick_id, $nick_id );
+        $stats_template->param(
+            firstdate => localtime( ( $tmp_query->fetchrow_array() )[0] ),
+        );
+        $tmp_query->finish;
+
+        $tmp_query =
+          $dbh->prepare_cached( 'SELECT time FROM chatlog'
+              . ' WHERE channel_id = ?'
+              . ' AND (source_nick_id = ?'
+              . ' OR target_nick_id = ?)'
+              . ' ORDER BY time DESC'
+              . ' LIMIT 1' );
+        $tmp_query->execute( $channel_id, $nick_id, $nick_id );
+        $stats_template->param(
+            lastdate => localtime( ( $tmp_query->fetchrow_array() )[0] ),
+        );
+        $tmp_query->finish;
+
+        my $target_query =
+          $dbh->prepare_cached( 'SELECT count() FROM chatlog'
+              . ' WHERE channel_id = ?'
+              . ' AND target_nick_id = ?'
+              . ' AND event = ?' );
+        my $source_query =
+          $dbh->prepare_cached( 'SELECT count() FROM chatlog'
+              . ' WHERE channel_id = ?'
+              . ' AND source_nick_id = ?'
+              . ' AND event = ?' );
+        
+        my $content_source_query = $dbh->prepare_cached( 'SELECT source_nick_id, target_nick_id, content FROM chatlog'
+            . ' WHERE channel_id = ?'
+            . ' AND source_nick_id = ?'
+            . ' AND event = ?'
+            . ' ORDER BY time DESC'
+            . ' LIMIT 1');
+            
+        my $content_target_query = $dbh->prepare_cached( 'SELECT source_nick_id, target_nick_id, content FROM chatlog'
+            . ' WHERE channel_id = ?'
+            . ' AND target_nick_id = ?'
+            . ' AND event = ?'
+            . ' ORDER BY time DESC'
+            . ' LIMIT 1');
+
+        my $value;
+        
+        $source_query->execute( $channel_id, $nick_id, 'SAY' );
+        $value = ( $source_query->fetchrow_array() )[0];
+        if($value > 0) {
+            $content_source_query->execute( $channel_id, $nick_id, 'SAY');
+            my $content = ( $content_source_query->fetchrow_array())[2];
+            
+            $stats_template->param(
+                say_count => $value,
+                say_content => $content,
+            );
+        }
+
+        $source_query->execute( $channel_id, $nick_id, 'ACTION' );
+        $value = ( $source_query->fetchrow_array() )[0];
+        if($value > 0) {
+            $content_source_query->execute( $channel_id, $nick_id, 'ACTION');
+            my $content = ( $content_source_query->fetchrow_array())[2];
+            
+            $stats_template->param(
+                action_count => $value,
+                action_content => $content,
+            );
+        }
+        
+        $source_query->execute( $channel_id, $nick_id, 'TOPIC' );
+        $value = ( $source_query->fetchrow_array() )[0];
+        if($value > 0) {
+            $content_source_query->execute( $channel_id, $nick_id, 'TOPIC');
+            my $content = ( $content_source_query->fetchrow_array())[2];
+            
+            $stats_template->param(
+                topic_count => $value,
+                topic_content => $content,
+            );
+        }
+        
+        $source_query->execute( $channel_id, $nick_id, 'KICKED' );
+        $value = ( $source_query->fetchrow_array() )[0];
+        if($value > 0) {
+            $content_source_query->execute( $channel_id, $nick_id, 'KICKED');
+            my (undef, $target_nick_id, $content) = $content_source_query->fetchrow_array();
+            
+            $stats_template->param(
+                kick_others_count => $value,
+                kick_others_content => $content,
+                kick_others_target => &get_nickchan_name($target_nick_id),
+            );
+        }
+        
+        $target_query->execute( $channel_id, $nick_id, 'KICKED' );
+        $value = ( $target_query->fetchrow_array() )[0];
+        if($value > 0) {
+            $content_target_query->execute( $channel_id, $nick_id, 'KICKED');
+            my ($source_nick_id, undef, $content) = $content_target_query->fetchrow_array();
+            
+            $stats_template->param(
+                kicked_count => $value,
+                kicked_content => $content,
+                kicked_by => &get_nickchan_name($source_nick_id),
+            );
+        }
+        
+        $source_query->finish; $target_query->finish;
+        $content_source_query->finish; $content_target_query->finish;
+
+        
+        
         $stats_template->param(
             hourloop => \@hour_list,
             nick  => &get_nickchan_name($nick_id),
@@ -1015,7 +1137,6 @@ sub web_stats {
         $response->content( $base_template->output() );
         $response->push_header( 'Content-Type', 'text/html' );
         return 200;
-
     } else {
         # doing channel stats...
         my $stats_template = &$get_template('channel_stats');
