@@ -988,6 +988,10 @@ sub web_stats {
 
         my @hour_list;
         my $max_hour;
+            
+        for(my $x=0; $x <= 23; $x++) {
+            $hour_list[$x] = { hour => $x, percent => 0 };
+        }
 
         while ( my ( $hour, $count ) = $hour_counts_query->fetchrow_array ) {
             my %hash;
@@ -998,9 +1002,8 @@ sub web_stats {
             $hash{'hour'}    = $hour;
             $hash{'percent'} = ( $count / $max_hour ) * 100;
 
-            push( @hour_list, \%hash );
+            $hour_list[$hour] = \%hash;
         }
-        @hour_list = sort { $a->{'hour'} <=> $b->{'hour'} } @hour_list;
         
         
         # Now, figure out some odd stats...
@@ -1159,6 +1162,10 @@ sub web_stats {
 
         my @hour_list;
         my $max_hour;
+        
+        for(my $x=0; $x <= 23; $x++) {
+            $hour_list[$x] = { hour => $x, percent => 0 };
+        }
 
         while ( my ( $hour, $count ) = $hour_counts_query->fetchrow_array ) {
             my %hash;
@@ -1169,9 +1176,8 @@ sub web_stats {
             $hash{'hour'}    = $hour;
             $hash{'percent'} = ( $count / $max_hour ) * 100;
 
-            push( @hour_list, \%hash );
+            $hour_list[$hour] = \%hash;
         }
-        @hour_list = sort { $a->{'hour'} <=> $b->{'hour'} } @hour_list;
 
         my $nick_stats_query =
           $dbh->prepare_cached(
