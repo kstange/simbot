@@ -1312,7 +1312,7 @@ sub linkify {
             next;
         }
 
-        if ( $url =~ m{^((http|ftp|news|nntp|irc|aim)s?:[\w.?/=\-\&\~\;]+)} ) {
+        if ( $url =~ m{^((http|ftp|news|nntp|irc|aim)s?:[\w.?/=\-\&\~\;:]+)} ) {
             $curWord = qq($word_prefix<a href="$1">$word</a>$word_suffix);
             next;
         }
