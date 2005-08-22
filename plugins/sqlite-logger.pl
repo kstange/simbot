@@ -302,11 +302,10 @@ sub do_seen {
             # user is looking for anybody
             # we'll do nothing
         } elsif ( $seen_nick =~ m/\*/ ) {
-            # user is using wildcards
-            # FIXME: Later.
-            &SimBot::send_message( $channel,
-                "$nick: Sorry, wildcard matching is not implemented yet." );
-            return;
+            my $nick_pattern = $seen_nick;
+            $nick_pattern =~ s/\*/%/;
+            $nick_list = 'SELECT id FROM names WHERE name LIKE "'
+                . $nick_pattern . '"';
         } elsif ( !( $nick_list = &get_nickchan_id($seen_nick) ) ) {
             # The requested nick does not exist.
             &SimBot::send_message( $channel,
