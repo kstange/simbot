@@ -204,12 +204,14 @@ our %event_channel_invite      = (); # eventname = INVITED ()
 ### Private Events ###
 # Private events get params:
 #  (kernel, from, eventname, text)
-our %event_private_message     = (); # eventname = PRIVMSG (text)
-our %event_private_message_out = (); # eventname = PRIVMSG (text)
-our %event_private_action      = (); # eventname = PRIVACTION (text)
-our %event_private_action_out  = (); # eventname = PRIVACTION (text)
-our %event_private_notice      = (); # eventname = NOTICE (text)
-our %event_private_notice_out  = (); # eventname = NOTICE (text)
+our %event_private_message     = (); # eventname = PRIVMSG ()
+our %event_private_action      = (); # eventname = PRIVACTION ()
+our %event_private_notice      = (); # eventname = NOTICE ()
+
+#  (kernel, from, dest, eventname, text)
+our %event_private_message_out = (); # eventname = PRIVMSG ()
+our %event_private_action_out  = (); # eventname = PRIVACTION ()
+our %event_private_notice_out  = (); # eventname = NOTICE ()
 
 ### Server Events ###
 # Server events get params:
@@ -1519,7 +1521,7 @@ sub send_message {
 		}
 	} else {
 		foreach(keys(%event_private_message_out)) {
-			&plugin_callback($_, $event_private_message_out{$_}, ($chosen_nick, 'PRIVMSG', $text));
+			&plugin_callback($_, $event_private_message_out{$_}, ($chosen_nick, $dest, 'PRIVMSG', $text));
 		}
 	}
 }
@@ -1544,12 +1546,12 @@ sub send_action {
 	&debug((3 + (!$public)), "[" . (@{$dest} ? "@{$dest}" : $dest) .
 		   ":$chosen_nick] [action] $chosen_nick $text\n");
     if($public) {
-		foreach(keys(%event_channel_message_out)) {
+		foreach(keys(%event_channel_action_out)) {
 			&plugin_callback($_, $event_channel_action_out{$_}, ($chosen_nick, $dest, 'ACTION', $text));
 		}
 	} else {
-		foreach(keys(%event_private_message_out)) {
-			&plugin_callback($_, $event_private_action_out{$_}, ($chosen_nick, 'PRIVACTION', $text));
+		foreach(keys(%event_private_action_out)) {
+			&plugin_callback($_, $event_private_action_out{$_}, ($chosen_nick, $dest, 'PRIVACTION', $text));
 		}
 	}
 }
@@ -1580,7 +1582,7 @@ sub send_notice {
 		}
 	} else {
 		foreach(keys(%event_private_notice_out)) {
-			&plugin_callback($_, $event_private_notice_out{$_}, ($chosen_nick, 'NOTICE', $text));
+			&plugin_callback($_, $event_private_notice_out{$_}, ($chosen_nick, $dest, 'NOTICE', $text));
 		}
 	}
 }
@@ -1810,12 +1812,12 @@ sub process_action {
 			&build_records($text,"ACTION");
 		}
 		foreach(keys(%event_channel_action)) {
-			&plugin_callback($_, $event_channel_action{$_}, ($nick, $channel, 'ACTION', "$nick $text"));
+			&plugin_callback($_, $event_channel_action{$_}, ($nick, $channel, 'ACTION', $text));
 		}
     } else {
 		&debug(DEBUG_INFO, "[private:$nick] [action] $nick $text\n");
 		foreach(keys(%event_private_action)) {
-			&plugin_callback($_, $event_private_action{$_}, ($nick, 'PRIVACTION', "$nick $text"));
+			&plugin_callback($_, $event_private_action{$_}, ($nick, 'PRIVACTION', $text));
 		}
     }
 }

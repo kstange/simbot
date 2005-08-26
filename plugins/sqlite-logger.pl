@@ -225,8 +225,6 @@ sub set_seen {
         # $target will be the arguments for the mode change options
         # let's add them to the content
         $content .= " $target";
-    } elsif ( $doing eq 'ACTION' ) {
-        ( undef, $content ) = split( / /, $content, 2 );
     }
 
     $insert_query->execute( time, $channel_id, $source_nick_id, $target_nick_id,
