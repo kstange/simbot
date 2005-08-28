@@ -313,7 +313,7 @@ sub do_seen {
 
         while ( my $cur_arg = shift(@args) ) {
             if ( $cur_arg =~
-                /(say|join|part|quit|nick|kick|notice|action|topic)/i )
+                /(say|join|part|quit|nick|kick|notice|action|topic|mode)/i )
             {
                 my $cur_event = $1;
                 if ( $cur_event =~ /^(join|part|kick)$/i ) {
