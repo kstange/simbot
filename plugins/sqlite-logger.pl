@@ -1282,7 +1282,7 @@ sub linkify {
             $reverse
             ? 'reverse '
             : ( $color != -1 ? "color$color " : '' )
-              . ( $bgcolor != -1 ? "bgcolor$color " : '' )
+              . ( $bgcolor != -1 ? "bgcolor$bgcolor " : '' )
           );
 
         $tag .= "<span class=\"$class\">" if ( $class ne '' );
