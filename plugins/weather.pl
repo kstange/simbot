@@ -381,10 +381,16 @@ sub got_metar {
         # Something is very weird about this METAR.  It has no date,
         # so we are probably not going to get anything useful out of
         # it.
-        &SimBot::send_message(&SimBot::option('network', 'channel'),
-            "$nick: The METAR report for $station_name didn't make any sense to me.  Try "
+        
+        my $msg;
+        if(defined $wxhash->{is_nil}) {
+            $msg = "$nick: No data is available for $station_name. Please try again later.";
+        } else {
+            $msg = "$nick: The METAR report for $station_name didn't make any sense to me.  Try "
                 . &SimBot::option('global', 'command_prefix')
-                . "metar $station if you want to try parsing it yourself.");
+                . "metar $station if you want to try parsing it yourself.";
+        }
+        &SimBot::send_message(&SimBot::option('network', 'channel'), $msg);
         return;
     }
     my ($wind_mph, $temp_f, $temp_c);
@@ -914,6 +920,10 @@ sub parse_metar {
             # Station ID
             $weather_data{'station_id'} = $1;
             
+        } elsif($cur_block =~ m/^NIL$/) {                           # NIL
+            $weather_data{'is_nil'} = 1;
+            # there shouldn't be any data after a NIL (or before it),
+            # but we continue anyway just in case.
             
         } elsif($cur_block =~ m/^(\d{2})(\d{2})(\d{2})Z$/) {        # DAY/TIME
             my $day = int $1;
