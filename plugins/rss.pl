@@ -297,6 +297,10 @@ sub got_response {
         $last_update = time;
     } elsif($response->is_success) {
         $last_update = time;
+        $rss->add_module(
+            prefix  => 'feedburner',
+            uri     => 'http://rssnamespace.org/feedburner/ext/1.0',
+        );
         if (!eval { $rss->parse($response->decoded_content); }) {
 			&SimBot::debug(1, "rss:  Parse error in $key: $@");
 			return;
@@ -477,6 +481,10 @@ sub get_link_and_title {
     my $item = $_[0];
     my $link = $item->{'link'};
     my $title = $item->{'title'};
+        
+    if(defined $item->{'feedburner'}->{'origLink'}) {
+        $link = $item->{'feedburner'}->{'origLink'};
+    }
 
     $title = ($item->{'title'} ? $item->{'title'} : "");
     $title = HTML::Entities::decode($title);
