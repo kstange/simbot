@@ -273,8 +273,8 @@ sub do_wx {
         }
     }
     
-    if($flags & DO_CONDITIONS && defined $station) {
-        if(length($station) != 4) {
+    if($flags & DO_CONDITIONS) {
+        if(!defined $station || length($station) != 4) {
             # Whine and bail
             &SimBot::send_message(&SimBot::option('network', 'channel'),
                                   "$nick: "
@@ -850,11 +850,15 @@ sub handle_user_command {
     
     if($command =~ /^.metar$/)      { $flags |= RAW_METAR | DO_CONDITIONS; }
     foreach(@args) {
-        if(m/^m(etric)?$/)          { $flags |= UNITS_METRIC; }
-        if(m/^f(ore)?cast$/)        { $flags |= DO_FORECAST | DO_ALERTS; }
-        if(m/^(us|imp(erial)?)$/)   { $flags |= UNITS_IMPERIAL; }
-        if(m/^raw$/)                { $flags |= RAW_METAR | DO_CONDITIONS; }
-        if(m/^cond(itions)?/)       { $flags |= DO_CONDITIONS; }
+        if   (m/^m(etric)?$/)          { $flags |= UNITS_METRIC; }
+        elsif(m/^f(ore)?cast$/)        { $flags |= DO_FORECAST | DO_ALERTS; }
+        elsif(m/^(us|imp(erial)?)$/)   { $flags |= UNITS_IMPERIAL; }
+        elsif(m/^raw$/)                { $flags |= RAW_METAR | DO_CONDITIONS; }
+        elsif(m/^cond(itions)?/)       { $flags |= DO_CONDITIONS; }
+        else {
+            &SimBot::send_message($channel, "$nick: I didn't understand your request.");
+            return;
+        }
     }
     if($flags == 0
         || $flags == UNITS_METRIC
