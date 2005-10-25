@@ -824,7 +824,7 @@ sub nlp_match {
 		}
 	}
 
-	if (defined $station) {
+	if (defined $station && $station !~ m/RAIN|SNOW|HAIL|WARM|COLD/) {
 		&handle_user_command($kernel, $nick, $channel, " weather", $station);
 		return 1;
 	} else {
