@@ -20,6 +20,9 @@ package SimBot::plugin::services::undernet;
 use warnings;
 use strict;
 
+# Use the SimBot Util perl module
+use SimBot::Util;
+
 # Start with the assumption X is online, we are not locked out, and
 # we are not logged in, and we are not shut up.
 our $x_online   = 1;
@@ -32,15 +35,15 @@ our $shut_up    = 0;
 # We also set the +x mode to mask our hostname for some added security.
 sub services_login {
     my ($kernel, undef, $nick) = @_;
-	my $user = &SimBot::option('services', 'user');
-	my $pass = &SimBot::option('services', 'pass');
+	my $user = &option('services', 'user');
+	my $pass = &option('services', 'pass');
 
     if (defined $nick) {
-		&SimBot::debug(3, "Setting masked user mode...\n");
+		&debug(3, "Setting masked user mode...\n");
 		$kernel->post(bot => mode => $nick, "+x");
     }
     if ($pass && $user) {
-		&SimBot::debug(3, "Logging into Channel Service as $user...\n");
+		&debug(3, "Logging into Channel Service as $user...\n");
 		&SimBot::send_message("x\@channels.undernet.org", "login $user $pass");
     }
 }
@@ -51,30 +54,30 @@ sub check_response {
     my ($kernel, $nick, undef, $text) = @_;
     if ($nick eq "X") {
 		if ($text =~ /AUTHENTICATION SUCCESSFUL as /) {
-			&SimBot::debug(3, "Channel Service reports successful login.\n");
+			&debug(3, "Channel Service reports successful login.\n");
 			$logged_in = 1;
 			$x_online = 1;
 			if ($locked_out) {
-				&request_invite($kernel, undef, &SimBot::option('network', 'channel'));
+				&request_invite($kernel, undef, &option('network', 'channel'));
 			}
 			if ($shut_up) {
-				&request_voice($kernel, undef, &SimBot::option('network', 'channel'));
+				&request_voice($kernel, undef, &option('network', 'channel'));
 			}
 		} elsif ($text =~ /AUTHENTICATION FAILED as /) {
-			&SimBot::debug(2, "Channel Service reports login failure.\n");
+			&debug(2, "Channel Service reports login failure.\n");
 			$logged_in = 0;
 			$x_online = 1;
 		} elsif ($text =~ /Sorry, You are already authenticated as /) {
-			&SimBot::debug(2, "Channel Service reports already logged in.\n");
+			&debug(2, "Channel Service reports already logged in.\n");
 			$logged_in = 1;
 			$x_online = 1;
 		} elsif ($text =~ /Sorry, You must be logged in to /) {
-			&SimBot::debug(2, "Channel Service reports not yet logged in.\n");
+			&debug(2, "Channel Service reports not yet logged in.\n");
 			$logged_in = 0;
 			$x_online = 1;
 			&services_login($kernel);
 		} else {
-			&SimBot::debug(4, "Channel Service message: $text\n");
+			&debug(4, "Channel Service message: $text\n");
 		}
     }
 }
@@ -83,10 +86,10 @@ sub check_response {
 # from X.
 sub request_invite {
     my ($kernel, undef, $channel) = @_;
-    if (&SimBot::option('services', 'pass')) {
+    if (&option('services', 'pass')) {
 		$locked_out = 1;
 		if($x_online && $logged_in) {
-			&SimBot::debug(3, "Asking Channel Service for invitation to $channel...\n");
+			&debug(3, "Asking Channel Service for invitation to $channel...\n");
 			&SimBot::send_message("x", "invite $channel");
 		} elsif ($x_online) {
 			&services_login($kernel);
@@ -97,10 +100,10 @@ sub request_invite {
 # REQUEST_VOICE: If the bot was not able to speak, request a voice from X.
 sub request_voice {
     my ($kernel, undef, $channel) = @_;
-    if (&SimBot::option('services', 'pass')) {
+    if (&option('services', 'pass')) {
 		$shut_up = 1;
 		if($x_online && $logged_in) {
-			&SimBot::debug(2, "Could not speak.  Asking for voice on $channel...\n");
+			&debug(2, "Could not speak.  Asking for voice on $channel...\n");
 			&SimBot::send_message("x", "voice $channel");
 			$shut_up = 0;
 		} elsif ($x_online) {
@@ -135,7 +138,7 @@ sub process_notify {
 # KICK_USER: Kicks a user through Channel Service.
 sub kick_user {
     my (undef, $channel, $user, $message) = @_;
-	&SimBot::debug(3, "Asking Channel Service to kick $user from $channel ($message)...\n");
+	&debug(3, "Asking Channel Service to kick $user from $channel ($message)...\n");
 	&SimBot::send_message("x", "kick $channel $user $message");
 }
 
@@ -143,7 +146,7 @@ sub kick_user {
 sub ban_user {
     my (undef, $channel, $user, $time, $message) = @_;
 	my $hours = int($time / 3600);
-	&SimBot::debug(3, "Asking Channel Service to ban $user (" .
+	&debug(3, "Asking Channel Service to ban $user (" .
 				   &SimBot::hostmask($user) .
 				   ") from $channel ($message)...\n");
 	&SimBot::send_message("x", "ban $channel " . &SimBot::hostmask($user) . " $hours 75 $message");
@@ -152,7 +155,7 @@ sub ban_user {
 # UNBAN_USER: Unbans a user through Channel Service.
 sub unban_user {
     my (undef, $channel, $user, $message) = @_;
-	&SimBot::debug(3, "Asking Channel Service to unban $user (" .
+	&debug(3, "Asking Channel Service to unban $user (" .
 				   &SimBot::hostmask($user) .
 				   ") from $channel...\n");
 	&SimBot::send_message("x", "unban $channel " . &SimBot::hostmask($user));

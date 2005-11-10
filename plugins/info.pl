@@ -40,10 +40,13 @@ package SimBot::plugin::info;
 use warnings;
 use strict;
 
+# Use the SimBot Util perl module
+use SimBot::Util;
+
 # Let's declare our globals.
 use vars qw( %info );
 
-use constant CMD_PREFIX => SimBot::option( 'global', 'command_prefix' );
+use constant CMD_PREFIX => option( 'global', 'command_prefix' );
 # These constants define the phrases simbot will use when responding
 # to queries.
 use constant I_DONT_KNOW => (
@@ -154,7 +157,7 @@ sub handle_chat {
         $person_being_referenced = $1;
     }
     if ($being_addressed) {
-        $person_being_referenced = &SimBot::option( 'global', 'nickname' );
+        $person_being_referenced = &option( 'global', 'nickname' );
     }
 
     if ( $SimBot::snooze && !$being_addressed ) {
@@ -175,7 +178,7 @@ sub handle_chat {
         if ( $info{$key} ) {
             delete $info{$key};
 
-            &SimBot::debug( 4, "info: Forgot $key (req'd by $nick)\n" );
+            &debug( 4, "info: Forgot $key (req'd by $nick)\n" );
             &SimBot::send_message( $channel,
                 &parse_message( &SimBot::pick(OK_FORGOTTEN), $nick, $key ) );
         } else {
@@ -248,7 +251,7 @@ sub handle_chat {
                     &SimBot::send_message(
                         $channel,
                         &parse_message(
-                            &SimBot::pick(BUT_X_IS_MANY),
+                            &pick(BUT_X_IS_MANY),
                             $nick, $key
                         )
                     );
@@ -264,7 +267,7 @@ sub handle_chat {
                     &SimBot::send_message(
                         $channel,
                         &parse_message(
-                            &SimBot::pick(BUT_X_IS_Y),
+                            &pick(BUT_X_IS_Y),
                             $nick, $key, $isare, $oldFactoid
                         )
                     );
@@ -298,10 +301,10 @@ sub handle_chat {
         # if the line contains something on simbot's block list, we
         # refuse to learn it. If we are being addressed, we give a
         # nondescript error message.
-        foreach ( &SimBot::option_list('filters') ) {
+        foreach ( &option_list('filters') ) {
             if ( $content =~ /$_/i ) {
                 &SimBot::send_message( $channel,
-                    &parse_message( &SimBot::pick(I_CANNOT), $nick ) )
+                    &parse_message( &pick(I_CANNOT), $nick ) )
                   if $being_addressed;
                 return;
             }
@@ -311,7 +314,7 @@ sub handle_chat {
             &SimBot::send_message(
                 $channel,
                 &parse_message(
-                    &SimBot::pick(X_IS_X),
+                    &pick(X_IS_X),
                     $nick, $key, $isare, $factoid
                 )
               )
@@ -336,7 +339,7 @@ sub handle_chat {
             if ( $info{$key} =~ m/\|\|/ ) {
                 # multiple keys
                 &SimBot::send_message( $channel,
-                    &parse_message( &SimBot::pick(BUT_X_IS_MANY), $nick, $key )
+                    &parse_message( &pick(BUT_X_IS_MANY), $nick, $key )
                 );
             } else {
                 my ( $keyFlags, $oldFactoid ) = split( /\|/, $info{$key}, 2 );
@@ -349,7 +352,7 @@ sub handle_chat {
                 &SimBot::send_message(
                     $channel,
                     &parse_message(
-                        &SimBot::pick(BUT_X_IS_Y),
+                        &pick(BUT_X_IS_Y),
                         $nick, $key, $isare, $oldFactoid
                     )
                 );
@@ -416,7 +419,7 @@ sub handle_query {
             if ( !@factoids ) { @factoids = split( /\|\|/, $info{$query} ); }
         } ## end if ( ( $flags & PREFER_LOCATION...
 
-        ( $factFlags, $factoid ) = split( /\|/, &SimBot::pick(@factoids), 2 );
+        ( $factFlags, $factoid ) = split( /\|/, &pick(@factoids), 2 );
 
         my $isare = 'is';
         if ( $factFlags & FACT_ARE ) { $isare = 'are'; }
@@ -434,14 +437,14 @@ sub handle_query {
         &SimBot::send_message(
             $channel,
             &parse_message(
-                &SimBot::pick(QUERY_RESPONSE),
+                &pick(QUERY_RESPONSE),
                 $nick, $query, $isare, $factoid
             )
         );
     } elsif ( $flags & BEING_ADDRESSED ) {
         # we're being addressed, but don't have an answer...
         &SimBot::send_message( $channel,
-            &parse_message( &SimBot::pick(I_DONT_KNOW), $nick, $query ) );
+            &parse_message( &pick(I_DONT_KNOW), $nick, $query ) );
     }
 } ## end sub handle_query
 
@@ -466,9 +469,9 @@ sub report_learned {
     else { $flagTxt = '=is=>'; }
     if ( $flags & FACT_URL ) { $flagTxt .= ' =url='; }
 
-    &SimBot::debug( 4, "info: Learning from $nick: $key $flagTxt $factoid\n" );
+    &debug( 4, "info: Learning from $nick: $key $flagTxt $factoid\n" );
     &SimBot::send_message( $channel,
-        &parse_message( &SimBot::pick(OK_LEARNED), $nick )
+        &parse_message( &pick(OK_LEARNED), $nick )
           . " ($key $flagTxt $factoid)" )
       if ( $flags & BEING_ADDRESSED );
 } ## end sub report_learned
@@ -489,7 +492,7 @@ sub report_learned {
 sub parse_message {
     my ( $message, $nick, $key, $isare, $factoid ) = @_;
 
-    $message = &SimBot::parse_style($message);
+    $message = &parse_style($message);
 
     $message =~ s/\$nick/$nick/g;
     $message =~ s/\$key/$key/g;

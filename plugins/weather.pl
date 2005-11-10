@@ -38,6 +38,9 @@ package SimBot::plugin::weather;
 use strict;
 use warnings;
 
+# Use the SimBot Util perl module
+use SimBot::Util;
+
 # the new fangled XML weather reports need to be parsed!
 use XML::Simple;
 
@@ -207,16 +210,16 @@ sub do_wx {
     my  ($kernel, $nick, $location, $flags) =
       @_[KERNEL,  ARG0,  ARG1,     ARG2];
 
-    &SimBot::debug(3, 'weather: Received request from ' . $nick
+    &debug(3, 'weather: Received request from ' . $nick
         . " for $location\n");
 
     # So, what are we doing?
     unless($flags & DO_CONDITIONS
         || $flags & DO_ALERTS || $flags & DO_FORECAST)
     {
-        &SimBot::send_message(&SimBot::option('network', 'channel'),
+        &SimBot::send_message(&option('network', 'channel'),
             "$nick: Sorry, something unexpected happened. This has been logged; please try again later.");
-        &SimBot::debug(1, "weather: in do_wx with nothing to do!\n");
+        &debug(1, "weather: in do_wx with nothing to do!\n");
         return;
     }
     
@@ -268,7 +271,7 @@ sub do_wx {
         } elsif(!($flags & USING_DEFAULTS)) {
             # If we don't have enough information to do the forecast or
             # alerts, only complain if we aren't using the default options.
-            &SimBot::send_message(&SimBot::option('network', 'channel'),
+            &SimBot::send_message(&option('network', 'channel'),
                 "$nick: Sorry, but I have no forecast for that location.");
         }
     }
@@ -276,7 +279,7 @@ sub do_wx {
     if($flags & DO_CONDITIONS) {
         if(!defined $station || length($station) != 4) {
             # Whine and bail
-            &SimBot::send_message(&SimBot::option('network', 'channel'),
+            &SimBot::send_message(&option('network', 'channel'),
                                   "$nick: "
                                   . ($station ? STATION_LOOKS_WRONG
                                               : STATION_UNSPECIFIED)
@@ -315,15 +318,15 @@ sub got_metar {
         = (split(/!/, $request_packet->[1], 3));
     my $response = $response_packet->[0];
 
-    &SimBot::debug(4, 'weather: Got weather for ' . $nick
+    &debug(4, 'weather: Got weather for ' . $nick
         . " for $station\n");
 
     if ($response->is_error) {
         if ($response->code eq '404') {
-            &SimBot::send_message(&SimBot::option('network', 'channel'), "$nick: Sorry, there is no METAR report available matching \"$station\". " . FIND_STATION_AT);
+            &SimBot::send_message(&option('network', 'channel'), "$nick: Sorry, there is no METAR report available matching \"$station\". " . FIND_STATION_AT);
         } else {
             &SimBot::send_message(
-                &SimBot::option('network', 'channel'),
+                &option('network', 'channel'),
                 "$nick: " . CANNOT_ACCESS);
         }
         return;
@@ -331,19 +334,19 @@ sub got_metar {
 #    my ($datestamp, $raw_metar) = split(/\n/, $response->content);
     my $raw_metar;
     if($response->content =~ m|no data available|) {
-        &SimBot::send_message(&SimBot::option('network', 'channel'),
+        &SimBot::send_message(&option('network', 'channel'),
             "$nick: Sorry, there is no report available for \"$station\". "
             . FIND_STATION_AT);
         return;
     }
     unless(($raw_metar) = $response->content =~ m|<FONT FACE="Monospace,Courier">(.*?)</FONT>|s) {
-        &SimBot::debug(1, "NOAA made no sense. They said:\n" . $response->content . "\n");
-        &SimBot::send_message(&SimBot::option('network', 'channel'), "$nick: I couldn't make sense of what NOAA told me.");
+        &debug(1, "NOAA made no sense. They said:\n" . $response->content . "\n");
+        &SimBot::send_message(&option('network', 'channel'), "$nick: I couldn't make sense of what NOAA told me.");
         return;
     }
     $raw_metar =~ s/\s+/ /ig;
     
-    &SimBot::debug(4, "weather: METAR is " . $raw_metar . "\n");
+    &debug(4, "weather: METAR is " . $raw_metar . "\n");
 
     my $station_name_query = $dbh->prepare_cached(
         'SELECT name, state, country FROM stations'
@@ -364,7 +367,7 @@ sub got_metar {
     $station_name_query->finish;
     
     if($flags & RAW_METAR) {
-        &SimBot::send_message(&SimBot::option('network', 'channel'),
+        &SimBot::send_message(&option('network', 'channel'),
             "$nick: METAR report for $station_name is $raw_metar.");
         return;
     }
@@ -387,17 +390,17 @@ sub got_metar {
             $msg = "$nick: No data is available for $station_name. Please try again later.";
         } else {
             $msg = "$nick: The METAR report for $station_name didn't make any sense to me.  Try "
-                . &SimBot::option('global', 'command_prefix')
+                . &option('global', 'command_prefix')
                 . "metar $station if you want to try parsing it yourself.";
         }
-        &SimBot::send_message(&SimBot::option('network', 'channel'), $msg);
+        &SimBot::send_message(&option('network', 'channel'), $msg);
         return;
     }
     my ($wind_mph, $temp_f, $temp_c);
     
     my $reply = 'As reported ';
     if(defined $wxhash->{'report_time'}->{'unixtime'}) {
-        $reply .= &SimBot::timeago($wxhash->{'report_time'}->{'unixtime'}, 1);
+        $reply .= &timeago($wxhash->{'report_time'}->{'unixtime'}, 1);
     } else {
         $reply .= sprintf('at %d:%02d',
             $wxhash->{'report_time'}->{'hour'},
@@ -617,7 +620,7 @@ sub got_metar {
 
     $reply =~ s/\bthunderstorm\b/t'storm/   if (length($reply)>430); #'
 
-    &SimBot::send_message(&SimBot::option('network', 'channel'),
+    &SimBot::send_message(&option('network', 'channel'),
         "$nick: $reply");
 }
 
@@ -636,7 +639,7 @@ sub got_alerts {
     if ($response->is_error) {
         # The server isn't being nice to us.
         # Let's just move on to getting the forecast
-        &SimBot::send_message(&SimBot::option('network', 'channel'),
+        &SimBot::send_message(&option('network', 'channel'),
             "$nick: " . &get_forecast($nick, $lat, $long, $flags));
         return;
     }
@@ -645,11 +648,11 @@ sub got_alerts {
     my $cap_alert;
     
     if (!eval { $cap_alert = XMLin($raw_xml, NormaliseSpace => 2, ForceArray => ['cap:info']); }) {
-		&SimBot::debug(3, "weather: XML parse error for alerts\n");
-		&SimBot::debug(4, "weather: XML parser failure: $@");
+		&debug(3, "weather: XML parse error for alerts\n");
+		&debug(4, "weather: XML parser failure: $@");
 
         # Bad XML! Let's just move on to getting the forecast.
-        &SimBot::send_message(&SimBot::option('network', 'channel'),
+        &SimBot::send_message(&option('network', 'channel'),
             "$nick: " . &get_forecast($nick, $lat, $long, $flags));
 
 		return;
@@ -671,16 +674,16 @@ sub got_alerts {
 
     if(@alerts) {
         if($#alerts == 0) {
-            &SimBot::send_message(&SimBot::option('network', 'channel'),
+            &SimBot::send_message(&option('network', 'channel'),
                 "$nick: $alerts[0] $alerts_link[0]");
         } else {
             # more than one alert, we should do something a bit nicer...
-            &SimBot::send_message(&SimBot::option('network', 'channel'),
+            &SimBot::send_message(&option('network', 'channel'),
                 "$nick: " . join (', ', @alerts));
         }
     }
     # OK, we're done with the alerts... now do the forecast
-    &SimBot::send_message(&SimBot::option('network', 'channel'),
+    &SimBot::send_message(&option('network', 'channel'),
         "$nick: " . &get_forecast($nick, $lat, $long, $flags));
 }
 
@@ -760,7 +763,7 @@ sub get_forecast {
             my ($year, $month, $day) = m/^(\d+)-(\d+)-(\d+)/;
             if($year <= 2000) {
 	        # NOAA's giving us bogus data again
-		&SimBot::debug(1, "weather: Forecast is in the past, check your clock!\n");
+		&debug(1, "weather: Forecast is in the past, check your clock!\n");
 		return 'Could not get the forecast.';
             } elsif($year == $today_year+1900
                 && $month == $today_mon+1
@@ -805,7 +808,7 @@ sub get_forecast {
             $msg .= $cur_msg;
         }
         $msg =~ s/; $//;
-        return &SimBot::parse_style($msg);
+        return &parse_style($msg);
     }
 }
 
@@ -873,7 +876,7 @@ sub get_alerts {
     my  ($kernel, $nick, $lat, $long, $state, $geocode, $flags) =
       @_[KERNEL,  ARG0,  ARG1, ARG2,  ARG3,   ARG4,     ARG5  ];
     
-    &SimBot::debug(3, 'weather: Received forecast request from ' . $nick
+    &debug(3, 'weather: Received forecast request from ' . $nick
         . " for $lat $long $geocode, in get_alerts\n");
     
     my $url = 'http://weather.gov/alerts/' . lc($state) . '.cap';

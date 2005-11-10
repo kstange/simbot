@@ -30,6 +30,9 @@ package SimBot::plugin::time;
 use warnings;
 use strict;
 
+# Use the SimBot Util perl module
+use SimBot::Util;
+
 use DateTime;
 use DateTime::TimeZone;
 
@@ -47,7 +50,7 @@ sub do_time {
     }
 
     if(!@zones) {
-        if(my $zonelist = &SimBot::option('plugin.time', 'default_zones')) {
+        if(my $zonelist = &option('plugin.time', 'default_zones')) {
             @zones = split(/,/, $zonelist);
         } else {
             @zones = ('UTC');

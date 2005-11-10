@@ -20,6 +20,9 @@ package SimBot::plugin::8ball;
 use warnings;
 use strict;
 
+# Use the SimBot Util perl module
+use SimBot::Util;
+
 # http://en.wikipedia.org/wiki/Magic_8-ball
 use constant SAYINGS => (
     'Signs point to yes.',
@@ -62,15 +65,15 @@ use constant BLANK_INTROS =>
 
 sub consult_the_8ball {
     my ( $kernel, $nick, $channel, undef, $question ) = @_;
-    &SimBot::debug( 3, "8ball: Consulting the Magic Eight Ball for $nick\n" );
+    &debug( 3, "8ball: Consulting the Magic Eight Ball for $nick\n" );
 
     my $message;
 
     if ( defined $question ) {
-        $message = &SimBot::pick( (INTROS) ) . ' ' . &SimBot::pick( (SAYINGS) );
+        $message = &pick( (INTROS) ) . ' ' . &pick( (SAYINGS) );
     } else {
         $message =
-            &SimBot::pick( (BLANK_INTROS) ) . ' ' . &SimBot::pick( (BLANK_SAYINGS) );
+            &pick( (BLANK_INTROS) ) . ' ' . &pick( (BLANK_SAYINGS) );
     }
     $message =~ s/\$nick/$nick/g;
 

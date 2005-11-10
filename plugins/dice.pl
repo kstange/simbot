@@ -32,6 +32,9 @@ package SimBot::plugin::roll;
 use strict;
 use warnings;
 
+# Use the SimBot Util perl module
+use SimBot::Util;
+
 # Jeers for Rock Paper Scissors
 use constant RPS_JEER => (
 						  'Oh, the horror!',
@@ -107,27 +110,27 @@ sub rps_shoot {
 	if (!defined $object || $object eq "") {
 		&SimBot::send_message($channel, "$nick: Well?  Rock, paper, or scissors?");
 	} elsif ($object =~ /^(rock|paper|scissors)$/) {
-		my $pick = &SimBot::pick(('rock', 'paper','scissors'));
+		my $pick = &pick(('rock', 'paper','scissors'));
 		$text = "$nick: I picked: $pick. ";
 		if ($pick eq $object) {
 			$text .= "It's a draw! Try again!";
 		} elsif ($object eq "rock") {
 			if ($pick eq "scissors") {
-				$text .= "Your rock smashed my scissors. " . &SimBot::pick(RPS_JEER) . " You win!";
+				$text .= "Your rock smashed my scissors. " . &pick(RPS_JEER) . " You win!";
 			} elsif ($pick eq "paper") {
-				$text .= "My paper covered your rock. " . &SimBot::pick(RPS_CHEER) . " I win!";
+				$text .= "My paper covered your rock. " . &pick(RPS_CHEER) . " I win!";
 			}
 		} elsif ($object eq "paper") {
 			if ($pick eq "rock") {
-				$text .= "Your paper covered my rock. " . &SimBot::pick((RPS_JEER)) . " You win!";
+				$text .= "Your paper covered my rock. " . &pick((RPS_JEER)) . " You win!";
 			} elsif ($pick eq "scissors") {
-				$text .= "My scissors cut your paper. " . &SimBot::pick((RPS_CHEER)) . " I win!";
+				$text .= "My scissors cut your paper. " . &pick((RPS_CHEER)) . " I win!";
 			}
 		} elsif ($object eq "scissors") {
 			if ($pick eq "paper") {
-				$text .= "Your scissors cut my paper. " . &SimBot::pick((RPS_JEER)) . " You win!";
+				$text .= "Your scissors cut my paper. " . &pick((RPS_JEER)) . " You win!";
 			} elsif ($pick eq "rock") {
-				$text .= "My rock smashed your scissors. " . &SimBot::pick((RPS_CHEER)) . " I win!";
+				$text .= "My rock smashed your scissors. " . &pick((RPS_CHEER)) . " I win!";
 			}
 		}
 		&SimBot::send_message($channel, $text);

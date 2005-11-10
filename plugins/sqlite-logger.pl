@@ -30,6 +30,10 @@ package SimBot::plugin::sqlite::logger;
 
 use warnings;
 use strict;
+
+# Use the SimBot Util perl module
+use SimBot::Util;
+
 use Data::Dumper;
 
 use Time::Local;
@@ -71,7 +75,7 @@ sub messup_sqlite_logger {
         { RaiseError => 1, AutoCommit => 0 }
       )
       or die;
-    &SimBot::debug( 3,
+    &debug( 3,
         'sqlite: Using SQLite version ' . $dbh->{'sqlite_version'} . "\n" );
 
     # let's create our table. If this fails, we don't care.
@@ -185,7 +189,7 @@ sub get_nickchan_name {
 sub log_nick_change {
     my ( undef, undef, $nick, $newnick ) = @_;
     my $channel_id =
-      &get_nickchan_id( &SimBot::option( 'network', 'channel' ), 0 );
+      &get_nickchan_id( &option( 'network', 'channel' ), 0 );
 
     my $source_nick_id = &get_nickchan_id( $nick,    1 );
     my $target_nick_id = &get_nickchan_id( $newnick, 1 );
@@ -212,7 +216,7 @@ sub set_seen {
 
     # First, we need to identify things
     my $channel_id =
-      &get_nickchan_id( &SimBot::option( 'network', 'channel' ), 1 );
+      &get_nickchan_id( &option( 'network', 'channel' ), 1 );
     my $source_nick_id = &get_nickchan_id( $nick, 1 );
     my $target_nick_id;
 
@@ -293,7 +297,7 @@ sub do_seen {
 
     } else {
         $seen_nick = shift(@args);
-        &SimBot::debug( 3,
+        &debug( 3,
             "sqlite-logger: Seen request by $nick for $seen_nick\n" );
 
         if ( $seen_nick =~ m/^\*$/ ) {
@@ -377,7 +381,7 @@ sub do_seen {
         return;
     }
     $seen_query->execute(
-        &get_nickchan_id( &SimBot::option( 'network', 'channel' ) ) );
+        &get_nickchan_id( &option( 'network', 'channel' ) ) );
     my $row;
     my $last_id;
     my @responses;
@@ -446,7 +450,7 @@ sub do_recap {
           . ' AND id <= ?' );
 
     my $channel_id =
-      &get_nickchan_id( &SimBot::option( 'network', 'channel' ) );
+      &get_nickchan_id( &option( 'network', 'channel' ) );
     $start_query->execute( $channel_id, $nick_id );
 
     my $start_row;
@@ -514,7 +518,7 @@ sub access_log {
     } elsif ( $query =~ m/^stats/ ) {
         my $statnick = $args[0];
         my $chan_id  =
-          &get_nickchan_id( &SimBot::option( 'network', 'channel' ) );
+          &get_nickchan_id( &option( 'network', 'channel' ) );
 
         $nick_id = &get_nickchan_id($nick);
 
@@ -828,11 +832,11 @@ sub update_nick_context {
 sub score_word {
     my $word = $_[1];
     if ( get_nickchan_id($word) ) {
-        &SimBot::debug( 4, "${word}:+1000(sqlite-logger) ",
-            SimBot::DEBUG_NO_PREFIX );
+        &debug( 4, "${word}:+1000(sqlite-logger) ",
+            DEBUG_NO_PREFIX );
         return 1000;
     }
-    &SimBot::debug( 5, "${word}:+0(sqlite-logger) ", SimBot::DEBUG_NO_PREFIX );
+    &debug( 5, "${word}:+0(sqlite-logger) ", DEBUG_NO_PREFIX );
     return 0;
 }
 
@@ -895,7 +899,7 @@ sub web_log {
     my $channel_id = (
         defined $query->{'channel_id'}
         ? $query->{'channel_id'}
-        : &get_nickchan_id( &SimBot::option( 'network', 'channel' ) )
+        : &get_nickchan_id( &option( 'network', 'channel' ) )
     );
 
     if ( defined $query->{'smo'} ) { $start_month = $query->{'smo'}; }
@@ -969,7 +973,7 @@ sub web_stats {
         my $channel_id = (
             defined $query->{'channel_id'}
             ? $query->{'channel_id'}
-            : &get_nickchan_id( &SimBot::option( 'network', 'channel' ) )
+            : &get_nickchan_id( &option( 'network', 'channel' ) )
         );
           
           
@@ -1146,7 +1150,7 @@ sub web_stats {
         my $channel_id = (
             defined $query->{'channel_id'}
             ? $query->{'channel_id'}
-            : &get_nickchan_id( &SimBot::option( 'network', 'channel' ) )
+            : &get_nickchan_id( &option( 'network', 'channel' ) )
         );
 
         # Get the numbers for the graph at the top
@@ -1305,7 +1309,7 @@ sub linkify {
 
         if ( $url =~ m{^(\S+)@(\S+)\.(\S+)$} ) {
             # probably an email address
-            $curWord = &SimBot::html_mask_email($url);
+            $curWord = &html_mask_email($url);
             next;
         }
 

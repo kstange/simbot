@@ -38,6 +38,9 @@ use constant CORRECT_SPELLING_BONUS => 0.01;
 use warnings;
 use strict;
 
+# Use the SimBot Util perl module
+use SimBot::Util;
+
 use Text::Aspell;
 
 use vars qw( $SPELLER %DICTS );
@@ -46,8 +49,8 @@ use vars qw( $SPELLER %DICTS );
 sub messup_aspell {
     $SPELLER = Text::Aspell->new or die "Could not create speller";
     $SPELLER->set_option('sug-mode', SUGGESTION_MODE);
-    $SPELLER->set_option('lang', (&SimBot::option('plugin.aspell', 'lang')
-                                    ? &SimBot::option('plugin.aspell', 'lang')
+    $SPELLER->set_option('lang', (&option('plugin.aspell', 'lang')
+                                    ? &option('plugin.aspell', 'lang')
                                     : 'en'));
     
     my $cur;
@@ -100,7 +103,7 @@ sub score_word {
         my $word  = $_[1];
 		my $score = $_[2];
         if($SPELLER->check($word)) {
-            &SimBot::debug(4, "$word:+" . int(CORRECT_SPELLING_BONUS * $score) . '(aspell) ', SimBot::DEBUG_NO_PREFIX);
+            &debug(4, "$word:+" . int(CORRECT_SPELLING_BONUS * $score) . '(aspell) ', DEBUG_NO_PREFIX);
             return int(CORRECT_SPELLING_BONUS * $score);
         }
     }

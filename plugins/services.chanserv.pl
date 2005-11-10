@@ -29,6 +29,9 @@ package SimBot::plugin::services::chanserv;
 use warnings;
 use strict;
 
+# Use the SimBot Util perl module
+use SimBot::Util;
+
 # Start with the assumption Services are online, we are not locked out, and
 # we are not logged in, and we are not shut up.
 our $services_online = 0;
@@ -40,21 +43,21 @@ our $shut_up         = 0;
 # password, since logging in would be tricky, at best, without them.
 sub services_login {
 	my $kernel = $_[0];
-	my $pass = &SimBot::option('services', 'pass');
+	my $pass = &option('services', 'pass');
 
     if ($pass) {
-		&SimBot::debug(3, "Logging into services...\n");
+		&debug(3, "Logging into services...\n");
 		$kernel->post(bot => sl => "nickserv identify $pass");
     }
 }
 
 sub registration_check {
     my ($kernel, undef, undef, $newnick) = @_;
-	my $want = &SimBot::option('global', 'nickname');
+	my $want = &option('global', 'nickname');
 	my $me   = $SimBot::chosen_nick;
 
 	if ($me eq $newnick && $me eq $want) {
-		&SimBot::debug(3, "Checking nickname availability...\n");
+		&debug(3, "Checking nickname availability...\n");
 		$kernel->post(bot => sl => "nickserv info");
 	}
 }
@@ -63,23 +66,23 @@ sub registration_check {
 # something.  Here, we handle different possible cases.
 sub check_response {
     my ($kernel, $nick, undef, $text) = @_;
-	my $pass = &SimBot::option('services', 'pass');
+	my $pass = &option('services', 'pass');
 	my $me   = $SimBot::chosen_nick;
-	my $want = &SimBot::option('global', 'nickname');
-	my $chan = &SimBot::option('network', 'channel');
+	my $want = &option('global', 'nickname');
+	my $chan = &option('network', 'channel');
     if (lc($nick) eq lc("NickServ")) {
 		$services_online = 1;
 
 		if ($text =~ /is( not|n\'t) registered/i) {
 			# Try to register!!
 			if ($me eq $want) {
-				&SimBot::debug(3, "Nickname $me is not registered; trying to register it now...\n");
+				&debug(3, "Nickname $me is not registered; trying to register it now...\n");
 				$kernel->post(bot => sl => "nickserv register $pass");
 			}
 		} elsif ($text =~ /Nickname: ([^\s]+)/i) {
-			&SimBot::debug(4, "Nickname $1 is already registered; waiting for nickserv to ask for us to identify...\n");
+			&debug(4, "Nickname $1 is already registered; waiting for nickserv to ask for us to identify...\n");
 		} elsif ($text =~ /Your nickname is now registered/i) {
-			&SimBot::debug(3, "Nickname $me registered successfully.\n");
+			&debug(3, "Nickname $me registered successfully.\n");
 			$logged_in = 1;
 			if ($locked_out) {
 				&request_unban($kernel, undef, $chan);
@@ -89,15 +92,15 @@ sub check_response {
 			}
 		} elsif ($text =~ /Password incorrect/i) {
 			if ($logged_in == 0) {
-                &SimBot::debug(1, "Services reports login failure.\n");
+                &debug(1, "Services reports login failure.\n");
 			} else {
-				&SimBot::debug(1, "Services command failed: Incorrect password.\n");
+				&debug(1, "Services command failed: Incorrect password.\n");
 			}
 		} elsif ($text =~ /This nickname is owned by someone else/i) {
 			$logged_in = 0;
 			&services_login($kernel);
 		} elsif ($text =~ /you are now recognized/i) {
-			&SimBot::debug(3, "Services reports successful login.\n");
+			&debug(3, "Services reports successful login.\n");
 			$logged_in = 1;
 			if ($locked_out) {
 				&request_unban($kernel, undef, $chan);
@@ -106,14 +109,14 @@ sub check_response {
 				&request_voice($kernel, undef, $chan);
 			}
 		} elsif ($text =~ /You have already identified/i) {
-			&SimBot::debug(2, "Services reports already logged in.\n");
+			&debug(2, "Services reports already logged in.\n");
 			$logged_in = 1;
 		} elsif ($text =~ /Access denied/i) {
-			&SimBot::debug(2, "Services reports not yet logged in.\n");
+			&debug(2, "Services reports not yet logged in.\n");
 			$logged_in = 0;
 			&services_login($kernel);
         } elsif ($text =~ m/Your nickname is not yet authenticated/i) {
-            &SimBot::debug(1, "Services reports: $text");
+            &debug(1, "Services reports: $text");
 		}
     }
 
@@ -121,10 +124,10 @@ sub check_response {
 		$services_online = 1;
 		if ($text =~ /bans matching .* cleared on (\#.*)/i) {
 			my $chan = $1;
-			&SimBot::debug(3, "Services reports successful unban command.\n");
+			&debug(3, "Services reports successful unban command.\n");
 			$kernel->post(bot => join => $chan);
 		} elsif ($text =~ /Password identification is required/i) {
-			&SimBot::debug(2, "Services reports not yet logged in.\n");
+			&debug(2, "Services reports not yet logged in.\n");
 			$logged_in = 0;
 			&services_login($kernel);
 		}
@@ -135,14 +138,14 @@ sub check_response {
 # from ChanServ.
 sub request_unban {
     my ($kernel, undef, $channel, undef, $msg) = @_;
-    if (&SimBot::option('services', 'pass')) {
+    if (&option('services', 'pass')) {
 		$locked_out = 1;
 		if($services_online && $logged_in) {
 			if ($msg =~ /banned/i) {
-				&SimBot::debug(2, "Could not join.  Asking services for unban from $channel...\n");
+				&debug(2, "Could not join.  Asking services for unban from $channel...\n");
 				$kernel->post(bot => sl => "chanserv unban $channel");
 			} else { # Try Invite
-				&SimBot::debug(2, "Could not join.  Asking services for invite to $channel...\n");
+				&debug(2, "Could not join.  Asking services for invite to $channel...\n");
 				$kernel->post(bot => sl => "chanserv invite $channel");
 			}
 		} elsif ($services_online) {
@@ -154,10 +157,10 @@ sub request_unban {
 # REQUEST_VOICE: If the bot was not able to speak, request a voice from ChanServ.
 sub request_voice {
     my ($kernel, undef, $channel) = @_;
-    if (&SimBot::option('services', 'pass')) {
+    if (&option('services', 'pass')) {
 		$shut_up = 1;
 		if($services_online && $logged_in) {
-			&SimBot::debug(2, "Could not speak.  Asking for voice on $channel...\n");
+			&debug(2, "Could not speak.  Asking for voice on $channel...\n");
 			$kernel->post(bot => sl => "chanserv voice $channel");
 			$shut_up = 0;
 		} elsif ($services_online) {
@@ -180,8 +183,8 @@ sub process_notify {
     my ($kernel, undef, undef, @nicks) = @_;
     my $found = 0;
  	my $me   = $SimBot::chosen_nick;
-	my $want = &SimBot::option('global', 'nickname');
-	my $pass = &SimBot::option('services', 'pass');
+	my $want = &option('global', 'nickname');
+	my $pass = &option('services', 'pass');
 
     foreach(@nicks) {
 		if($_ eq "NickServ") {
@@ -196,7 +199,7 @@ sub process_notify {
 			# XXX: This should probably be delayed.
 			&registration_check($kernel, undef, undef, $me);
 		} else {
-			&SimBot::debug(3, "Desired nickname is in use; trying ghost...\n");
+			&debug(3, "Desired nickname is in use; trying ghost...\n");
 			$kernel->post(bot => sl => "nickserv ghost $want $pass");
 		}
 	}
@@ -206,7 +209,7 @@ sub process_notify {
 # KICK_USER: Kicks a user through ChanServ.
 sub kick_user {
     my ($kernel, $channel, $user, $message) = @_;
-	&SimBot::debug(3, "Asking Channel Service to kick $user from $channel ($message)...\n");
+	&debug(3, "Asking Channel Service to kick $user from $channel ($message)...\n");
 	$kernel->post(bot => sl => "chanserv kick $channel $user $message");
 }
 
@@ -214,7 +217,7 @@ sub kick_user {
 sub ban_user {
     my ($kernel, $channel, $user, $time, $message) = @_;
 	my $hours = int($time / 3600);
-	&SimBot::debug(3, "Asking Channel Service to ban $user (" .
+	&debug(3, "Asking Channel Service to ban $user (" .
 				   &SimBot::hostmask($user) .
 				   ") from $channel ($message)...\n");
 	$kernel->post(bot => sl => "chanserv ban $channel " . &SimBot::hostmask($user) . "$message");
@@ -225,7 +228,7 @@ sub ban_user {
 # UNBAN_USER: Unbans a user through ChanServ.
 #sub unban_user {
 #    my (undef, $channel, $user, $message) = @_;
-#        &SimBot::debug(3, "Asking Channel Service to unban $user (" .
+#        &debug(3, "Asking Channel Service to unban $user (" .
 #					   &SimBot::hostmask($user) .
 #					   ") from $channel...\n");
 #	&SimBot::send_message("ChanServ", "unban $channel " . &SimBot::hostmask($user));

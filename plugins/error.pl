@@ -20,13 +20,16 @@ package SimBot::plugin::error;
 use strict;
 use warnings;
 
+# Use the SimBot Util perl module
+use SimBot::Util;
+
 sub random_error {
     my ($kernel, $nick, $channel) = @_;
-    &SimBot::debug(3, "error: Got error request from " . $nick . ".\n");
+    &debug(3, "error: Got error request from " . $nick . ".\n");
     open(FILE, "data/errors.db");
     my @lines = <FILE>;
     close(FILE);
-    my $error = &SimBot::pick(@lines);
+    my $error = &pick(@lines);
     chomp($error);
     $error =~ s/\$nick/$nick/g;
     &SimBot::send_message($channel, $error);
@@ -34,7 +37,7 @@ sub random_error {
 
 sub random_quip {
     my ($nick, $channel) = @_[1,2];
-    &SimBot::debug(3, "error: Got list request from " . $nick . ".\n");
+    &debug(3, "error: Got list request from " . $nick . ".\n");
     my @reply = (
 				 "$nick: HER R TEH FIL3Z!!!! TEH PR1Z3 FOR U! KTHXBYE",
 				 "$nick: U R L33T H4X0R!",
@@ -45,7 +48,7 @@ sub random_quip {
 				 "$nick: Ur Leet-Foo is weak!",
 				 "$nick: Like a dagger in teh nite, I catch joo unawarez!",
 				 );
-    &SimBot::send_message($channel, &SimBot::pick(@reply));
+    &SimBot::send_message($channel, &pick(@reply));
 }
 
 # Register Plugin

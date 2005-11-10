@@ -24,6 +24,12 @@
 # Hi, my name(space) is:
 package SimBot;
 
+BEGIN {
+	push (@INC, "./lib");
+}
+
+use SimBot::Util;
+
 use Data::Dumper;
 
 # Sometimes we end up in Unicode.  Since IRC and Unicode are not good
@@ -32,10 +38,6 @@ use Data::Dumper;
 # with the equivalent Encode module.
 use Encode;
 use constant TARGET_ENCODING => 'iso-8859-1';
-
-# to make our own character substitutions easier to read, let's
-# be able to use character names
-use charnames ':full';
 
 # We hold our code up to some standards.
 # For some well-meaning reason, strict does not allow the use of strings
@@ -50,69 +52,9 @@ no strict 'refs';
 # ****************************************
 
 # Variables we want to use without an explicit package name
-use vars qw( %conf %chat_words $chosen_nick $chosen_server $alarm_sched_60
-			 %plugin_help %plugin_params %hostmask_cache
+use vars qw( %chat_words $chosen_nick $chosen_server $alarm_sched_60
+			 %plugin_help %plugin_params %hostmask_cache @servers
 			 );
-
-# Debug Constants
-use constant DEBUG_PREFIX
-	=> ('', 'ERROR: ', 'ALERT: ', '', 'DEBUG: ', 'SPAM: ');
-
-use constant DEBUG_NONE => 0;
-use constant DEBUG_ERR  => 1;
-use constant DEBUG_WARN => 2;
-use constant DEBUG_STD  => 3;
-use constant DEBUG_INFO => 4;
-use constant DEBUG_SPAM => 5;
-
-use constant DEBUG_NO_PREFIX => 0x001;
-
-use constant DEBUG_COLORS
-	=> ("bold green", "bold red", "red", "", "bold blue", "blue");
-
-# Terminal Colors
-use Term::ANSIColor;
-$Term::ANSIColor::AUTORESET = 1;
-
-# Default verbosity level
-# 0 is silent, 1 shows errors, 2 shows alert, 3 shows normal information,
-# 4 shows debug information, and 5 everything you never wanted to see.
-use constant VERBOSE => 3;
-
-# Software Name
-use constant PROJECT => "SimBot";
-# Software Version
-use constant VERSION => "1.0 alpha";
-# Software Home
-use constant HOME_PAGE => 'http://simbot.sf.net/';
-
-
-our %numbers_groups = (
-					   trillion => 1000000000000, billion       => 1000000000,
-					   million  => 1000000,       thousand      => 1000,
-					   hundred  => 100,           "hundred and" => 100,
-					   );
-
-our %numbers_tens   = (
-					   twenty => 20, thirty => 30,  forty => 40,  fifty => 50,
-					   sixty => 60,  seventy => 70, eighty => 80, ninety => 90,
-					   );
-
-our %numbers_other  = (
-					   zero => 0,          a => 1,            ten => 10,
-					   eleven => 11,       twelve => 12,      thirteen => 13,
-					   fourteen => 14,     fifteen => 15,     sixteen => 16,
-					   seventeen => 17,    eighteen => 18,    nineteen => 19,
-					   );
-
-our %numbers_digits = (one => 1, two => 2,   three => 3, four => 4, five => 5,
-					   six => 6, seven => 7, eight => 8, nine => 9,
-					   );
-
-
-our @named_colors = ("white", "black", "navy", "green", "red", "maroon",
-					 "purple", "orange", "yellow", "lightgreen", "teal",
-					 "cyan", "blue", "magenta", "gray", "silver");
 
 # ****************************************
 # ************ Start of Script ***********
@@ -121,21 +63,7 @@ our @named_colors = ("white", "black", "navy", "green", "red", "maroon",
 &debug(DEBUG_NONE, PROJECT . " " . VERSION . "\n\n");
 
 # Read command line options
-our %args = ();
-
-foreach (@ARGV) {
-	if (m/^--/) {
-		my ($flag, $value) = split(/=/);
-		$flag =~ s/^--//;
-		$value = 1 if (!defined $value);
-		$args{$flag} = $value;
-	} elsif (m/^-/) {
-		my (@params) = split(//);
-		foreach (@params) {
-			$args{$_} = 1 unless $_ eq "-";
-		}
-	}
-}
+my %args = &get_args();
 
 # Help output
 if (defined $args{help}) {
@@ -297,23 +225,23 @@ opendir(DIR, "./plugins");
 foreach my $plugin (readdir(DIR)) {
     if($plugin =~ /.*\.pl$/) {
 		if($plugin =~ /^services\.(.+)\.pl$/) {
-			debug(DEBUG_SPAM, "$1 services plugin found.\n");
+			&debug(DEBUG_SPAM, "$1 services plugin found.\n");
 			if (option('services','type') eq $1) {
-				debug(DEBUG_SPAM, "$1 services plugin was selected. Attempting to load...\n");
+				&debug(DEBUG_SPAM, "$1 services plugin was selected. Attempting to load...\n");
 				if (eval { require "./plugins/$plugin"; }) {
-					debug(DEBUG_STD, "$1 services plugin loaded successfully.\n");
+					&debug(DEBUG_STD, "$1 services plugin loaded successfully.\n");
 				} else {
-					debug(DEBUG_ERR, "$@");
-					debug(DEBUG_WARN, "$1 service plugin did not load due to errors.\n");
+					&debug(DEBUG_ERR, "$@");
+					&debug(DEBUG_WARN, "$1 service plugin did not load due to errors.\n");
 				}
 			} else {
-				debug(DEBUG_SPAM, "$1 services plugin was not selected.\n");
+				&debug(DEBUG_SPAM, "$1 services plugin was not selected.\n");
 			}
 		} elsif(eval { require "./plugins/$plugin"; }) {
-			debug(DEBUG_STD, "$plugin plugin loaded successfully.\n");
+			&debug(DEBUG_STD, "$plugin plugin loaded successfully.\n");
 		} else {
-			debug(DEBUG_ERR, "$@");
-			debug(DEBUG_WARN, "$plugin plugin did not load due to errors.\n");
+			&debug(DEBUG_ERR, "$@");
+			&debug(DEBUG_WARN, "$plugin plugin did not load due to errors.\n");
 		}
     }
 }
@@ -338,77 +266,59 @@ use POE;
 use POE::Component::IRC;
 
 # Create a new IRC connection.
-POE::Component::IRC->new('bot');
+POE::Component::IRC->spawn(alias => 'bot');
 
 # Add the handlers for different IRC events we want to know about.
-POE::Session->new
-	( _start           => \&initialize,
-	  irc_001          => \&irc_connected,    # connected
-	  irc_005          => \&server_supports,  # RPL_ISUPPORT
-	  irc_433          => \&pick_new_nick,    # nickname in use
-	  irc_socketerr    => \&socket_error,     # internet wants to yell at us
-	  irc_error        => \&server_error,     # server wants to yell at us
-	  irc_465          => \&server_banned,    # ERR_YOUREBANNEDCREEP
-	  irc_disconnected => \&irc_disconnected, # disconnected
-	  irc_303          => \&server_ison,      # check ison reply
-	  irc_352          => \&server_who,       # check who reply
-	  irc_nick         => \&server_nick_change,
-	  irc_401          => \&server_no_such_nick, # No such nick/chan error
-	  irc_msg          => \&private_message,
-	  irc_public       => \&channel_message,
-	  irc_kick         => \&channel_kick,
-	  irc_join         => \&channel_join,
-	  irc_part         => \&channel_part,
-	  irc_quit         => \&channel_quit,
-	  irc_404          => \&channel_novoice,  # we can't speak for some reason
-	  irc_471          => \&channel_nojoin,   # channel is at limit
-	  irc_473          => \&channel_nojoin,   # channel invite only
-	  irc_474          => \&channel_nojoin,   # banned from channel
-	  irc_475          => \&channel_nojoin,   # bad channel key
-	  irc_invite       => \&channel_invite,
-	  irc_topic        => \&channel_topic,
-	  irc_mode         => \&channel_mode,
-	  irc_notice       => \&process_notice,
-	  irc_ctcp_action  => \&process_action,
-	  irc_ctcp_version => \&process_version,
-	  irc_ctcp_time    => \&process_time,
-	  irc_ctcp_finger  => \&process_finger,
-	  irc_ctcp_ping    => \&process_ping,
-	  irc_snotice      => \&server_notice,
+POE::Session->create(
+	inline_states => {
+		_start           => \&initialize,
+		irc_001          => \&irc_connected,    # connected
+		irc_005          => \&server_supports,  # RPL_ISUPPORT
+		irc_433          => \&pick_new_nick,    # nickname in use
+		irc_socketerr    => \&socket_error,     # internet wants to yell at us
+		irc_error        => \&server_error,     # server wants to yell at us
+		irc_465          => \&server_banned,    # ERR_YOUREBANNEDCREEP
+		irc_disconnected => \&irc_disconnected, # disconnected
+		irc_303          => \&server_ison,      # check ison reply
+		irc_352          => \&server_who,       # check who reply
+		irc_nick         => \&server_nick_change,
+		irc_401          => \&server_no_such_nick, # No such nick/chan error
+		irc_msg          => \&private_message,
+		irc_public       => \&channel_message,
+		irc_kick         => \&channel_kick,
+		irc_join         => \&channel_join,
+		irc_part         => \&channel_part,
+		irc_quit         => \&channel_quit,
+		irc_404          => \&channel_novoice, # we can't speak for some reason
+		irc_471          => \&channel_nojoin,  # channel is at limit
+		irc_473          => \&channel_nojoin,  # channel invite only
+		irc_474          => \&channel_nojoin,  # banned from channel
+		irc_475          => \&channel_nojoin,  # bad channel key
+		irc_invite       => \&channel_invite,
+		irc_topic        => \&channel_topic,
+		irc_mode         => \&channel_mode,
+		irc_notice       => \&process_notice,
+		irc_ctcp_action  => \&process_action,
+		irc_ctcp_version => \&process_version,
+		irc_ctcp_time    => \&process_time,
+		irc_ctcp_finger  => \&process_finger,
+		irc_ctcp_ping    => \&process_ping,
+		irc_snotice      => \&server_notice,
 
-	  # These are our own custom events-- signs that we're using POE correctly.
-	  scheduler_60     => \&run_scheduler_60, # run events every 60 seconds
-	  cont_send_pieces => \&cont_send_pieces, # send all the rest of the pieces
-
-	  quit_session     => \&quit_session,     # end the session and terminate
-	  restart          => \&restart,          # end the session and restart
-	  rehash           => \&rehash,           # reload data files
-	  );
+		# Custom Events
+		scheduler_60     => \&run_scheduler_60, # run events every 60 seconds
+		cont_send_pieces => \&cont_send_pieces, # send the rest of the pieces
+		quit_session     => \&quit_session,     # end the session and terminate
+		restart          => \&restart,          # end the session and restart
+		rehash           => \&rehash,           # reload data files
+	},
+					 );
 
 # ****************************************
 # ********* Start of Subroutines *********
 # ****************************************
 
 # ########### GENERAL PURPOSE ############
-
-# DEBUG: Print out messages with the desired verbosity.
-sub debug {
-	if ((!defined $args{debug} && $_[0] <= VERBOSE) ||
-		(defined $args{debug} && $_[0] <= $args{debug})) {
-		my $bitmask = (defined $_[2] ? $_[2] : 0x000);
-		my $prefix = ($bitmask & DEBUG_NO_PREFIX ? "" : (DEBUG_PREFIX)[$_[0]]);
-		if ($_[0] != 3 && $_[0] != 0) {
-			print STDERR colored ($prefix . $_[1], (DEBUG_COLORS)[$_[0]]);
-		} else {
-			print STDOUT colored ($prefix . $_[1], (DEBUG_COLORS)[$_[0]]);
-		}
-	}
-}
-
-# PICK: Pick a random item from an array.
-sub pick {
-    return @_[int(rand()*@_)];
-}
 
 # HOSTMASK: Generates a 'type 3' hostmask from a nick!user@host address
 sub hostmask {
@@ -426,7 +336,7 @@ sub hostmask {
 	foreach my $plugin (keys(%query_userhost_mask)) {
 		my $newmask = &plugin_callback($plugin, $query_userhost_mask{$plugin}, ("$user\@$host"));
 		if (defined $newmask && $newmask =~ /.@./) {
-			debug(DEBUG_SPAM, "hostmask: the $plugin plugin changed the user\@host mask\n");
+			&debug(DEBUG_SPAM, "hostmask: the $plugin plugin changed the user\@host mask\n");
 			($user, $host) = split(/@/, $newmask);
 			$changed = 1;
 			last;
@@ -446,7 +356,7 @@ sub hostmask {
 		}
 	}
 
-	debug(DEBUG_SPAM, "hostmask: returning type 3 hostmask: $nick!$user\@$host\n");
+	&debug(DEBUG_SPAM, "hostmask: returning type 3 hostmask: $nick!$user\@$host\n");
     return "$nick!$user\@$host";
 }
 
@@ -466,294 +376,6 @@ sub get_hostmask {
 	return (defined $hostmask_cache{$nick} ? $hostmask_cache{$nick} : undef);
 }
 
-# PARSE_style: Parses a string for color codes
-# and turns them into color and style.
-sub parse_style {
-    $_ = $_[0];
-    # \003 begins a color. Avoid using black and white, as the window
-    # will likely be either white or black, and you don't know which
-
-    s/%white%/\0030/g;           # white
-    s/%black%/\0031/g;           # black
-    s/%navy%/\0032/g;            # navy
-    s/%green%/\0033/g;           # green
-    s/%red%/\0034/g;             # red
-    s/%maroon%/\0035/g;          # maroon
-    s/%purple%/\0036/g;          # purple
-    s/%orange%/\0037/g;          # orange
-    s/%yellow%/\0038/g;          # yellow
-    s/%l(igh)?tgreen%/\0039/g;   # light green (ltgreen, lightgreen)
-    s/%teal%/\00310/g;           # teal
-    s/%cyan%/\00311/g;           # cyan
-    s/%blue%/\00312/g;           # blue
-    s/%magenta%/\00313/g;        # magenta
-    s/%gray%/\00314/g;           # gray
-    s/%silver%/\00315/g;         # silver
-
-    s/%normal%/\017/g;           # normal - remove color and style
-
-    s/%bold%/\002/g;             # bold
-    s/%u(nder)?line%/\037/g;     # underline (uline)
-
-
-    return $_;
-}
-
-# HTMLIZE: Converts IRC color codes, links into HTML.
-sub htmlize {
-	my @lines = split(/\n/, $_[0]);
-	my $string = "";
-	foreach my $line (@lines) {
-		my $bold = 0;
-		my $reverse = 0;
-		my $underline = 0;
-		my $color = -1;
-		my $bgcolor = -1;
-		my $tag = "";
-		$line =~ s/&/&amp;/;
-		$line =~ s/>/&gt;/;
-		$line =~ s/</&lt;/;
-		$line = "<div>" . $line;
-		while($line =~ m/[\002\003\017\026\037]+/) {
-			my $block = $&;
-			my @codes = split(//, $block);
-			debug (DEBUG_SPAM, "htmlize: codes: " . (@codes) . "\n");
-			foreach my $code (@codes) {
-				if ($code eq "\002") {
-					$bold = 1 - $bold;
-					debug (DEBUG_SPAM, "htmlize: bold: $bold\n");
-				} elsif ($code eq "\037") {
-					$underline = 1 - $underline;
-					debug (DEBUG_SPAM, "htmlize: underline: $underline\n");
-				} elsif ($code eq "\026") {
-					$reverse = 1 - $reverse;
-					debug (DEBUG_SPAM, "htmlize: reverse: $reverse\n");
-				} elsif ($code eq "\003") {
-					$line =~ m/\003(\d{1,2})?(,(\d{1,2}))?/;
-					if ($2) {
-						$color = $1 if $1;
-						$bgcolor = $3;
-						$line =~ s/\003$1$2/\003/;
-					} elsif ($1) {
-						$color = $1;
-						$line =~ s/\003$1/\003/;
-					} else {
-						$color = -1;
-						$bgcolor = -1;
-					}
-					debug (DEBUG_SPAM, "htmlize: c: $color; bgc: $bgcolor\n");
-				} else {
-					$bold = 0;
-					$underline = 0;
-					$reverse = 0;
-					$color = -1;
-					$bgcolor = -1;
-					debug (DEBUG_SPAM, "htmlize: b: $bold; u: $underline; r $reverse; c: $color; bgc: $bgcolor\n");
-				}
-			} #end foreach code
-			debug (DEBUG_SPAM, "htmlize: old tag: $tag\n");
-			if ($tag =~ /<span style=.*>/) {
-				$tag = "</span>";
-			} else {
-				$tag = "";
-			}
-			my $css = ($bold      ? "font-weight: bold; " : "")
-				. ($underline     ? "text-decoration: underline; " : "")
-				. ($reverse       ? "color: white; background: black; "
-				   : ($color != -1   ? "color: $named_colors[$color]; " : "")
-				   . ($bgcolor != -1 ? "background: $named_colors[$bgcolor]; " : "")
-				   );
-			debug (DEBUG_SPAM, "htmlize: css: $css\n");
-			$tag .= "<span style=\"$css\">" if ($css ne "");
-			debug (DEBUG_SPAM, "htmlize: new tag: $tag\n");
-			$line =~ s/$block/$tag/;
-		} # end while blocks
-		$line .= "</span>" if ($tag =~ /<span style=.*>/);
-		$string .= $line . "</div>\n";
-	} # end foreach lines
-	$string =~ s%(http|ftp)://[^\s\n<>]+%<a href="$&">$&</a>%g;
-    while($string =~ m/\b(\S+@[a-z\-\.]+\.[a-z]+)/i) {
-	   my $email = $&;
-	   my $masked = &html_mask_email($email);
-	   $string =~ s/$email/$masked/g;
-    }  
-	return $string;
-}
-
-# HTML_MASK_EMAIL: Returns the HTML for a masked email address.
-# Currently, we break the address apart into user and host,
-# turn each character into its HTML escaped ascii code,
-# and return a simple javascript with the address broken up and out of order
-# that, when run, outputs the address properly (and properly linked)
-# This doesn't make harvesting impossible, but it does make it more difficult.
-# Viewers without javascript see [email removed] instead.
-sub html_mask_email {
-    my ($user, $host) = $_[0] =~ m/^(\S+)@(\S+)$/;
-    my ($nuser, $nhost);
-    for(my $i = 0; $i < length $user; $i++) {
-        $nuser .= '&#' . ord(substr($user, $i, 1)) . ';';
-    }
-    for(my $i = 0; $i < length $host; $i++) {
-        $nhost .= '&#' . ord(substr($host, $i, 1)) . ';';
-    }
-
-    return <<EOT;
-<script type="text/javascript">
-var p='$nhost';
-var w='&#116;&#111;&#58;';
-var l='$nuser';
-var u='&#109;&#97;';
-var s='&#64;';
-var d='&#105;&#108';
-document.write('<a href="');
-document.write(u+d);
-document.write(w+l);
-document.write(s+p);
-document.write('">');
-document.write(l);
-document.write(s+p);
-document.write('</a>');
-</script><noscript>[email removed]</noscript>
-EOT
-
-}
-
-# NUMBERIZE: Find all the word-based numbers in a string and replace them
-#            with digit-based numbers.
-sub numberize {
-	my $string = $_[0];
-	debug(DEBUG_SPAM, "numberize: new string: $string\n");
-	my $tmatch = "(" . join("|", keys(%numbers_tens)) . ")";
-	my $omatch = "(" . join("|", keys(%numbers_other)) . ")";
-	my $dmatch = "(" . join("|", keys(%numbers_digits)) . ")";
-	while ($string =~ /\b($tmatch[-]$dmatch)\b/) {
-		my $match = $1;
-		my $value = ($numbers_tens{$2} + $numbers_digits{$3});
-		$string  =~ s/$match/$value/g;
-		debug(DEBUG_SPAM, "numberize: tens-ones: $string\n");
-	}
-	while ($string =~ /\b($tmatch|$omatch|$dmatch)\b/) {
-		my $match = $1;
-		my $value = (defined $numbers_tens{$match} ? $numbers_tens{$match} :
-					 (defined $numbers_other{$match} ? $numbers_other{$match} :
-					  $numbers_digits{$match}));
-		$string  =~ s/$match/$value/g;
-		debug(DEBUG_SPAM, "numberize: numbers: $string\n");
-	}
-
-	foreach my $match ("hundred and", "hundred", "thousand", "million", "billion", "trillion") {
-		while ($string =~ /\b$match\b/) {
-			my $value = $numbers_groups{$match};
-			my $left  = "$`";
-			my $right = "$'";
-			if ($left  =~ s/([\s-]*)([0-9]+)\s*$/$1/) {
-				$value *= $2 if $2;
-			}
-			if($right =~ s/^\s*([0-9]+)([\s-]*)/$2/) {
-				$value += $1;
-			}
-			$string = "$left$value$right";
-			debug(DEBUG_SPAM, "numberize: groups: $string\n");
-		}
-	}
-
-	debug(DEBUG_SPAM, "numberize: final: $string\n");
-	return $string;
-}
-
-# TIMEAGO: Returns a string of how long ago something happened
-# timeago(time, specificity)
-# specificity:
-#   0 shows as needed   (1 hour 15 minutes 36 seconds)
-#   1 hides seconds     (1 hour 15 minutes)
-#     except if there are only seconds
-sub timeago {
-    my ($seconds, $minutes, $hours, $days, $weeks, $years);
-    my $now = time;
-    
-    $seconds = $now - $_[0];
-    my $hidemode = $_[1];
-    
-    if(!defined $hidemode) { $hidemode = 0; }
-    if($_[0] > $now) {
-        warn "Trying to use timeago on a time in the future! Now is ${now}, Then is $_[0]";
-    }
-    if($seconds >= 60) {
-        $minutes = int $seconds / 60;
-        $seconds %= 60;
-        if($minutes >= 60) {
-            $hours = int $minutes / 60;
-            $minutes %= 60;
-            if($hours >= 24) {
-                $days = int $hours / 24;
-                $hours %= 24;
-                if($days >= 365) {
-                    $years = int $days/365;
-                    $days %= 365;
-                }
-            }
-        }
-    }
-
-    my @reply;
-    push(@reply, "$years year" . (($years == 1) ? '' : 's'))       if $years;
-    push(@reply, "$days day" . (($days == 1) ? '' : 's'))          if $days;
-    push(@reply, "$hours hour" . (($hours == 1) ? '' : 's'))       if $hours;
-    push(@reply, "$minutes minute" . (($minutes == 1) ? '' : 's')) if $minutes;
-    push(@reply, "$seconds second" . (($seconds == 1) ? '' : 's'))
-        if $seconds && $hidemode != 1;
-    if(@reply) {
-		my $string = join(', ', @reply) . ' ago';
-		$string =~ s/(.*),/$1 and/;
-		return $string;
-	} else {
-		return 'very recently';
-    }
-}
-
-# CHAR_SUB: Returns the string with some odd unicode replaced with
-# more ordinary characters.
-sub char_sub {
-    my $text = $_[0];
-    
-    $text =~ s/\N{HORIZONTAL ELLIPSIS}/.../g;
-    $text =~ s/\N{TWO DOT LEADER}/../g;
-    $text =~ s/\N{ONE DOT LEADER}/./g;
-    $text =~ s/\N{DOUBLE QUESTION MARK}/??/g;
-    $text =~ s/\N{QUESTION EXCLAMATION MARK}/?!/g;
-    $text =~ s/\N{EXCLAMATION QUESTION MARK}/!?/g;
-    
-    return $text;
-}
-
-# OPTION: Returns the value (or a random value from a list) for a
-# for a particular option.
-sub option {
-	my ($sec, $val) = @_;
-	return "" if (!defined $conf{$sec} || !defined $conf{$sec}{$val});
-	return pick(@{$conf{$sec}{$val}});
-}
-
-# OPTION_LIST: Returns a list of the values set for a particular option.
-sub option_list {
-	my ($sec, $val) = @_;
-	return () if !defined $conf{$sec};
-	if ($sec eq "filters") {
-		return @{$conf{$sec}};
-	} else {
-		return () if (!defined $conf{$sec}{$val});
-		return @{$conf{$sec}{$val}};
-	}
-}
-
-# OPTIONS_IN_SECTION: Returns a list of the options that are set in
-# a particular section.
-sub options_in_section {
-    my ($sec) = $_[0];
-    return () if !defined $conf{$sec};
-    return keys %{$conf{$sec}};
-}
-
 # ############ IRC OPERATIONS ############
 
 # These are the functions that a plugin should call to run an IRC operation.
@@ -769,13 +391,13 @@ sub send_topic   { &{$commands{topic}}  ($kernel, @_); }
 
 sub irc_ops_kick {
 	my ($kernel, $channel, $user, $message) = @_;
-	debug(DEBUG_INFO, "Irc Ops: attempting to kick $user from $channel ($message)\n");
+	&debug(DEBUG_INFO, "Irc Ops: attempting to kick $user from $channel ($message)\n");
 	$kernel->post(bot => kick => $channel, $user, $message);
 }
 
 sub irc_ops_ban {
 	my ($kernel, $channel, $user, $time, $message) = @_;
-	debug(DEBUG_INFO, "Irc Ops: attempting to ban $user from $channel ($message)"
+	&debug(DEBUG_INFO, "Irc Ops: attempting to ban $user from $channel ($message)"
 		  . ($time > 0 ? " for $time seconds" : "") . "\n");
 	$kernel->post(bot => mode => $channel, "+b", hostmask($user));
 	send_kick($channel, $user, $message);
@@ -786,37 +408,37 @@ sub irc_ops_ban {
 
 sub irc_ops_unban {
 	my ($kernel, $channel, $user) = @_;
-	debug(DEBUG_INFO, "Irc Ops: attempting to unban $user from $channel\n");
+	&debug(DEBUG_INFO, "Irc Ops: attempting to unban $user from $channel\n");
 	$kernel->post(bot => mode => $channel, "-b", hostmask($user));
 }
 
 sub irc_ops_op {
 	my ($kernel, $channel, $user) = @_;
-	debug(DEBUG_INFO, "Irc Ops: attempting to op $user on $channel\n");
+	&debug(DEBUG_INFO, "Irc Ops: attempting to op $user on $channel\n");
 	$kernel->post(bot => mode => $channel, "+o", $user);
 }
 
 sub irc_ops_deop {
 	my ($kernel, $channel, $user) = @_;
-	debug(DEBUG_INFO, "Irc Ops: attempting to deop $user on $channel\n");
+	&debug(DEBUG_INFO, "Irc Ops: attempting to deop $user on $channel\n");
 	$kernel->post(bot => mode => $channel, "-o", $user);
 }
 
 sub irc_ops_voice {
 	my ($kernel, $channel, $user) = @_;
-	debug(DEBUG_INFO, "Irc Ops: attempting to voice $user on $channel\n");
+	&debug(DEBUG_INFO, "Irc Ops: attempting to voice $user on $channel\n");
 	$kernel->post(bot => mode => $channel, "+v", $user);
 }
 
 sub irc_ops_devoice {
 	my ($kernel, $channel, $user) = @_;
-	debug(DEBUG_INFO, "Irc Ops: attempting to devoice $user on $channel\n");
+	&debug(DEBUG_INFO, "Irc Ops: attempting to devoice $user on $channel\n");
 	$kernel->post(bot => mode => $channel, "-v", $user);
 }
 
 sub irc_ops_topic {
 	my ($kernel, $channel, $topic) = @_;
-	debug(DEBUG_INFO, "Irc Ops: attempting to set the topic to $topic on $channel\n");
+	&debug(DEBUG_INFO, "Irc Ops: attempting to set the topic to $topic on $channel\n");
 	$kernel->post(bot => topic => $channel, $topic);
 }
 
@@ -903,72 +525,6 @@ sub save {
     $items = 0;
 }
 
-# LOAD_CONFIG: Load the configuration data into %conf.
-sub load_config {
-	debug(DEBUG_STD, "Loading configuration file $_[0]...\n");
-	if (open(CONFIG, $_[0])) {
-		my $section;
-		foreach (<CONFIG>) {
-			chomp;
-			if (m/^#|^\s*$/) {
-			} elsif (m/^\[(.*)\]$/) {
-				debug(DEBUG_SPAM, "Begin config section $1.\n");
-				$section = $1;
-			} elsif (m/^(.*?)=(.*)$/) {
-				if ($section eq "filters") {
-					if ($1 eq "match") {
-						push(@{$conf{'filters'}}, qr/$2/i);
-						debug(DEBUG_SPAM, "$section: loaded match filter for $2\n");
-					} elsif ($1 eq "word") {
-						push(@{$conf{'filters'}}, qr/(^|\b)\Q$2\E(\b|$)/i);
-						debug(DEBUG_SPAM, "$section: loaded word filter for $2\n");
-					} else {
-						debug(DEBUG_SPAM, "$section: saw unknown filter type $1\n");
-					}
-				} else {
-					push(@{$conf{$section}{$1}}, "$2");
-					debug(DEBUG_SPAM, "$section: loaded option $1 as $2\n");
-				}
-			}
-		}
-		undef $section;
-		close(CONFIG);
-
-		# Set sane defaults for options that might have been omitted
-		if (!option('global', 'command_prefix')) {
-			$conf{'global'}{'command_prefix'}[0] = '%';
-			debug(DEBUG_WARN, "global/command_prefix missing from config. Using '%'.\n");
-		}
-		if (!defined option('chat', 'new_sentence_chance')) {
-			$conf{'chat'}{'new_sentence_chance'}[0] = 0;
-			debug(DEBUG_WARN, "chat/new_sentence_chance missing from config. Using 0 (off).\n");
-		}
-		if (!defined option('chat', 'delete_usage_max')) {
-			$conf{'chat'}{'delete_usage_max'}[0] = -1;
-			debug(DEBUG_WARN, "chat/delete_usage_max missing from config. Using -1 (off).\n");
-		}
-		if (!option('network', 'username')) {
-			$conf{'network'}{'username'}[0] = 'nobody';
-			debug(DEBUG_WARN, "network/username missing from config. Using 'nobody'.\n");
-		}
-
-		# Once we know the gender, is it his or her (or its)?
-		if(option('global', 'gender') eq 'M') {
-			our $hisher = 'his';
-		} elsif (option('global', 'gender') eq 'F') {
-			our $hisher = 'her';
-		} else {
-			our $hisher = 'its';
-		}
-		debug(DEBUG_STD, "Configuration file loaded successfully!\n");
-
-	} else {
-		 die("\nYour configuration file ($_[0]) is missing or unreadable."
-			 . "\nMake sure you copied and customized the config.default.ini");
-	 }
-
-}
-
 # ########### PLUGIN OPERATIONS ############
 
 # PLUGIN_REGISTER: Registers a plugin (or doesn't).
@@ -1011,7 +567,7 @@ sub plugin_register {
 # PLUGIN_CALLBACK: Calls the given plugin function with paramters.
 sub plugin_callback {
     my ($plugin, $function, @params) = @_;
-	debug(DEBUG_SPAM, "Running callback to $function in $plugin.\n");
+	&debug(DEBUG_SPAM, "Running callback to $function in $plugin.\n");
 	return &$function($kernel, @params);
 }
 
@@ -1021,20 +577,20 @@ sub set_snooze {
 	if (lc($option) eq "off") {
 		if ($snooze) {
 			$snooze = 0;
-			debug(DEBUG_STD, "snooze: Snooze mode was turned OFF by $nick.\n");
+			&debug(DEBUG_STD, "snooze: Snooze mode was turned OFF by $nick.\n");
 			&send_action($channel, "streches and yawns.");
 			&send_message($channel, "$nick: Thanks for the wake up call.  Time to get back to work!");
 		} else {
-			debug(DEBUG_INFO, "snooze: Snooze mode was OFF, but $nick wanted to try anyway.\n");
+			&debug(DEBUG_INFO, "snooze: Snooze mode was OFF, but $nick wanted to try anyway.\n");
 			&send_message($channel, "$nick: Do I look like I'm sleeping to you?");
 		}
 	} elsif (lc($option) eq "on") {
 		if ($snooze) {
-			debug(DEBUG_INFO, "snooze: Snooze mode was ON, but $nick wanted to try anyway.\n");
+			&debug(DEBUG_INFO, "snooze: Snooze mode was ON, but $nick wanted to try anyway.\n");
 			&send_message($channel, "$nick: You're waking me up to tell me to take a nap?  What kind of monster are you!?");
 		} else {
 			$snooze = 1;
-			debug(DEBUG_STD, "snooze: Snooze mode was turned ON by $nick.\n");
+			&debug(DEBUG_STD, "snooze: Snooze mode was turned ON by $nick.\n");
 			&send_message($channel, "$nick: You know, a nap sounds great right about now.  Wake me if you need anything.");
 			&send_action($channel, "lays down and begins to snore....");
 		}
@@ -1356,7 +912,7 @@ sub build_reply {
 				foreach (keys(%{$chat_words{$newword}})) {
 					$chcount += $chat_words{$newword}{$_}[0] if defined $chat_words{$newword}{$_}[0];
 				}
-				debug(DEBUG_SPAM, "$chcount choices for next to $newword\n");
+				&debug(DEBUG_SPAM, "$chcount choices for next to $newword\n");
 				my $try = int(rand()*($chcount))+1;
 				foreach(keys(%{$chat_words{$newword}})) {
 					$try -= $chat_words{$newword}{$_}[0] if defined $chat_words{$newword}{$_}[0];
@@ -1429,14 +985,14 @@ sub find_interesting_word {
             }
         }
         $curWordScore += .7 * length($curWord);
-        debug(DEBUG_INFO, "$curWord:$curWordScore ", DEBUG_NO_PREFIX);
+        &debug(DEBUG_INFO, "$curWord:$curWordScore ", DEBUG_NO_PREFIX);
         if($curWordScore > $highestScore) {
             $highestScore = $curWordScore;
             $highestScoreWord = $curWord;
         }
     }
-	debug(DEBUG_INFO, "\n", DEBUG_NO_PREFIX);
-    debug(DEBUG_INFO, "Using $highestScoreWord\n");
+	&debug(DEBUG_INFO, "\n", DEBUG_NO_PREFIX);
+    &debug(DEBUG_INFO, "Using $highestScoreWord\n");
     return $highestScoreWord;
 }
 
@@ -2034,19 +1590,21 @@ sub initialize {
 
 	$kernel->post(bot => register => "all");
 
+	@servers = option_list('network', 'server');
+
 	&irc_connect;
 }
 
 # IRC_CONNECT: Creates a connection to IRC.
 sub irc_connect {
     $chosen_nick = option('global', 'nickname');
-    $chosen_server = option('network', 'server');
+    $chosen_server = pick(@servers);
     my $chosen_port = 6667;
     if($chosen_server =~ m/^(.*):(\d+)$/) {
         $chosen_server = $1;
         $chosen_port = $2;
     }
-        
+
     $kernel->post(bot => 'connect',
 				  {
 					  Nick    => $chosen_nick,
@@ -2127,16 +1685,16 @@ sub server_notice {
 #  no, really. Numeric 465, ERR_YOUREBANNEDCREEP
 sub server_banned {
     &debug(DEBUG_ERR, "Banned from $_[ARG0]: $_[ARG1]\n");
-    
+
     if(!defined $chosen_server) {
         die q($chosen_server is undefined);
     }
-    for (my $i = 0; defined @{$conf{'network'}{'server'}}[$i]; $i++) {
-        if ($chosen_server eq @{$conf{'network'}{'server'}}[$i]) {
-            splice(@{$conf{'network'}{'server'}}, $i, 1)
+    for (my $i = 0; defined $servers[$i]; $i++) {
+        if ($chosen_server eq $servers[$i]) {
+            splice(@servers, $i, 1)
         }
     }
-    if(!@{$conf{'network'}{'server'}}) {
+    if(!@servers) {
         # hmm... we've removed our last server
         &debug(DEBUG_ERR, "No more servers to connect to! Please add some to config.ini.\n");
         $terminating=100;
@@ -2155,12 +1713,12 @@ sub server_banned {
 sub server_supports {
     my ($message) = $_[ARG1] =~ m/^(.*):.*?$/;
     &debug(DEBUG_INFO, "Server supports: ${message}\n");
-    
+
     foreach my $cur_block (split(/ /, $message)) {
         if(my ($ircd) = $cur_block =~ m/^IRCD=(\S+)/) {
             if($ircd =~ m/dancer/) {
                 &debug(DEBUG_STD, "We're on a Dancer IRCD server, setting no-forward user mode\n");
-                
+
                 # +Q tells the server not to try to forward us to another
                 # channel.
                 # FIXME: Channel forwarding should work, or at least be handled
@@ -2171,24 +1729,22 @@ sub server_supports {
 				# support easier in the future.
                 $kernel->post(bot => mode => $chosen_nick => '+Q');
             }
-            
+
         # } elsif(my ($maxwatch) = $cur_block =~ m/^WATCH=(\d+)/) {
             # hmm... the server supports watch lists
             # let's use them instead of polling with ison
-            
-            
-            
+
         # } elsif(my ($maxmodes) = $cur_block =~ m/^MODES=(\d+)/) {
             # This tells us how many mode changes can be done at once.
             # mode flags count as 1, arguments count as 1
             # (so +b foo counts as 2, while +i counts as 1)
-            
+
         # } elsif(my ($modeflags) = $cur_block =~ m/^STATUSMSG=(\S+)/) {
             # This tells us what mode flags (+%@ etc) we can stick in front
             # of a channel name to message that channels voiced/halfops/ops
-            # + means we can use +#channel to message the channel's voiced, 
+            # + means we can use +#channel to message the channel's voiced,
             # halfops, and ops. % is halfops and ops, @ is ops.
-            
+
             # we should use this for any wallchops type command
             # if the server tells us it can
         }
@@ -2218,7 +1774,7 @@ sub quit_session {
 			$message = option('network', 'quit_default');
 		}
 	}
-        
+
 	$terminating = 1 unless $terminating > 1;
 
 	$kernel->post(bot => quit => PROJECT . " " . VERSION

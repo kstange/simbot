@@ -20,6 +20,9 @@ package SimBot::plugin::todo;
 use strict;
 use warnings;
 
+# Use the SimBot Util perl module
+use SimBot::Util;
+
 our %vers = (
 	     "1.0 Beta"   =>  1,
 	     "1.0 Final"  =>  1,
@@ -29,7 +32,7 @@ our %vers = (
 # PRINT_TODO: Prints todo list privately to the user.
 sub print_todo {
     my ($kernel, $nick) = @_;
-    &SimBot::debug(3, "todo: Received request from " . $nick . ".\n");
+    &debug(3, "todo: Received request from " . $nick . ".\n");
 
     if(open(TODO, "TODO")) {
 	my $version = "";

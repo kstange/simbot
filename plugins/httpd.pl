@@ -20,6 +20,9 @@ package SimBot::plugin::httpd;
 use warnings;
 use strict;
 
+# Use the SimBot Util perl module
+use SimBot::Util;
+
 use POE;
 use POE::Component::Server::TCP;
 use POE::Filter::HTTPD;
@@ -32,8 +35,8 @@ use vars qw( $kernel );
 POE::Component::Server::TCP->new(
     Alias => 'web_server',
     Port  => (
-        defined &SimBot::option( 'plugin.httpd', 'port' )
-        ? &SimBot::option( 'plugin.httpd', 'port' )
+        defined &option( 'plugin.httpd', 'port' )
+        ? &option( 'plugin.httpd', 'port' )
         : 8000
     ),
     ClientFilter => 'POE::Filter::HTTPD',
@@ -56,7 +59,7 @@ sub index_handler {
 
     my ($req_root) = $request->uri =~ m|^/([^/\?]*)|;
 
-    &SimBot::debug( 3,
+    &debug( 3,
             'httpd: handling request for '
           . $request->uri
           . ", req root $req_root\n" );
@@ -137,7 +140,7 @@ sub get_template {
     } elsif ( -r "templates/${template}.default.tmpl" ) {
         $file_name = "templates/${template}.default.tmpl";
     } else {
-        &SimBot::debug( &SimBot::DEBUG_WARN,
+        &debug( &DEBUG_WARN,
             "httpd: No template $template available!\n" );
         return;
     }
@@ -149,8 +152,8 @@ sub get_template {
         loop_context_vars => 1,
     );
     $templ_obj->param(
-        sb_version => &SimBot::PROJECT . ' ' . &SimBot::VERSION,
-        sb_link    => &SimBot::HOME_PAGE,
+        sb_version => &PROJECT . ' ' . &VERSION,
+        sb_link    => &HOME_PAGE,
     );
     return $templ_obj;
 } ## end sub get_template
@@ -158,8 +161,8 @@ sub get_template {
 sub admin_page {
     my ( $request, $response ) = @_;
 
-    if ( !defined &SimBot::option( 'plugin.httpd', 'admin_pass' ) ) {
-        &SimBot::debug( &SimBot::DEBUG_WARN,
+    if ( !defined &option( 'plugin.httpd', 'admin_pass' ) ) {
+        &debug( &DEBUG_WARN,
             "httpd: in admin_page with no password defined!\n" );
         return 500;    # internal server error
     }
@@ -170,8 +173,8 @@ sub admin_page {
         return RC_UNAUTHORIZED;
     }
     my ( $user, $pass ) = $request->authorization_basic;
-    if (   $user ne &SimBot::option( 'plugin.httpd', 'admin_user' )
-        || $pass ne &SimBot::option( 'plugin.httpd', 'admin_pass' ) )
+    if (   $user ne &option( 'plugin.httpd', 'admin_user' )
+        || $pass ne &option( 'plugin.httpd', 'admin_pass' ) )
     {
 
         $response->www_authenticate('Basic realm="simbot admin"');
@@ -192,13 +195,13 @@ sub admin_page {
     } elsif ( ($say) = $request->uri =~ m|\?say=(\S+)$| ) {
         $say =~ s/\+/ /g;
         $say =~ s/%([a-fA-F0-9][a-fA-F0-9])/pack("C", hex($1))/eg;
-        &SimBot::debug( 3, "Speech requested by web admin\n" );
-        &SimBot::send_message( &SimBot::option( 'network', 'channel' ), $say );
+        &debug( 3, "Speech requested by web admin\n" );
+        &SimBot::send_message( &option( 'network', 'channel' ), $say );
     } elsif ( ($say) = $request->uri =~ m|\?action=(\S+)$| ) {
         $say =~ s/\+/ /g;
         $say =~ s/%([a-fA-F0-9][a-fA-F0-9])/pack("C", hex($1))/eg;
-        &SimBot::debug( 3, "Action requested by web admin\n" );
-        &SimBot::send_action( &SimBot::option( 'network', 'channel' ), $say );
+        &debug( 3, "Action requested by web admin\n" );
+        &SimBot::send_action( &option( 'network', 'channel' ), $say );
     }
     $msg .= '<ul><li><a href="/admin?restart">Restart Simbot</a></li>';
     $msg .=
@@ -249,10 +252,10 @@ sub serve_css {
 } ## end sub serve_css
 
 sub messup_httpd {
-    if (   defined &SimBot::option( 'plugin.httpd', 'admin_user' )
-        && length &SimBot::option( 'plugin.httpd',  'admin_user' ) > 4
-        && defined &SimBot::option( 'plugin.httpd', 'admin_pass' )
-        && length &SimBot::option( 'plugin.httpd',  'admin_pass' ) > 4 )
+    if (   defined &option( 'plugin.httpd', 'admin_user' )
+        && length &option( 'plugin.httpd',  'admin_user' ) > 4
+        && defined &option( 'plugin.httpd', 'admin_pass' )
+        && length &option( 'plugin.httpd',  'admin_pass' ) > 4 )
     {
         $SimBot::hash_plugin_httpd_pages{'admin'} = {
             'title'   => 'SimBot Administration',
@@ -263,9 +266,9 @@ sub messup_httpd {
 }
 
 sub cleanup_httpd {
-    &SimBot::debug( 3, "httpd: Shutting down..." );
+    &debug( 3, "httpd: Shutting down..." );
     POE::Kernel->call( 'web_server', 'shutdown' );
-    &SimBot::debug( 3, " ok\n" );
+    &debug( 3, " ok\n" );
 }
 
 &SimBot::plugin_register(

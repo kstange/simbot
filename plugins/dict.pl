@@ -22,6 +22,9 @@ package SimBot::plugin::define;
 use strict;
 use warnings;
 
+# Use the SimBot Util perl module
+use SimBot::Util;
+
 # Support for the Dict protocol is found here:
 use Net::Dict;
 
@@ -44,15 +47,15 @@ sub look_up {
 		$destination = (defined $6 ? $6 : "default");
 	}
 
-	&SimBot::debug(3, "define: Received request from " . $nick . ".\n");
+	&debug(3, "define: Received request from " . $nick . ".\n");
 
 	my $dict = Net::Dict->new(DICT_SERVER,
-							  Client => SimBot::PROJECT . " " . SimBot::VERSION,
+							  Client => PROJECT . " " . VERSION,
 							  Timeout => 10,
 							  );
 
 	if (!defined $dict) {
-		&SimBot::debug(1, "define: Unable to connect to " . DICT_SERVER . "dictionary server.\n");
+		&debug(1, "define: Unable to connect to " . DICT_SERVER . "dictionary server.\n");
 		&SimBot::send_message($channel, "$nick: The dictionary server was unavailable.");
 		return;
 	}
@@ -95,11 +98,11 @@ sub look_up {
 			my $definition = ${${$def}[0]}[1];
 			$dictionary = ${${$def}[0]}[0];
 			$definition =~ s/\s+/ /g;
-			$definition = &SimBot::parse_style("%uline%From the $dbs{$dictionary}:%uline% $definition");
+			$definition = &parse_style("%uline%From the $dbs{$dictionary}:%uline% $definition");
 
 			if ((length($definition) > 440 && $destination eq "default") ||
 				(length($definition) > 1320 && $destination eq "publicly")) {
-				&SimBot::send_message($channel, &SimBot::parse_style("$nick: I found a definition in the $dbs{$dictionary}, but it is too long to display in the channel. Type %bold%" . $command . " \"$term\" in $dictionary privately%bold% to see it privately."));
+				&SimBot::send_message($channel, &parse_style("$nick: I found a definition in the $dbs{$dictionary}, but it is too long to display in the channel. Type %bold%" . $command . " \"$term\" in $dictionary privately%bold% to see it privately."));
 			} elsif ($destination eq "publicly") {
 				&SimBot::send_pieces($channel, "$nick:", $definition);
 			} elsif ($destination eq "privately") {
@@ -128,7 +131,7 @@ sub look_up {
 		}
 
 	} else {
-		&SimBot::send_message($channel, &SimBot::parse_style("$nick: There is no dictionary called '$dictionary' available. Type %bold%$command%bold% with no parameters to see a list of dictionaries you can use."));
+		&SimBot::send_message($channel, &parse_style("$nick: There is no dictionary called '$dictionary' available. Type %bold%$command%bold% with no parameters to see a list of dictionaries you can use."));
 	}
 }
 

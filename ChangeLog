@@ -1,3 +1,11 @@
+Version 1.0 alpha: (10 Nov 2005)
+	* lib/SimBot/Util.pm:
+	  - Moved several functions into SimBot::Util, which can be used by
+	    plugins.  Other scripts could also use this functions externally.
+	  - This allows utility functions to be called without a namespace and
+	    also prevents plugins from being able to access things we don't
+	    want exported from the namespace.
+
 Version 1.0 alpha: (09 Aug 2005)
 	* templates/irclog.default.tmpl:
 	  - Template used for making the HTML version of the IRC log. Don't like

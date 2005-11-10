@@ -20,6 +20,9 @@ package SimBot::plugin::recap;
 use strict;
 use warnings;
 
+# Use the SimBot Util perl module
+use SimBot::Util;
+
 use constant MAX_BACKLOG => 30;
 use constant STD_BACKLOG => 10;
 
@@ -32,14 +35,14 @@ sub send_recap {
 	if (!defined $lines) {
 		if (defined $departs{$nick}) {
 			$lines = $departs{$nick};
-			&SimBot::debug(4, "recap: $nick recently departed, recapping from departure point ($lines lines)...\n");
+			&debug(4, "recap: $nick recently departed, recapping from departure point ($lines lines)...\n");
 		} else {
 			$lines = STD_BACKLOG;
-			&SimBot::debug(4, "recap: $nick did not specify number of lines; using default ($lines lines)...\n");
+			&debug(4, "recap: $nick did not specify number of lines; using default ($lines lines)...\n");
 		}
 	}
 
-    &SimBot::debug(3, "recap: Got a request from $nick for $lines lines. The backlog is " . ($#backlog + 1) . " lines.\n");
+    &debug(3, "recap: Got a request from $nick for $lines lines. The backlog is " . ($#backlog + 1) . " lines.\n");
     if (defined $lines && $lines =~ /^[^0-9]+$/) {
 		&SimBot::send_message($channel, "Try using numbers.  I can't count to $lines!");
 	} elsif ($#backlog + 1 < 1) {
@@ -66,7 +69,7 @@ sub record_recap {
     my ($sec, $min, $hour) = localtime(time);
 	foreach my $departed (keys %departs) {
 		if ($departs{$departed} == MAX_BACKLOG) {
-			&SimBot::debug(4, "recap: $departed is no longer recently departed.\n");
+			&debug(4, "recap: $departed is no longer recently departed.\n");
 			delete $departs{$departed};
 		} else {
 			$departs{$departed}++;
@@ -103,7 +106,7 @@ sub record_recap {
     while ($#backlog > MAX_BACKLOG) {
 		shift(@backlog);
     }
-    &SimBot::debug(4, "recap: Recorded a line. Backlog is " . ($#backlog + 1) . " lines.\n");
+    &debug(4, "recap: Recorded a line. Backlog is " . ($#backlog + 1) . " lines.\n");
 }
 
 sub nick_change {
@@ -119,7 +122,7 @@ sub recap_page {
     my $template = &$get_template('base');
     $template->param(
         title => 'Recent Chatter',
-        content => &SimBot::htmlize(join("\n", @backlog)),
+        content => &htmlize(join("\n", @backlog)),
     );
     $response->content($template->output());
     return 200;

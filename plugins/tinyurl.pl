@@ -37,6 +37,9 @@ package SimBot::plugin::tinyurl;
 use warnings;
 use strict;
 
+# Use the SimBot Util perl module
+use SimBot::Util;
+
 use vars qw( @match_rules %urlcache );
 
 use LWP::UserAgent;
@@ -108,15 +111,15 @@ sub handle_chat {
             $db_query->execute($url);
             my $to_url;
             if(($to_url) = $db_query->fetchrow_array()) {
-                &SimBot::debug(3, "tinyurl: Looking up ${url} (cached)\n");
+                &debug(3, "tinyurl: Looking up ${url} (cached)\n");
                 &SimBot::send_message($channel, 'TinyURL points to '
                     . &shorten_url($to_url));
             } else {
-                &SimBot::debug(3, "tinyurl: Looking up ${url}\n");
+                &debug(3, "tinyurl: Looking up ${url}\n");
                 
                 my $useragent =
                     LWP::UserAgent->new(requests_redirectable => undef);
-                $useragent->agent(SimBot::PROJECT . '/' . SimBot::VERSION);
+                $useragent->agent(PROJECT . '/' . VERSION);
                 $useragent->timeout(5);
                 my $request = HTTP::Request->new(GET => $url);
                 my $response = $useragent->request($request);
@@ -127,7 +130,7 @@ sub handle_chat {
                         &SimBot::send_message($channel, 'TinyURL points to '
                                 . &shorten_url($to_url));
                     } else {
-                        &SimBot::debug(3, "   failed! (no redirect)\n");           
+                        &debug(3, "   failed! (no redirect)\n");           
                     }
                 } else {
                     # not a HTTP redirect, maybe a META?
@@ -140,7 +143,7 @@ sub handle_chat {
                         &SimBot::send_message($channel, 'TinyURL points to '
                                 . &shorten_url($to_url));
                     } else {
-                        &SimBot::debug(3, "   failed!\n");
+                        &debug(3, "   failed!\n");
                         warn $response->content;
                     }
                 }

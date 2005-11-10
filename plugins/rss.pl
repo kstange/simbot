@@ -39,6 +39,9 @@ package SimBot::plugin::rss;
 use strict;
 use warnings;
 
+# Use the SimBot Util perl module
+use SimBot::Util;
+
 use XML::RSS;
 use HTML::Entities;
 use POE;
@@ -55,10 +58,10 @@ use vars qw( %mostRecentPost $session $dbh $get_all_feeds_info_query
     $insert_headline_query $update_headline_query
     $update_feed_title_query $done_initial_update);
 
-use constant CHANNEL => &SimBot::option('network', 'channel');
-use constant FEED_TITLE_STYLE => &SimBot::option('plugin.rss','title_style');
-use constant EXPIRE => (&SimBot::option('plugin.rss', 'expire') ?
-                            &SimBot::option('plugin.rss', 'expire') : 1500);
+use constant CHANNEL => &option('network', 'channel');
+use constant FEED_TITLE_STYLE => &option('plugin.rss','title_style');
+use constant EXPIRE => (&option('plugin.rss', 'expire') ?
+                            &option('plugin.rss', 'expire') : 1500);
 
 ### messup_rss
 # This runs when simbot loads. We need to make sure we know the most
@@ -139,18 +142,18 @@ EOT
     );
     
     foreach my $cur_feed
-            (split(/,/, &SimBot::option('plugin.rss', 'announce'))) {
+            (split(/,/, &option('plugin.rss', 'announce'))) {
         $announce_feed{$cur_feed} = 1;
     }
     foreach my $cur_feed
-            (&SimBot::options_in_section('plugin.rss.feeds')) {
+            (&options_in_section('plugin.rss.feeds')) {
         $feeds{$cur_feed}=1;
         $get_feed_info_query->execute($cur_feed);
         
         if(my $id = ($get_feed_info_query->fetchrow_array)[0]) {
             # feed is already in the table, let's update it
             $update_feed_query->execute(
-                &SimBot::option('plugin.rss.feeds', $cur_feed),
+                &option('plugin.rss.feeds', $cur_feed),
                 (defined $announce_feed{$cur_feed} ? 1 : 0),
                 $id
             );
@@ -158,7 +161,7 @@ EOT
             # we need to add the feed
             $insert_feed_query->execute(
                 $cur_feed,
-                &SimBot::option('plugin.rss.feeds', $cur_feed),
+                &option('plugin.rss.feeds', $cur_feed),
                 (defined $announce_feed{$cur_feed} ? 1 : 0)
             );
         }
@@ -181,7 +184,7 @@ EOT
     POE::Component::Client::HTTP->spawn
 		( Alias => 'ua',
 		  Timeout => 120,
-		  Agent => SimBot::PROJECT . "/" . SimBot::VERSION,
+		  Agent => PROJECT . "/" . VERSION,
 		  FollowRedirects => 2,
        );
 
@@ -219,7 +222,7 @@ sub do_rss {
     my $kernel = $_[KERNEL];
     my (@newPosts, $title, $request, $file);
     my $rss = new XML::RSS;
-    &SimBot::debug(3, "rss: Updating cache...\n");
+    &debug(3, "rss: Updating cache...\n");
 
     $get_all_feeds_info_query->execute;
     while(my ($id, undef, $key, $last_update, $url, $announce)
@@ -266,14 +269,14 @@ sub got_response {
     my (undef, $feed_name, $key, $last_update, $feed_url, $announce)
         = $get_feed_by_id_query->fetchrow_array;
 
-    &SimBot::debug((($response->code >= 400) ? 1 : 4),
+    &debug((($response->code >= 400) ? 1 : 4),
 				   "rss:   fetching feed for $key: "
 				   . $response->status_line . "\n");
 
     if($response->code == RC_GONE) {
         # Server is telling us the file is gone.
         
-        &SimBot::debug(1,
+        &debug(1,
                      "rss:   *** FEED $key IS NO LONGER AVAILABLE\n"
             . "              *** Removing $key from cache\n"
             . "              *** Please remove $key from your config file\n");
@@ -302,7 +305,7 @@ sub got_response {
             uri     => 'http://rssnamespace.org/feedburner/ext/1.0',
         );
         if (!eval { $rss->parse($response->decoded_content); }) {
-			&SimBot::debug(1, "rss:  Parse error in $key: $@");
+			&debug(1, "rss:  Parse error in $key: $@");
 			return;
         }
         $feed_name = $rss->{'channel'}->{'title'};
@@ -384,7 +387,7 @@ sub latest_headlines {
     my ($item, $title, $link);
     my $rss = new XML::RSS;
 
-    &SimBot::debug(3, "rss: Got request from $nick" .
+    &debug(3, "rss: Got request from $nick" .
 				   (defined $feed ? " for $feed" : "") . "...\n");
     $get_feed_info_query->execute($feed);
     
@@ -395,7 +398,7 @@ sub latest_headlines {
         # is the cache up to date?
         if(!defined $last_update || $last_update > time - EXPIRE) {
             # cache is stale or missing
-            &SimBot::debug(4, "rss: $feed is old or missing.\n");
+            &debug(4, "rss: $feed is old or missing.\n");
             my $request = HTTP::Request->new(GET => $url);
             $request->header('Accept-Encoding' => 'gzip, deflate');
             $request->if_modified_since($last_update);
@@ -403,13 +406,13 @@ sub latest_headlines {
             $kernel->post('ua' => 'request', 'got_response',
                 $request, "$id!!$nick");
         } else {
-            &SimBot::debug(4,
+            &debug(4,
                            "rss: $feed is up to date; Displaying.\n");
             $kernel->post($session => 'announce_top', $id, $nick,
                         $channel);
         }
     } else {
-        &SimBot::debug(4, "rss: No feed matched request.\n");
+        &debug(4, "rss: No feed matched request.\n");
         my $message = "$nick: "
             . ($feed ? "I have no feed $feed."
                      : "What feed do you want latest posts from?")
@@ -458,7 +461,7 @@ sub announce_top {
     }
     if(@posts) {
         &SimBot::send_message(CHANNEL,
-            &SimBot::parse_style("$nick: Here are the latest posts to "
+            &parse_style("$nick: Here are the latest posts to "
                 . &colorize_feed($feed_name) . ':'));
         foreach(@posts) {
             &SimBot::send_message(CHANNEL, $_);

@@ -22,6 +22,9 @@ package SimBot::plugin::nlp;
 use strict;
 use warnings;
 
+# Use the SimBot Util perl module
+use SimBot::Util;
+
 # This function is called back from IRC when it seems that someone is trying
 # to address the bot.  We have a lot to do when that happens.
 sub process_nlp {
@@ -31,7 +34,7 @@ sub process_nlp {
 	my $succeeded_plugin;
 	my $acted = 0;
 
-	&SimBot::debug(5, "nlp: full string: $request\n");
+	&debug(5, "nlp: full string: $request\n");
 
 	# We split on these words in order to break requests up into potentially
 	# several pieces.  This allows our processor to recognize more than one
@@ -41,7 +44,7 @@ sub process_nlp {
 	foreach my $text (@requests) {
 		next if (!defined $text);
 
-		&SimBot::debug(5, "nlp: this segment: $text\n");
+		&debug(5, "nlp: this segment: $text\n");
 
 		my @matches = ();
 		my @still_matches = ();
@@ -51,9 +54,9 @@ sub process_nlp {
 		# If we find none of the verbs requested by a plugin, we don't let
 		# the plugin on to the next round.
 		foreach my $plugin (keys (%{SimBot::hash_plugin_nlp_verbs})) {
-			&SimBot::debug(5, "nlp: current plugin: $plugin\n");
+			&debug(5, "nlp: current plugin: $plugin\n");
 			foreach my $verb (@{${SimBot::hash_plugin_nlp_verbs}{$plugin}}) {
-				&SimBot::debug(5, "nlp: current verb: $verb\n");
+				&debug(5, "nlp: current verb: $verb\n");
 				my $verbmatch = $verb . "|"
 					. $verb . "s|"
 					. $verb . "ed|"
@@ -65,7 +68,7 @@ sub process_nlp {
 			}
 		}
 
-		&SimBot::debug(5, "nlp: verbs passed for: " . join(" ", @matches) . "\n");
+		&debug(5, "nlp: verbs passed for: " . join(" ", @matches) . "\n");
 
 		# If no plugins are worthy, we'll forget about this segment of the
 		# request right now and skip to the next.  If we had a plugin that
@@ -172,7 +175,7 @@ sub process_nlp {
 			$type = "command";
 		}
 
-		&SimBot::debug(5, "nlp: query type: $type\n");
+		&debug(5, "nlp: query type: $type\n");
 
 		# Now we want to eliminate any plugins that don't want queries of
 		# the type we decided we have in this query.  This could be carried
@@ -189,7 +192,7 @@ sub process_nlp {
 
 		@matches = @still_matches;
 		@still_matches = ();
-		&SimBot::debug(5, "nlp: queries passed for: " . join(" ", @matches) . "\n");
+		&debug(5, "nlp: queries passed for: " . join(" ", @matches) . "\n");
 
 		# If we have no plugins that want the request type and verbs we've
 		# found, let's get the next segment and try again.
@@ -216,7 +219,7 @@ sub process_nlp {
 
 		@matches = @still_matches;
 		@still_matches = ();
-		&SimBot::debug(5, "nlp: subjects passed for: " . join(" ", @matches) . "\n");
+		&debug(5, "nlp: subjects passed for: " . join(" ", @matches) . "\n");
 
 		# If no plugins' subjects matched, we'll give up here, and get the
 		# next text segment and test that.
@@ -231,7 +234,7 @@ sub process_nlp {
 		# decide which information is relevant or has the highest priority.
 
 		# Convert word-form numbers into digit-based numbers:
-		$text = &SimBot::numberize($text);
+		$text = &numberize($text);
 
 		foreach my $plugin (@matches) {
 			my @params = ();
@@ -273,12 +276,12 @@ sub process_nlp {
 				# to (words indicating target or destination)
 				$format =~ s/\{to\}/(to|into)/g;
 
-				&SimBot::debug(5, "nlp: using format: $format\n");
+				&debug(5, "nlp: using format: $format\n");
 
 				# Push any format matches onto an array which we'll pass to
 				# the plugin's function.
 				if ($text =~ /\b($format)\b/i) {
-					&SimBot::debug(5, "nlp: param found: $1\n");
+					&debug(5, "nlp: param found: $1\n");
 					push(@params, $1);
 				}
 			}

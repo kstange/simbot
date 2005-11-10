@@ -20,6 +20,9 @@ package SimBot::plugin::find;
 use strict;
 use warnings;
 
+# Use the SimBot Util perl module
+use SimBot::Util;
+
 # We need these to work with HTML and HTTP
 use LWP::UserAgent;
 use HTML::Entities;
@@ -30,7 +33,7 @@ sub google_find {
     shift(@terms);
     my $query = "@terms";
 
-    &SimBot::debug(3, "google: Got request from " . $nick . ".\n");
+    &debug(3, "google: Got request from " . $nick . ".\n");
 
 	if (!$query) {
 		&SimBot::send_message($channel, "$nick: Nothing was found.  I didn't look, but I think that was a safe bet.");
@@ -43,7 +46,7 @@ sub google_find {
     $query =~ s/\s/+/g;
     my $url = "http://www.google.com/search?q=" . $query . "&btnI=1&safe=active";
     my $useragent = LWP::UserAgent->new(requests_redirectable => undef);
-    $useragent->agent(SimBot::PROJECT . "/" . SimBot::VERSION);
+    $useragent->agent(PROJECT . "/" . VERSION);
     $useragent->timeout(5);
     my $request = HTTP::Request->new(GET => $url);
     my $response = $useragent->request($request);
