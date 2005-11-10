@@ -186,7 +186,7 @@ sub admin_page {
 
     if ( $request->uri =~ m|\?restart$| ) {
         if ( !defined $kernel ) {
-            &debug(DEBUG_WARN, "Trying to restart simbot without a kernel");
+            &debug(DEBUG_WARN, "Trying to restart simbot without a kernel\n");
         }
         POE::Kernel->post( 'simbot', 'restart', "web admin" );
         $response->code(RC_OK);

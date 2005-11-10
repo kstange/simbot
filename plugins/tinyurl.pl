@@ -130,7 +130,7 @@ sub handle_chat {
                         &SimBot::send_message($channel, 'TinyURL points to '
                                 . &shorten_url($to_url));
                     } else {
-                        &debug(3, "   failed! (no redirect)\n");           
+                        &debug(3, "   failed! (no redirect)\n");
                     }
                 } else {
                     # not a HTTP redirect, maybe a META?
@@ -144,7 +144,7 @@ sub handle_chat {
                                 . &shorten_url($to_url));
                     } else {
                         &debug(3, "   failed!\n");
-                        &debug(DEBUG_WARN, $response->content);
+                        &debug(DEBUG_WARN, $response->content . "\n");
                     }
                 }
             }

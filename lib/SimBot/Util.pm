@@ -502,7 +502,7 @@ sub timeago {
     my $hidemode = (defined $_[1] ? $_[1] : 0);
 
     if($_[0] > $now) {
-        &debug(DEBUG_WARN, "Trying to use timeago on a time in the future! Now is ${now}, Then is $_[0]");
+        &debug(DEBUG_WARN, "Trying to use timeago on a time in the future! Now is ${now}, Then is $_[0]\n");
     }
     if($seconds >= 60) {
         $minutes = int $seconds / 60;
