@@ -144,7 +144,7 @@ sub handle_chat {
                                 . &shorten_url($to_url));
                     } else {
                         &debug(3, "   failed!\n");
-                        warn $response->content;
+                        &debug(DEBUG_WARN, $response->content);
                     }
                 }
             }
