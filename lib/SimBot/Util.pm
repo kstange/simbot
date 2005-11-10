@@ -41,13 +41,16 @@ use charnames ':full';
 use strict;
 use warnings;
 
+use vars qw (
+			 %args %conf $color @named_colors
+			 %numbers_groups %numbers_tens %numbers_digits %numbers_other
+			 );
+
 # Support for Terminal Colors
-our $color = eval {
+$color = eval {
 	use Term::ANSIColor;
 	$Term::ANSIColor::AUTORESET = 1;
 };
-
-use vars qw ( %args %conf );
 
 # Software Name
 use constant PROJECT => "SimBot";
@@ -78,32 +81,33 @@ use constant DEBUG_COLORS
 use constant VERBOSE => 3;
 
 # Number data for the numberize function
-our %numbers_groups = (
-					   trillion => 1000000000000, billion       => 1000000000,
-					   million  => 1000000,       thousand      => 1000,
-					   hundred  => 100,           "hundred and" => 100,
-					   );
+%numbers_groups = (
+				   trillion => 1000000000000, billion       => 1000000000,
+				   million  => 1000000,       thousand      => 1000,
+				   hundred  => 100,           "hundred and" => 100,
+				   );
 
-our %numbers_tens   = (
-					   twenty => 20, thirty => 30,  forty => 40,  fifty => 50,
-					   sixty => 60,  seventy => 70, eighty => 80, ninety => 90,
-					   );
+%numbers_tens   = (
+				   twenty => 20, thirty => 30,  forty => 40,  fifty => 50,
+				   sixty => 60,  seventy => 70, eighty => 80, ninety => 90,
+				   );
 
-our %numbers_other  = (
-					   zero => 0,          a => 1,            ten => 10,
-					   eleven => 11,       twelve => 12,      thirteen => 13,
-					   fourteen => 14,     fifteen => 15,     sixteen => 16,
-					   seventeen => 17,    eighteen => 18,    nineteen => 19,
-					   );
+%numbers_other  = (
+				   zero => 0,          a => 1,            ten => 10,
+				   eleven => 11,       twelve => 12,      thirteen => 13,
+				   fourteen => 14,     fifteen => 15,     sixteen => 16,
+				   seventeen => 17,    eighteen => 18,    nineteen => 19,
+				   );
 
-our %numbers_digits = (one => 1, two => 2,   three => 3, four => 4, five => 5,
-					   six => 6, seven => 7, eight => 8, nine => 9,
-					   );
+%numbers_digits = (
+				   one => 1, two => 2,   three => 3, four => 4, five => 5,
+				   six => 6, seven => 7, eight => 8, nine => 9,
+				   );
 
 
-our @named_colors = ("white", "black", "navy", "green", "red", "maroon",
-					 "purple", "orange", "yellow", "lightgreen", "teal",
-					 "cyan", "blue", "magenta", "gray", "silver");
+@named_colors = ("white", "black", "navy", "green", "red", "maroon",
+				 "purple", "orange", "yellow", "lightgreen", "teal",
+				 "cyan", "blue", "magenta", "gray", "silver");
 
 ## debug ( level, message, flags ); returns ( );
 #
