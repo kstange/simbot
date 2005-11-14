@@ -62,7 +62,7 @@ sub index_handler {
     &debug( 3,
             'httpd: handling request for '
           . $request->uri
-          . ", req root $req_root\n" );
+          . (defined $req_root ? ", req root $req_root\n" : "\n"));
     my $code = 500;    # An error by default.
 
     if ( $req_root && defined $SimBot::hash_plugin_httpd_pages{$req_root} ) {
