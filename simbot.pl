@@ -1506,6 +1506,7 @@ sub channel_join {
 		foreach(keys(%event_channel_mejoin)) {
 			&plugin_callback($_, $event_channel_mejoin{$_}, ($nick, $chan, 'JOINED'));
 		}
+		# TODO: hostmask cache table should be created with NAMES from channel
     } else {
 		&debug(DEBUG_STD, "$nick has joined $chan.\n");
 		foreach(keys(%event_channel_join)) {
