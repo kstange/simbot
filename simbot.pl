@@ -1163,7 +1163,7 @@ sub send_pieces {
 
 ### cont_send_pieces
 # This is called by POE to break the message up into pieces of no more
-# than 440 characters. This accommodates the message length limitation
+# than 425 characters. This accommodates the message length limitation
 # on most IRC networks.
 #
 # Arguments:
@@ -1192,7 +1192,7 @@ sub cont_send_pieces {
             my $nextWord;
             ($curWord, $nextWord) = ($1, $2);
             unshift(@words, $nextWord);
-            if(length($line) + length($curWord) <= 440) {
+            if(length($line) + length($curWord) <= 425) {
                 $line .= $curWord;
                 $kernel->delay('cont_send_pieces', 1, $type, $dest, $prefix,
                                join('', @words));
@@ -1201,7 +1201,7 @@ sub cont_send_pieces {
                                ("$curWord\n" . join('', @words)));
             }
             last;
-        } elsif(length($line) + length($curWord) <= 440) {
+        } elsif(length($line) + length($curWord) <= 425) {
             $line .= $curWord;
 		} else {
             # next word would make the line too long.
