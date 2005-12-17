@@ -1058,7 +1058,7 @@ sub send_message {
 	$text = &char_sub($text);
 	$text = &Encode::encode(TARGET_ENCODING, $text);
 	$kernel->post(bot => privmsg => $dest, $text);
-    My $public = 0;
+    my $public = 0;
 	if(@{$dest}) {
 		foreach(@{$dest}) {
 			if($_ =~ /[\#\&].+/) {
