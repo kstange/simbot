@@ -1058,7 +1058,7 @@ sub send_message {
 	$text = &char_sub($text);
 	$text = &Encode::encode(TARGET_ENCODING, $text);
 	$kernel->post(bot => privmsg => $dest, $text);
-    my $public = 0;
+    My $public = 0;
 	if(@{$dest}) {
 		foreach(@{$dest}) {
 			if($_ =~ /[\#\&].+/) {
@@ -1715,6 +1715,9 @@ sub server_supports {
     my ($message) = $_[ARG1] =~ m/^(.*):.*?$/;
     &debug(DEBUG_INFO, "Server supports: " .
 		   (defined $message ? $message : "nothing") . "\n");
+
+	# Server supports... NOTHING!
+	return if (!defined $message);
 
     foreach my $cur_block (split(/ /, $message)) {
         if(my ($ircd) = $cur_block =~ m/^IRCD=(\S+)/) {
