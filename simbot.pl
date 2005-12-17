@@ -1713,7 +1713,8 @@ sub server_banned {
 # Also, could be used to push ignores serverside with the SILENCE command
 sub server_supports {
     my ($message) = $_[ARG1] =~ m/^(.*):.*?$/;
-    &debug(DEBUG_INFO, "Server supports: ${message}\n");
+    &debug(DEBUG_INFO, "Server supports: " .
+		   (defined $message ? $message : "nothing") . "\n");
 
     foreach my $cur_block (split(/ /, $message)) {
         if(my ($ircd) = $cur_block =~ m/^IRCD=(\S+)/) {
