@@ -25,7 +25,7 @@
 package SimBot;
 
 BEGIN {
-	push (@INC, "./lib");
+	unshift (@INC, "./lib");
 }
 
 use SimBot::Util;
