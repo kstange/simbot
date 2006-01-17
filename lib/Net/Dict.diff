@@ -1,0 +1,11 @@
+--- Net/Dict.pm.old  2003-05-05 18:55:14.000000000 -0500
++++ Net/Dict.pm      2005-05-04 21:34:16.000000000 -0500
+@@ -222,7 +222,7 @@
+         my ($defNum) = ($self->message =~ /^\d{3} (\d+) /);
+         foreach (0..$defNum-1)
+         {
+-            my ($d) = ($self->getline =~ /^\d{3} ".*" (\w+) /);
++            my ($d) = ($self->getline =~ /^\d{3} ".*" ([\w-]+) /);
+             my ($def) = join '', @{$self->read_until_dot};
+             push @defs, [$d, $def];
+         }

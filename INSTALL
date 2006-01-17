@@ -49,10 +49,6 @@ intend to use any of the stock plugins provided with SimBot:
 
 	* Required by: rss
 
-[ Net::Dict ]
-
-	* Required by: dict
-
 [ Text::Aspell ]
 
 	* Required by: aspell
