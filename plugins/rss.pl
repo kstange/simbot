@@ -401,7 +401,7 @@ sub latest_headlines {
         
         # yay, we know about the feed
         # is the cache up to date?
-        if(!defined $last_update || $last_update > time - EXPIRE) {
+        if(!defined $last_update || $last_update < time - EXPIRE) {
             # cache is stale or missing
             &debug(4, "rss: $feed is old or missing.\n");
             my $request = HTTP::Request->new(GET => $url);
