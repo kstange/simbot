@@ -12,7 +12,7 @@
 #   * DBI, DBM::SQLite
 #
 # COPYRIGHT:
-#   Copyright (C) 2004-05, Pete Pearson <http://fourohfour.info/>
+#   Copyright (C) 2004-06, Pete Pearson <http://fourohfour.info/>
 #
 #   This program is free software; you can redistribute and/or modify it
 #   under the terms of version 2 of the GNU General Public License as
@@ -364,8 +364,13 @@ sub got_response {
         &SimBot::send_message(CHANNEL,
           &SimBot::parse_style(&colorize_feed($feed_name)
                         . " has been updated! Here's what's new:"));
+	my $postCount=0;
         foreach(@newPosts) {
-            &SimBot::send_message(CHANNEL, $_);
+	    if(++$postCount<=5) {
+                &SimBot::send_message(CHANNEL, $_);
+	    } else {
+	        last;
+	    }
         }
     }
 }
