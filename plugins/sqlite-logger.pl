@@ -305,7 +305,7 @@ sub do_seen {
             # we'll do nothing
         } elsif ( $seen_nick =~ m/\*/ ) {
             my $nick_pattern = $seen_nick;
-            $nick_pattern =~ s/\*/%/;
+            $nick_pattern =~ s/\*/%/g;
             $nick_list = 'SELECT id FROM names WHERE name LIKE "'
                 . $nick_pattern . '"';
         } elsif ( !( $nick_list = &get_nickchan_id($seen_nick) ) ) {
