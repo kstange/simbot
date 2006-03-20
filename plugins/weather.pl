@@ -879,7 +879,7 @@ sub get_alerts {
     &debug(3, 'weather: Received forecast request from ' . $nick
         . " for $lat $long $geocode, in get_alerts\n");
     
-    my $url = 'http://weather.gov/alerts/' . lc($state) . '.cap';
+    my $url = 'http://www.weather.gov/alerts/' . lc($state) . '.cap';
     my $request = HTTP::Request->new(GET => $url);
     $request->header('Accept-Encoding' => 'gzip, deflate');
     $kernel->post('wxua' => 'request', 'got_alerts',
