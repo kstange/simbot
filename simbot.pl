@@ -205,7 +205,7 @@ if(option('chat','snooze') !~ m/always|never/) {
 
 &plugin_register(plugin_id   => "help",
 				 plugin_params => "<command name>",
-				 plugin_help => "Displays a list of available commands. Adding a command name as a parameter will display help text for that command.",
+				 plugin_help => "Seems like you've already figured out what this does, eh?  Leave off the command for a list.",
 				 event_plugin_call     => \&print_help,
 				 );
 
