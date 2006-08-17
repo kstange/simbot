@@ -1315,39 +1315,39 @@ sub deg_to_compass {
         return $deg;
     }
     if($deg < 11.25) {
-        return 'North';
+        return 'north';
     } elsif($deg < 33.75) {
         return 'NNE';
     } elsif($deg < 56.25) {
-        return 'Northeast';
+        return 'northeast';
     } elsif($deg < 78.75) {
         return 'ENE';
     } elsif($deg < 101.25) {
-        return 'East';
+        return 'east';
     } elsif($deg < 123.75) {
         return 'ESE';
     } elsif($deg < 146.25) {
-        return 'Southeast';
+        return 'southeast';
     } elsif($deg < 168.75) {
         return 'SSE';
     } elsif($deg < 191.25) {
-        return 'South';
+        return 'south';
     } elsif($deg < 213.75) {
         return 'SSW';
     } elsif($deg < 236.25) {
-        return 'Southwest';
+        return 'southwest';
     } elsif($deg < 258.75) {
         return 'WSW';
     } elsif($deg < 281.25) {
-        return 'West';
+        return 'west';
     } elsif($deg < 303.75) {
         return 'WNW';
     } elsif($deg < 326.25) {
-        return 'Northwest';
+        return 'northwest';
     } elsif($deg < 348.75) {
         return 'NNW';
     } else {
-        return 'North';
+        return 'north';
     }
 }
 
