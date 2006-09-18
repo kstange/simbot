@@ -286,7 +286,7 @@ sub do_seen {
         if ( $context =~ m/seen-row=(\d+)/ ) {
             $seen_row = $1;
         } else {
-            die 'This shouldn\'t happen!';
+            &debug(DEBUG_WARN, 'seen: This shouldn\'t happen!\n');
         }
         if ( $context =~ m/seen-event=(\S+)/ ) {
             @events = split( /,/, $1 );
