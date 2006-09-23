@@ -65,6 +65,10 @@ intend to use any of the stock plugins provided with SimBot:
 
 	* Required by: httpd
 
+[ SOAP::Lite ]
+
+	* Required by: weather
+
 All of these modules are available in the CPAN repository, so you can
 install them in most Perl environments by running:
 
