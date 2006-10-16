@@ -2,9 +2,10 @@
 #  SimBot Time Conversion Plugin
 #
 # DESCRIPTION:
-#   The TinyURL plugin watches chat for URLs pointing to TinyURL
-#   style services. When one is recognized, it looks up the URL, and
-#   announces in chat where the URL points.
+#   The Time plugin does not watch chat for URLs pointing to TinyURL
+#   style services.  Instead, it watches for its command and a list
+#   of POSIX-style time zones and shows current local time, as well
+#   as the current time for each of those zones  (Or UTC otherwise).
 #
 # COPYRIGHT:
 #   Copyright (C) 2005, Pete Pearson
