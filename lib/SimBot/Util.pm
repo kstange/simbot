@@ -30,7 +30,7 @@ use Exporter 'import';
 			 VERSION PROJECT HOME_PAGE DEBUG_NO_PREFIX
 			 DEBUG_NONE DEBUG_ERR DEBUG_WARN DEBUG_STD DEBUG_INFO DEBUG_SPAM
 			 debug load_config pick option option_list options_in_section
-			 pick get_args parse_style htmlize html_mask_email numberize
+			 get_args parse_style htmlize html_mask_email numberize
 			 timeago char_sub
 			 );
 
