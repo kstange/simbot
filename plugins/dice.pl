@@ -156,7 +156,7 @@ sub nlp_match {
 					  "the", "1",
 					  "many", "12",
 					  "dozen", "12",
-					  "dozens", "48",
+					  "dozens of", "48",
 					  "several", "7",
 					  "lot of", "30",
 					  "lots of", "30",
