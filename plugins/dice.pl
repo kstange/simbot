@@ -155,6 +155,8 @@ sub nlp_match {
 					  "an", "1",
 					  "the", "1",
 					  "many", "12",
+					  "dozen", "12",
+					  "dozens", "48",
 					  "several", "7",
 					  "lot of", "30",
 					  "lots of", "30",
@@ -218,7 +220,7 @@ sub nlp_match {
 
 						 event_plugin_nlp_call => \&nlp_match,
 						 hash_plugin_nlp_verbs =>
-						 ["roll"],
+						 ["roll", "throw"],
 						 hash_plugin_nlp_subjects =>
 						 ["dice", "die"],
 						 hash_plugin_nlp_formats =>
