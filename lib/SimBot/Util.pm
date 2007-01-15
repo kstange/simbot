@@ -549,6 +549,8 @@ sub timeago {
 sub char_sub {
     my $text = $_[0];
 
+    $text =~ s/\N{EM DASH}/--/g;
+    $text =~ s/(\N{EN DASH}|\N{FIGURE DASH})/-/g; # if only I could do \N{*DASH}
     $text =~ s/\N{HORIZONTAL ELLIPSIS}/.../g;
     $text =~ s/\N{TWO DOT LEADER}/../g;
     $text =~ s/\N{ONE DOT LEADER}/./g;
