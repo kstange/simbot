@@ -400,7 +400,15 @@ sub got_metar {
     
     my $reply = 'As reported ';
     if(defined $wxhash->{'report_time'}->{'unixtime'}) {
-        $reply .= &timeago($wxhash->{'report_time'}->{'unixtime'}, 1);
+    	if($wxhash->{'report_time'}->{'unixtime'} > time) {
+	    &debug(1, "weather: METAR is in the future, check your clock!");
+	    $reply .= sprintf('at %d:%02d',
+	                $wxhash->{'report_time'}->{'hour'},
+	                $wxhash->{'report_time'}->{'minute'})
+                . ' ' . $wxhash->{'report_time'}->{'timezone'};
+	} else {
+            $reply .= &timeago($wxhash->{'report_time'}->{'unixtime'}, 1);
+        }
     } else {
         $reply .= sprintf('at %d:%02d',
             $wxhash->{'report_time'}->{'hour'},
