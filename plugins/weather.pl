@@ -401,7 +401,7 @@ sub got_metar {
     my $reply = 'As reported ';
     if(defined $wxhash->{'report_time'}->{'unixtime'}) {
     	if($wxhash->{'report_time'}->{'unixtime'} > time) {
-	    &debug(1, "weather: METAR is in the future, check your clock!");
+	    &debug(1, "weather: METAR is in the future, check your clock!\n");
 	    $reply .= sprintf('at %d:%02d',
 	                $wxhash->{'report_time'}->{'hour'},
 	                $wxhash->{'report_time'}->{'minute'})
