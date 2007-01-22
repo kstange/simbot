@@ -8,7 +8,7 @@
 #   coin with '%flip' and play "rock, paper, scissors, with '%rps.'
 #
 # COPYRIGHT:
-#   Copyright (C) 2003-05, Pete Pearson
+#   Copyright (C) 2003-07, Pete Pearson
 #
 #   This program is free software; you can redistribute and/or modify it
 #   under the terms of version 2 of the GNU General Public License as
@@ -58,6 +58,7 @@ use constant RPS_CHEER => (
 sub roll_dice {
     my $numDice = 2;
     my $numSides = 6;
+    my $diceTotal = 0;
     my ($kernel, $nick, $channel, undef, $dice) = @_;
     if($dice =~ m/(\d*)[Dd](\d+)/) {
         $numDice = (defined $1 ? $1 : 1);
@@ -76,10 +77,12 @@ sub roll_dice {
     } else {
         my @rolls = ();
         for(my $x=0;$x<$numDice;$x++) {
-            push(@rolls, int rand($numSides)+1);
+	    my $diceRoll = int rand($numSides)+1;
+	    $diceTotal += $diceRoll;
+            push(@rolls, $diceRoll);
         }
 
-        &SimBot::send_action($channel, "rolls $numDice ${numSides}-sided " . (($numDice==1) ? 'die' : 'dice') . " for ${nick}: " . join(' ', @rolls));
+        &SimBot::send_action($channel, "rolls $numDice ${numSides}-sided " . (($numDice==1) ? 'die' : 'dice') . " for ${nick}: " . join(' ', @rolls) . ($numDice==1 ? '' : " -- total of $diceTotal"));
     }
 }
 
