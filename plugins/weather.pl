@@ -81,7 +81,7 @@ use constant PI => 3.1415926;
 # Flags
 use constant USING_DEFAULTS     => 512;
 use constant RAW_METAR          => 256;
-#                               => 128;
+use constant CUSTOM_STATION     => 128;
 use constant UNITS_METRIC       => 64;
 use constant UNITS_IMPERIAL     => 32;
 use constant UNITS_AUTO         => 16;
@@ -166,7 +166,8 @@ CREATE TABLE stations (
     state STRING,
     country STRING,
     latitude REAL,
-    longitude REAL
+    longitude REAL,
+    url STRING
 );
 
 CREATE UNIQUE INDEX stationid
@@ -223,12 +224,12 @@ sub do_wx {
         return;
     }
     
-    my($station, $postalcode, $lat, $long, $state, $geocode);
+    my($station, $postalcode, $lat, $long, $state, $geocode, $url);
     
     if   ($location =~ /^\d{5}$/)       { $postalcode = $location; } # US
     elsif($location =~ /^([A-Z]{1,2}[0-9]{1,2}[A-Z]?)(?: [0-9][A-Z]{2})?$/)
                                         { $postalcode = $1; } # UK
-    elsif($location =~ /^[A-Z0-9]{4}$/i) { $station = $location; }
+    elsif($location =~ /^[A-Z0-9]{4,9}$/i) { $station = $location; }
     
     
     # OK, now we know what location specification the user gave us.
@@ -236,11 +237,11 @@ sub do_wx {
     if(defined $station) {
         # try to get lat/long/state from the station
         my $query = $dbh->prepare_cached(
-            'SELECT latitude, longitude, state FROM stations'
+            'SELECT latitude, longitude, state, url FROM stations'
             . ' WHERE id = ? LIMIT 1'
         );
         $query->execute($station);
-        ($lat, $long, $state) = $query->fetchrow_array;
+        ($lat, $long, $state, $url) = $query->fetchrow_array;
         $query->finish;
         
         # FIXME: OK, now try to get the geocode from the lat/long
@@ -277,7 +278,7 @@ sub do_wx {
     }
     
     if($flags & DO_CONDITIONS) {
-        if(!defined $station || length($station) != 4) {
+        if(!defined $station || (length($station) != 4 && length($station) != 9)) {
             # Whine and bail
             &SimBot::send_message(&option('network', 'channel'),
                                   "$nick: "
@@ -288,21 +289,28 @@ sub do_wx {
         }
         
         $station = uc($station);
-        #my $url =
-        #    'http://weather.noaa.gov/pub/data/observations/metar/stations/'
-        #    . $station . '.TXT';
-        #my $request = HTTP::Request->new(GET=>$url);
-        $kernel->post('wxua' => 'request', 'got_metar',
-            (POST 'http://adds.aviationweather.noaa.gov/metars/index.php',
-             Content_Type => 'form-data',
-             Content    => [
-                station_ids => $station,
-                std_trans => 'standard',
-                chk_metars => 'on',
-                hoursStr => 'most recent only',
-                submitmet => 'Submit',
-            ],
-           ), "$nick!$station!$flags");
+        
+        if($url) {
+            # custom station
+            $kernel->post('wxua' => 'request', 'got_metar',
+                (GET $url), "$nick!$station!$flags");
+        } else {
+            #my $url =
+            #    'http://weather.noaa.gov/pub/data/observations/metar/stations/'
+            #    . $station . '.TXT';
+            #my $request = HTTP::Request->new(GET=>$url);
+            $kernel->post('wxua' => 'request', 'got_metar',
+                (POST 'http://adds.aviationweather.noaa.gov/metars/index.php',
+                 Content_Type => 'form-data',
+                 Content    => [
+                    station_ids => $station,
+                    std_trans => 'standard',
+                    chk_metars => 'on',
+                    hoursStr => 'most recent only',
+                    submitmet => 'Submit',
+                ],
+               ), "$nick!$station!$flags");
+        }
     }
     
     if($flags & DO_FORECAST && defined $lat) {
@@ -340,9 +348,10 @@ sub got_metar {
         return;
     }
     unless(($raw_metar) = $response->content =~ m|<FONT FACE="Monospace,Courier">(.*?)</FONT>|s) {
-        &debug(1, "NOAA made no sense. They said:\n" . $response->content . "\n");
-        &SimBot::send_message(&option('network', 'channel'), "$nick: I couldn't make sense of what NOAA told me.");
-        return;
+#        &debug(1, "NOAA made no sense. They said:\n" . $response->content . "\n");
+#        &SimBot::send_message(&option('network', 'channel'), "$nick: I couldn't make sense of what NOAA told me.");
+#        return;
+        $raw_metar = $response->content;
     }
     $raw_metar =~ s/\s+/ /ig;
     
@@ -930,7 +939,7 @@ sub parse_metar {
             $weather_data{'report_type'} = $1;
             
             
-        } elsif($cur_block =~ m/^([A-Z]{4})$/
+        } elsif($cur_block =~ m/^([A-Z]{4}|K[A-Z]{7}\d)$/
                 && !defined $weather_data{'station_id'}) {          # ID
             # Station ID
             $weather_data{'station_id'} = $1;

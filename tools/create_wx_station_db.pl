@@ -53,7 +53,8 @@ CREATE TABLE stations (
     state STRING,
     country STRING,
     latitude REAL,
-    longitude REAL
+    longitude REAL,
+    url STRING
 );
 EOT
 
