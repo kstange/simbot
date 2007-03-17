@@ -1029,7 +1029,7 @@ sub parse_metar {
         } elsif($cur_block =~ m{^                                   # WX COND
                 (-|\+|VC)?                      # Intensity
                 (MI|PR|BC|DR|BL|SH|TS|FR)?      # Descriptor
-                (DZ|RA|SN|SG|IC|PL|GR|GS|UP)?   # Precipitation
+                (DZ|RA|SN|SG|IC|PL|GR|GS|UP)*   # Precipitation
                 (BR|FG|FU|VA|DU|SA|HZ|PY)?      # Obscuration
                 (PO|SQ|FC|SS)?                  # Other
                 $}x) {
