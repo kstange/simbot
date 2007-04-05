@@ -1028,15 +1028,18 @@ sub parse_metar {
             
         } elsif($cur_block =~ m{^                                   # WX COND
                 (-|\+|VC)?                      # Intensity
-                (MI|PR|BC|DR|BL|SH|TS|FR)?      # Descriptor
-                (DZ|RA|SN|SG|IC|PL|GR|GS|UP)*   # Precipitation
-                (BR|FG|FU|VA|DU|SA|HZ|PY)?      # Obscuration
-                (PO|SQ|FC|SS)?                  # Other
-                $}x) {
-            my ($intensity, $descriptor, $precip, $obscuration, $other)
-                = ($1,$2,$3,$4,$5);
-            my @cond;
+                ((?:MI|PR|BC|DR|BL|SH|TS|FR)?      # Descriptor
+                 (?:DZ|RA|SN|SG|IC|PL|GR|GS|UP)*   # Precipitation
+                 (?:BR|FG|FU|VA|DU|SA|HZ|PY)?      # Obscuration
+                 (?:PO|SQ|FC|SS)?                  # Other
+                )$}x) {
             
+	    my $intensity = $1;
+	    my $other_blocks = $2;
+	    #my ($intensity, $descriptor, $precip, $obscuration, $other)
+            #    = ($1,$2,$3,$4,$5);
+            my @cond;
+            my $shower = 0;
             if(defined $intensity) {
                 if($intensity =~ m/^-$/) {
                     push(@cond, 'light');
@@ -1045,23 +1048,33 @@ sub parse_metar {
                 }
             }
             
-            if(defined $descriptor && $descriptor !~ m/^SH$/) {
-                push(@cond, $cond_names{$descriptor});
-            }
+	    while($other_blocks =~ m/([A-Z]{2})/g) {
+	    	if($1 eq 'SH') {
+		    $shower = 1;
+		} else { 
+		    push(@cond, $cond_names{$1});
+		}
+	    }
+
+	    if($shower) { push(@cond, $cond_names{'SH'}); }
+	    
+            #if(defined $descriptor && $descriptor !~ m/^SH$/) {
+            #    push(@cond, $cond_names{$descriptor});
+            #}
             
-            if(defined $precip) {
-                push(@cond, $cond_names{$precip});
-            }
-            if(defined $obscuration) {
-                push(@cond, $cond_names{$obscuration});
-            }
-            if(defined $other) {
-                push(@cond, $cond_names{$other});
-            }
+            #if(defined $precip) {
+            #    push(@cond, $cond_names{$precip});
+            #}
+            #if(defined $obscuration) {
+            #    push(@cond, $cond_names{$obscuration});
+            #}
+            #if(defined $other) {
+            #    push(@cond, $cond_names{$other});
+            #}
             
-            if(defined $descriptor && $descriptor =~ m/^SH$/) {
-                push(@cond, $cond_names{'SH'});
-            }
+            #if(defined $descriptor && $descriptor =~ m/^SH$/) {
+            #    push(@cond, $cond_names{'SH'});
+            #}
             
             push(@sky_conds, join(' ', @cond));
             
