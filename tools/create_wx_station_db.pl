@@ -121,7 +121,7 @@ if($response->is_error) {
 # METAR reports. Let's find codes to remove...
 
 print "Downloading METAR directory listing (this may take a while)... ";
-$response = $ua->get('ftp://weather.noaa.gov/data/observations/metar/stations/');
+$response = $ua->get('ftp://tgftp.nws.noaa.gov/data/observations/metar/stations/');
 
 if($response->is_error) {
     print STDERR "Failed! " . $response->code . ' ' . $response->message . "\n";
