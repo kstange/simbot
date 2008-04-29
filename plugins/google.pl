@@ -59,7 +59,7 @@ sub google_find {
     } elsif (!$response->is_error) {
 		# Let's use the calculator!
 		if ($response->content =~ m|/images/calc_img\.gif|) {
-			$response->content =~ m|<td nowrap><font size=\+1><b>(.*?)</b></td>|;
+			$response->content =~ m|<td nowrap><h2 class=r><font size=\+1><b>(.*?)</b></h2></td>|;
 			# We can't just take $1 because it might have HTML in it
 			my $result = $1;
 			$result =~ s|<sup>(.*?)</sup>|^$1|g;
