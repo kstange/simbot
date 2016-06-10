@@ -73,7 +73,7 @@ use constant DEBUG_SPAM => 5;
 use constant DEBUG_NO_PREFIX => 0x001;
 
 use constant DEBUG_COLORS
-	=> ("bold green", "bold red", "red", "", "bold blue", "blue");
+	=> ("bold green", "bold red", "red", "bright_white", "bold blue", "blue");
 
 # Default verbosity level
 # 0 is silent, 1 shows errors, 2 shows alert, 3 shows normal information,
@@ -168,7 +168,7 @@ sub parse_args {
 # table.
 #
 sub get_args {
-	&parse_args if !defined %args;
+	&parse_args if !%args;
 	return %args;
 }
 
@@ -178,13 +178,13 @@ sub get_args {
 # currently loaded, it will be deleted and replaced.
 #
 sub load_config {
-	if (defined %conf) {
+	if (%conf) {
 		debug(DEBUG_STD, "Reloading configuration file $_[0]...\n");
 	} else {
 		debug(DEBUG_STD, "Loading configuration file $_[0]...\n");
 	}
 	if (open(CONFIG, $_[0])) {
-		undef %conf if defined %conf;
+		undef %conf if %conf;
 		my $section;
 		foreach (<CONFIG>) {
 			chomp;
@@ -234,7 +234,7 @@ sub load_config {
 
 	} else {
 		&debug(DEBUG_ERR, "Your configuration file ($_[0]) is missing or unreadable.\nMake sure you copied and customized the config.default.ini");
-		die "Unable to continue without a configuration file" if !defined %conf;
+		die "Unable to continue without a configuration file" if !%conf;
 	}
 }
 
@@ -243,7 +243,7 @@ sub load_config {
 # Returns the value (or a random value from a list) for a particular option.
 #
 sub option {
-	if (!defined %conf) {
+	if (!%conf) {
 		debug(DEBUG_WARN, "Configuration is not loaded!\n");
 	}
 	my ($sec, $val) = @_;
@@ -256,7 +256,7 @@ sub option {
 # Returns a list of the values set for a particular option.
 #
 sub option_list {
-	if (!defined %conf) {
+	if (!%conf) {
 		debug(DEBUG_WARN, "Configuration is not loaded!\n");
 	}
 	my ($sec, $val) = @_;
@@ -274,7 +274,7 @@ sub option_list {
 # Returns a list of the options that are set in a particular section.
 #
 sub options_in_section {
-	if (!defined %conf) {
+	if (!%conf) {
 		debug(DEBUG_WARN, "Configuration is not loaded!\n");
 	}
     my ($sec) = $_[0];

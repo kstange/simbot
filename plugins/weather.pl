@@ -300,7 +300,7 @@ sub do_wx {
             #    . $station . '.TXT';
             #my $request = HTTP::Request->new(GET=>$url);
             $kernel->post('wxua' => 'request', 'got_metar',
-                (POST 'http://adds.aviationweather.noaa.gov/metars/index.php',
+                (POST 'https://www.aviationweather.gov/adds/metars',
                  Content_Type => 'form-data',
                  Content    => [
                     station_ids => $station,

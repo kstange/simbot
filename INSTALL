@@ -33,6 +33,10 @@ intend to use any of the stock plugins provided with SimBot:
 
 	* Required by: weather, rss
 
+[ POE::Component::SSLify ]
+
+    * Required by: weather
+
 [ HTML::Entities ]
 
 	* Required by: google, rss

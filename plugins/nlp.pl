@@ -205,7 +205,7 @@ sub process_nlp {
 		# in the given segment.  However, if the plugin doesn't have any
 		# particular subjects in mind, we can just skip this part for those.
 		foreach my $plugin (@matches) {
-			if (!defined @{${SimBot::hash_plugin_nlp_subjects}{$plugin}}) {
+			if (!@{${SimBot::hash_plugin_nlp_subjects}{$plugin}}) {
 				push(@still_matches, $plugin);
 			}
 			foreach my $subject (@{${SimBot::hash_plugin_nlp_subjects}{$plugin}}) {
