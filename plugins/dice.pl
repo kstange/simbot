@@ -142,30 +142,36 @@ sub rps_shoot {
 	}
 }
 
+sub random_amount {
+    my ($low, $high, $step) = @_;
+    my $amount = (int(rand($high - $low)) + $low) * $step;
+    return "$amount"; 
+}
+
 sub nlp_match {
     my ($kernel, $nick, $channel, $plugin, @params) = @_;
 	my $sides = 6;
 	my $dice = 2;
 	my $coins = 1;
 	my %quantities = (
-					  "some", "4",
+					  "some", &random_amount(3, 7, 1),
 					  "few", "3",
 					  "couple", "2",
 					  "couple of", "2",
-					  "handful of", "10",
+					  "handful of", &random_amount(7, 22, 1),
 					  "a", "1",
 					  "no", "0",
 					  "an", "1",
 					  "the", "1",
-					  "many", "12",
+					  "many", &random_amount(5, 15, 1),
 					  "dozen", "12",
-					  "dozens of", "48",
-					  "several", "7",
-					  "lot of", "30",
-					  "lots of", "30",
-					  "copious", "42",
-					  "plenty of", "72",
-					  "excessive", "1000",
+					  "dozens of", &random_amount(2, 5, 12),
+					  "several", &random_amount(5, 15, 1),
+					  "lot of", &random_amount(24, 68, 1),
+					  "lots of", &random_amount(24, 68, 1),
+					  "copious", &random_amount(24, 68, 1),
+					  "plenty of", &random_amount(24, 68, 1),
+					  "excessive", &random_amount(1000, 5000, 1),
 					  "every", "100000000000001",
 					  "all the", "100000000000001",
 					  "all", "100000000000001",
